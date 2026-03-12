@@ -19,10 +19,8 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
-import net.minecraft.network.play.client.C03PacketPlayer;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
 
@@ -49,7 +47,7 @@ public class InvWalk extends Module {
 
     // Grim mode 變數
     private int grimTimer = 0;
-    private boolean wasSprinting = false;
+    private boolean wasSprintingKeyPressed = false;  // 記住 sprint key 是否被按著
     private int sprintRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
@@ -97,23 +95,6 @@ public class InvWalk extends Module {
         }
     }
 
-    private void forceStopSprinting() {
-        if (mc.thePlayer.isSprinting()) {
-            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-            mc.thePlayer.setSprinting(false);
-        }
-    }
-
-    private void forceStartSprinting() {
-        if (!mc.thePlayer.isSprinting() && wasSprinting) {
-            // 先送 START packet
-            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-            mc.thePlayer.setSprinting(true);
-            // 補一個 dummy C03 來 sync 狀態給 Grim simulation
-            PacketUtil.sendPacketNoEvent(new C03PacketPlayer(mc.thePlayer.onGround));
-        }
-    }
-
     private void flushGrimPackets(boolean sendFakeClose) {
         for (C0EPacketClickWindow p : new ArrayList<>(grimDelayedPackets)) {
             PacketUtil.sendPacketNoEvent(p);
@@ -142,33 +123,35 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 20) {  // 基礎 20，但下面會 random reset
+            if (grimTimer >= 18 + random.nextInt(7)) {  // random 18~24 ticks
                 grimTimer = 0;
 
-                wasSprinting = mc.thePlayer.isSprinting();
-                forceStopSprinting();
+                // 記住 sprint key 狀態，並暫時 unpress（模擬鬆開鍵）
+                wasSprintingKeyPressed = KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSprint.getKeyCode());
+                if (wasSprintingKeyPressed || mc.thePlayer.isSprinting()) {
+                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+                    mc.thePlayer.setSprinting(false);  // client 端同步
+                }
 
                 flushGrimPackets(true);
 
-                // random restore delay 6~10 ticks，更自然避 simulation flag
-                sprintRestoreTicks = random.nextInt(5) + 6;
+                // 延遲恢復 sprint key press（更自然）
+                sprintRestoreTicks = random.nextInt(6) + 7;  // 7~12 ticks
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
-            forceStopSprinting();
+            // 關閉時恢復原 sprint key 狀態
+            if (wasSprintingKeyPressed) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+            }
             flushGrimPackets(false);
         }
 
         if (sprintRestoreTicks > 0) {
             sprintRestoreTicks--;
-            if (sprintRestoreTicks == 0) {
-                forceStartSprinting();
+            if (sprintRestoreTicks == 0 && wasSprintingKeyPressed) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
             }
-        }
-
-        // 讓 grimTimer 更 random，避免固定 20 被 timer/simulation 抓
-        if (grimTimer > 0 && grimTimer % 5 == 0) {
-            if (random.nextBoolean()) grimTimer--;  // 偶爾提前一點
         }
     }
 
@@ -275,7 +258,10 @@ public class InvWalk extends Module {
             this.pendingStatus = null;
         }
         if (this.mode.getValue() == 3) {
-            forceStopSprinting();
+            // 關閉時恢復 sprint key
+            if (wasSprintingKeyPressed) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+            }
             flushGrimPackets(false);
         }
         this.delayTicks = 0;
