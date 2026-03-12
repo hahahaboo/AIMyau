@@ -110,7 +110,7 @@ public class InvWalk extends Module {
         }
 
         // === GRIM mode 核心：每 20 ticks fake close bypass ===
-        if (this.mode.getValue() != 3 || !this.isEnabled() || mc.player == null) return;
+        if (this.mode.getValue() != 3 || !this.isEnabled() || mc.thePlayer == null) return;
 
         boolean isInvOpenNow = mc.currentScreen instanceof GuiContainer && 
                                !(mc.currentScreen instanceof GuiContainerCreative);
@@ -122,8 +122,8 @@ public class InvWalk extends Module {
             if (grimTimer >= 20) {
                 grimTimer = 0;
 
-                wasSprinting = mc.player.isSprinting();
-                mc.player.setSprinting(false);  // 取消衝刺
+                wasSprinting = mc.thePlayer.isSprinting();
+                mc.thePlayer.setSprinting(false);  // 取消衝刺
 
                 flushGrimPackets(true);  // 送 delayed + fake close
 
@@ -140,7 +140,7 @@ public class InvWalk extends Module {
         if (sprintRestoreTicks > 0) {
             sprintRestoreTicks--;
             if (sprintRestoreTicks == 0 && wasSprinting) {
-                mc.player.setSprinting(true);
+                mc.thePlayer.setSprinting(true);
             }
         }
     }
