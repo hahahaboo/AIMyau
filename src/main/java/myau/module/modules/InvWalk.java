@@ -19,7 +19,6 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
@@ -47,7 +46,7 @@ public class InvWalk extends Module {
 
     // Grim mode 變數
     private int grimTimer = 0;
-    private boolean wasSprintKeyForced = false;  // 記住 Sprint module 是否在強制按 sprint key
+    private boolean needsSprintRestore = false;  // 是否需要強制恢復 sprint key
     private int sprintRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
@@ -67,7 +66,6 @@ public class InvWalk extends Module {
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
-        // 不強制 set sprint key，這裡留給 Sprint module 處理
         this.keysPressed = true;
     }
 
@@ -98,7 +96,6 @@ public class InvWalk extends Module {
             PacketUtil.sendPacketNoEvent(p);
         }
         grimDelayedPackets.clear();
-        // 完全不發 fake close packet
     }
 
     @EventTarget(Priority.LOWEST)
@@ -118,37 +115,37 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 18 + random.nextInt(7)) {  // random 18~24 ticks 送一次 delayed packets
+            if (grimTimer >= 18 + random.nextInt(7)) {  // random 18~24 ticks
                 grimTimer = 0;
 
-                // 檢查 Sprint module 是否正在強制按 sprint key
-                Module sprintMod = Myau.moduleManager.getModule("Sprint");
-                boolean sprintModuleActive = sprintMod != null && sprintMod.isEnabled();
-
-                if (sprintModuleActive || mc.thePlayer.isSprinting()) {
-                    // 暫時鬆開 sprint key，讓 client 自然停 sprint
+                // 只在即將 flush 時短暫 unpress sprint key
+                if (mc.thePlayer.isSprinting() || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSprint.getKeyCode())) {
                     KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
                     mc.thePlayer.setSprinting(false);
-                    wasSprintKeyForced = true;
+                    needsSprintRestore = true;
                 }
 
                 flushGrimPackets();
 
-                // 延遲恢復 sprint key（讓 Sprint module 接管）
-                sprintRestoreTicks = random.nextInt(6) + 8;  // 8~13 ticks，更長一點避 simulation
+                // 短暫延遲後強制恢復 sprint key（讓 Sprint module 能接管）
+                sprintRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks，很短暫
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
             flushGrimPackets();
-            // 關閉時不主動恢復 sprint key，讓 Sprint module 自己處理
+            // 關閉背包時強制恢復 sprint key（如果之前動過）
+            if (needsSprintRestore) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+                needsSprintRestore = false;
+            }
         }
 
-        // 恢復 sprint key 狀態（如果之前我們動過）
+        // 恢復 sprint key
         if (sprintRestoreTicks > 0) {
             sprintRestoreTicks--;
-            if (sprintRestoreTicks == 0 && wasSprintKeyForced) {
-                // 不直接 set true，讓 Sprint module 的 PRE tick 處理
-                wasSprintKeyForced = false;
+            if (sprintRestoreTicks == 0 && needsSprintRestore) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+                needsSprintRestore = false;
             }
         }
     }
@@ -196,7 +193,6 @@ public class InvWalk extends Module {
                 this.pendingStatus = null;
                 event.setCancelled(true);
             }
-            // 不阻擋真正的 close packet
         } else if (event.getPacket() instanceof C0EPacketClickWindow) {
             C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
 
@@ -258,12 +254,16 @@ public class InvWalk extends Module {
         }
         if (this.mode.getValue() == 3) {
             flushGrimPackets();
+            if (needsSprintRestore) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+                needsSprintRestore = false;
+            }
         }
         this.delayTicks = 0;
         this.grimTimer = 0;
         this.sprintRestoreTicks = 0;
         this.grimDelayedPackets.clear();
-        this.wasSprintKeyForced = false;
+        this.needsSprintRestore = false;
     }
 
     @Override
