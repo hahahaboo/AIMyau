@@ -46,7 +46,7 @@ public class InvWalk extends Module {
 
     // Grim mode 變數
     private int grimTimer = 0;
-    private boolean needsSprintRestore = false;  // 是否需要強制恢復 sprint key
+    private boolean needsSprintRestore = false;
     private int sprintRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
@@ -115,10 +115,9 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 18 + random.nextInt(7)) {  // random 18~24 ticks
+            if (grimTimer >= 18 + random.nextInt(7)) {
                 grimTimer = 0;
 
-                // 只在即將 flush 時短暫 unpress sprint key
                 if (mc.thePlayer.isSprinting() || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSprint.getKeyCode())) {
                     KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
                     mc.thePlayer.setSprinting(false);
@@ -127,20 +126,17 @@ public class InvWalk extends Module {
 
                 flushGrimPackets();
 
-                // 短暫延遲後強制恢復 sprint key（讓 Sprint module 能接管）
-                sprintRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks，很短暫
+                sprintRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
             flushGrimPackets();
-            // 關閉背包時強制恢復 sprint key（如果之前動過）
             if (needsSprintRestore) {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
                 needsSprintRestore = false;
             }
         }
 
-        // 恢復 sprint key
         if (sprintRestoreTicks > 0) {
             sprintRestoreTicks--;
             if (sprintRestoreTicks == 0 && needsSprintRestore) {
@@ -186,12 +182,6 @@ public class InvWalk extends Module {
                     event.setCancelled(true);
                     this.pendingStatus = packet;
                 }
-            }
-        } else if (event.getPacket() instanceof C0DPacketCloseWindow) {
-            C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
-            if (this.pendingStatus != null && ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
-                this.pendingStatus = null;
-                event.setCancelled(true);
             }
         } else if (event.getPacket() instanceof C0EPacketClickWindow) {
             C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
