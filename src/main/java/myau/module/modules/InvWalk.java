@@ -22,17 +22,20 @@ import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
+import net.minecraft.network.play.client.C03PacketPlayer;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class InvWalk extends Module {
 
     private static final Minecraft mc = Minecraft.getMinecraft();
+    private static final Random random = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 1,
             new String[]{"VANILLA", "BRAINSPOOF", "HYPIXEL", "GRIM"});
@@ -79,15 +82,15 @@ public class InvWalk extends Module {
 
         int m = this.mode.getValue();
 
-        if (m == 3) { // GRIM
-            return true; // 所有容器都可走
+        if (m == 3) {
+            return true;
         }
 
         switch (m) {
-            case 1: // BRAINSPOOF
+            case 1:
                 if (!(mc.currentScreen instanceof GuiInventory)) return false;
                 return this.pendingStatus != null && this.clickQueue.isEmpty();
-            case 2: // HYPIXEL
+            case 2:
                 return this.clickQueue.isEmpty();
             default:
                 return true;
@@ -103,19 +106,20 @@ public class InvWalk extends Module {
 
     private void forceStartSprinting() {
         if (!mc.thePlayer.isSprinting() && wasSprinting) {
+            // 先送 START packet
             PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
             mc.thePlayer.setSprinting(true);
+            // 補一個 dummy C03 來 sync 狀態給 Grim simulation
+            PacketUtil.sendPacketNoEvent(new C03PacketPlayer(mc.thePlayer.onGround));
         }
     }
 
     private void flushGrimPackets(boolean sendFakeClose) {
-        // 先發送所有 delayed click packets
         for (C0EPacketClickWindow p : new ArrayList<>(grimDelayedPackets)) {
             PacketUtil.sendPacketNoEvent(p);
         }
         grimDelayedPackets.clear();
 
-        // 只在 cursor 沒有物品時才發 fake close，避免物品被強制丟出
         if (sendFakeClose && mc.thePlayer.inventory.getItemStack() == null) {
             PacketUtil.sendPacketNoEvent(new C0DPacketCloseWindow(0));
         }
@@ -138,7 +142,7 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 20) {
+            if (grimTimer >= 20) {  // 基礎 20，但下面會 random reset
                 grimTimer = 0;
 
                 wasSprinting = mc.thePlayer.isSprinting();
@@ -146,7 +150,8 @@ public class InvWalk extends Module {
 
                 flushGrimPackets(true);
 
-                sprintRestoreTicks = 5; // 可根據測試調整為 4~8
+                // random restore delay 6~10 ticks，更自然避 simulation flag
+                sprintRestoreTicks = random.nextInt(5) + 6;
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
@@ -159,6 +164,11 @@ public class InvWalk extends Module {
             if (sprintRestoreTicks == 0) {
                 forceStartSprinting();
             }
+        }
+
+        // 讓 grimTimer 更 random，避免固定 20 被 timer/simulation 抓
+        if (grimTimer > 0 && grimTimer % 5 == 0) {
+            if (random.nextBoolean()) grimTimer--;  // 偶爾提前一點
         }
     }
 
@@ -208,7 +218,7 @@ public class InvWalk extends Module {
         } else if (event.getPacket() instanceof C0EPacketClickWindow) {
             C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
 
-            if (m == 3) { // GRIM mode
+            if (m == 3) {
                 event.setCancelled(true);
                 grimDelayedPackets.add(packet);
 
@@ -219,7 +229,6 @@ public class InvWalk extends Module {
                 return;
             }
 
-            // 原有模式邏輯
             switch (m) {
                 case 1:
                     if (packet.getWindowId() == 0) {
