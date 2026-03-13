@@ -150,14 +150,14 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 18 + random.nextInt(7)) {
+            if (grimTimer >= 22 + random.nextInt(2)) {
                 grimTimer = 0;
 
                 saveAndStopMovement();
 
                 flushGrimPackets();
 
-                movementRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
+                movementRestoreTicks = random.nextInt(7) + 5; 
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
