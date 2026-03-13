@@ -19,6 +19,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
@@ -67,9 +68,8 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             }
         } else {
-            // 強制鬆開 sprint 鍵
             KeyBindUtil.setKeyBindState(sprintKeyCode, false);
-            KeyBinding.setKeyBindState(sprintKeyCode, false); // 額外靜態呼叫
+            KeyBinding.setKeyBindState(sprintKeyCode, false);
         }
 
         this.keysPressed = true;
@@ -82,7 +82,7 @@ public class InvWalk extends Module {
 
         int m = this.mode.getValue();
 
-        if (m == 4) { // UNSPRINT: 允許走路，但下面強制 unsprint
+        if (m == 4) { // UNSPRINT: 允許走路，但用 packet 強制 unsprint
             return true;
         }
 
@@ -130,12 +130,21 @@ public class InvWalk extends Module {
             }
         }
 
-        // 重寫的核心：UNSPRINT 強制系統 - 只要在任何容器 GUI 內，就每 tick 關 sprint
+        // ==================== 重寫核心：使用 PACKET 強制 UNSprint ====================
         if (this.mode.getValue() == 4 && isInGui && mc.thePlayer != null) {
+            // 客戶端強制關閉
             mc.thePlayer.setSprinting(false);
+
+            // 強制鬆開 sprint 鍵
             int sprintCode = mc.gameSettings.keyBindSprint.getKeyCode();
             KeyBindUtil.setKeyBindState(sprintCode, false);
-            KeyBinding.setKeyBindState(sprintCode, false); // 雙重確保鍵狀態被重置
+            KeyBinding.setKeyBindState(sprintCode, false);
+
+            // 關鍵：發送 STOP_SPRINTING packet（這就是你要求的 packet 方式）
+            // 這會強制伺服器端與客戶端都停止 sprint（圖示、粒子、速度全部失效）
+            PacketUtil.sendPacketNoEvent(
+                new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING)
+            );
         }
     }
 
@@ -185,7 +194,7 @@ public class InvWalk extends Module {
                         this.delayTicks = 8;
                     }
                     break;
-                case 4: // UNSPRINT: 正常處理點擊，不干涉
+                case 4: // UNSPRINT: 正常處理點擊
                     break;
             }
 
