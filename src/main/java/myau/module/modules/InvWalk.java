@@ -121,9 +121,8 @@ public class InvWalk extends Module {
             // UNSPRINT 模式：強制停止 sprint（每 tick 執行）
             if (this.mode.getValue() == 4 && mc.thePlayer != null) {
                 mc.thePlayer.setSprinting(false);
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-                mc.gameSettings.keyBindSprint.pressed = false;          // 直接操作 KeyBinding 的 pressed 狀態
-                mc.gameSettings.keyBindSprint.setKeyBindState(false);   // 再呼叫一次 setKeyBindState
+                // 正確使用靜態方法強制把 sprint 鍵設為未按下
+                KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
             }
         } else {
             if (this.keysPressed) {
@@ -141,12 +140,10 @@ public class InvWalk extends Module {
             }
         }
 
-        // 額外保險：只要在任何容器畫面 + UNSPRINT 模式，就強制關 sprint
-        // （即使 canInvWalk 因為其他原因 false，也盡量關）
+        // 額外保險：只要在容器畫面 + UNSPRINT 模式，就每 tick 強制關 sprint
         if (this.mode.getValue() == 4 && inContainer && mc.thePlayer != null) {
             mc.thePlayer.setSprinting(false);
-            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-            mc.gameSettings.keyBindSprint.pressed = false;
+            KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
         }
     }
 
@@ -197,7 +194,7 @@ public class InvWalk extends Module {
                         this.delayTicks = 8;
                     }
                     break;
-                case 4: // UNSPRINT - 不特別處理點擊封包，讓它正常運作
+                case 4: // UNSPRINT - 不特別處理點擊封包
                     break;
             }
 
@@ -222,7 +219,8 @@ public class InvWalk extends Module {
         }
         this.delayTicks = 0;
 
-        // 關閉模組時不要強制影響 sprint，讓其他模組接管
+        // 關閉模組時重置 sprint 鍵狀態（可選）
+        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
     }
 
     @Override
