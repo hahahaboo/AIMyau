@@ -60,22 +60,18 @@ public class InvWalk extends Module {
 
         boolean unsprintMode = this.mode.getValue() == 3;
 
-        if (!unsprintMode) {
+        if (unsprintMode && mc.currentScreen instanceof GuiContainer) {
+
+            // 強制取消 sprint
+            mc.thePlayer.setSprinting(false);
+            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+
+        } else {
+
             KeyBindUtil.updateKeyState(mc.gameSettings.keyBindSprint.getKeyCode());
 
             if (Myau.moduleManager.modules.get(Sprint.class).isEnabled()) {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-            }
-        } else {
-
-            if (mc.currentScreen instanceof GuiContainer) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-            } else {
-                KeyBindUtil.updateKeyState(mc.gameSettings.keyBindSprint.getKeyCode());
-
-                if (Myau.moduleManager.modules.get(Sprint.class).isEnabled()) {
-                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-                }
             }
         }
 
@@ -131,6 +127,11 @@ public class InvWalk extends Module {
             if (this.canInvWalk() && this.delayTicks == 0) {
 
                 this.pressMovementKeys();
+
+                // 確保 GUI 中不 sprint
+                if (this.mode.getValue() == 3 && mc.currentScreen instanceof GuiContainer) {
+                    mc.thePlayer.setSprinting(false);
+                }
 
             } else {
 
