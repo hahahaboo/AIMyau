@@ -8,7 +8,6 @@ import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.TickEvent;
 import myau.events.UpdateEvent;
-import myau.mixin.IAccessorC0DPacketCloseWindow;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.ModeProperty;
@@ -19,6 +18,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
@@ -46,7 +46,7 @@ public class InvWalk extends Module {
 
     // Grim mode 變數
     private int grimTimer = 0;
-    private boolean needsSprintRestore = false;
+    private boolean wasSprinting = false;
     private int sprintRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
@@ -91,6 +91,20 @@ public class InvWalk extends Module {
         }
     }
 
+    private void stopSprinting() {
+        if (mc.thePlayer.isSprinting()) {
+            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
+            mc.thePlayer.setSprinting(false);
+        }
+    }
+
+    private void restoreSprinting() {
+        if (wasSprinting && !mc.thePlayer.isSprinting()) {
+            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
+            mc.thePlayer.setSprinting(true);
+        }
+    }
+
     private void flushGrimPackets() {
         for (C0EPacketClickWindow p : new ArrayList<>(grimDelayedPackets)) {
             PacketUtil.sendPacketNoEvent(p);
@@ -118,30 +132,23 @@ public class InvWalk extends Module {
             if (grimTimer >= 18 + random.nextInt(7)) {
                 grimTimer = 0;
 
-                if (mc.thePlayer.isSprinting() || KeyBindUtil.isKeyDown(mc.gameSettings.keyBindSprint.getKeyCode())) {
-                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-                    mc.thePlayer.setSprinting(false);
-                    needsSprintRestore = true;
-                }
+                wasSprinting = mc.thePlayer.isSprinting();
+                stopSprinting();
 
                 flushGrimPackets();
 
-                sprintRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
+                sprintRestoreTicks = random.nextInt(5) + 5;  // 5~9 ticks 恢復
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
             flushGrimPackets();
-            if (needsSprintRestore) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-                needsSprintRestore = false;
-            }
+            restoreSprinting();  // 關閉背包時立即恢復
         }
 
         if (sprintRestoreTicks > 0) {
             sprintRestoreTicks--;
-            if (sprintRestoreTicks == 0 && needsSprintRestore) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-                needsSprintRestore = false;
+            if (sprintRestoreTicks == 0) {
+                restoreSprinting();
             }
         }
     }
@@ -244,16 +251,12 @@ public class InvWalk extends Module {
         }
         if (this.mode.getValue() == 3) {
             flushGrimPackets();
-            if (needsSprintRestore) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-                needsSprintRestore = false;
-            }
+            restoreSprinting();
         }
         this.delayTicks = 0;
         this.grimTimer = 0;
         this.sprintRestoreTicks = 0;
         this.grimDelayedPackets.clear();
-        this.needsSprintRestore = false;
     }
 
     @Override
