@@ -19,8 +19,8 @@ import java.util.ArrayList;
 
 public class Myau {
     public static final NotificationRenderer notificationRenderer = new NotificationRenderer();
-    public static String clientName = "§c[§6M§ey§aa§bu§9P§dl§cu§6s§c] ";
-    public static String clientVersion = "1.5";
+    public static String clientName = "§c[§6A§eI§aM§by§9a§du§c] ";
+    public static String clientVersion = "beta";
     public static BlinkManager blinkManager;
     public static CommandManager commandManager;
     public static Config globalConfig;
