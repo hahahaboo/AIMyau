@@ -50,35 +50,34 @@ public class InvWalk extends Module {
     private int movementRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
-    // 記住原本按下的移動鍵狀態
+    // 只記住 W A S D + Jump 的按鍵狀態（不碰 Sprint）
     private final Map<KeyBinding, Boolean> savedMovementKeys = new HashMap<>();
 
     public InvWalk() {
         super("InvWalk", "Allows you to walk while in inventories.", Category.MOVEMENT, 0, false, false);
     }
 
-    private KeyBinding[] getMovementKeys() {
+    private KeyBinding[] getMovementKeysToStop() {
         return new KeyBinding[]{
                 mc.gameSettings.keyBindForward,
                 mc.gameSettings.keyBindBack,
                 mc.gameSettings.keyBindLeft,
                 mc.gameSettings.keyBindRight,
-                mc.gameSettings.keyBindJump,
-                mc.gameSettings.keyBindSprint
+                mc.gameSettings.keyBindJump
+                // 不包含 keyBindSprint
         };
     }
 
     private void saveAndStopMovement() {
         savedMovementKeys.clear();
-        for (KeyBinding key : getMovementKeys()) {
+        for (KeyBinding key : getMovementKeysToStop()) {
             boolean isDown = KeyBindUtil.isKeyDown(key.getKeyCode());
             savedMovementKeys.put(key, isDown);
             if (isDown) {
                 KeyBindUtil.setKeyBindState(key.getKeyCode(), false);
             }
         }
-        // client 端同步停止 sprint
-        mc.thePlayer.setSprinting(false);
+        mc.thePlayer.setSprinting(false);  // 確保 client sprint off
     }
 
     private void restoreMovement() {
@@ -91,7 +90,14 @@ public class InvWalk extends Module {
     }
 
     public void pressMovementKeys() {
-        KeyBinding[] movementKeys = getMovementKeys();
+        KeyBinding[] movementKeys = new KeyBinding[]{
+                mc.gameSettings.keyBindForward,
+                mc.gameSettings.keyBindBack,
+                mc.gameSettings.keyBindLeft,
+                mc.gameSettings.keyBindRight,
+                mc.gameSettings.keyBindJump,
+                mc.gameSettings.keyBindSprint
+        };
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
@@ -144,25 +150,21 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 18 + random.nextInt(7)) {
+            if (grimTimer >= 22 + random.nextInt(9)) {  // 22~30 ticks，減少頻率
                 grimTimer = 0;
 
-                // 停止移動輸入
                 saveAndStopMovement();
 
                 flushGrimPackets();
 
-                // 延遲恢復移動輸入
-                movementRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
+                movementRestoreTicks = random.nextInt(4) + 2;  // 2~5 ticks，更短停頓
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
             flushGrimPackets();
-            // 關閉背包時立即恢復移動
             restoreMovement();
         }
 
-        // 恢復移動輸入
         if (movementRestoreTicks > 0) {
             movementRestoreTicks--;
             if (movementRestoreTicks == 0) {
