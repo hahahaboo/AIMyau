@@ -50,7 +50,7 @@ public class InvWalk extends Module {
     private int movementRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
-    // 只記住 W A S D + Jump 的按鍵狀態（不碰 Sprint）
+    // 只記住 W A S D + Jump
     private final Map<KeyBinding, Boolean> savedMovementKeys = new HashMap<>();
 
     public InvWalk() {
@@ -64,7 +64,6 @@ public class InvWalk extends Module {
                 mc.gameSettings.keyBindLeft,
                 mc.gameSettings.keyBindRight,
                 mc.gameSettings.keyBindJump
-                // 不包含 keyBindSprint
         };
     }
 
@@ -77,16 +76,24 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(key.getKeyCode(), false);
             }
         }
-        mc.thePlayer.setSprinting(false);  // 確保 client sprint off
+        // 強制 client sprint off（因為不移動）
+        mc.thePlayer.setSprinting(false);
     }
 
     private void restoreMovement() {
+        // 先恢復 W A S D + Jump
         for (Map.Entry<KeyBinding, Boolean> entry : savedMovementKeys.entrySet()) {
             if (entry.getValue()) {
                 KeyBindUtil.setKeyBindState(entry.getKey().getKeyCode(), true);
             }
         }
         savedMovementKeys.clear();
+
+        // 額外確保 sprint 狀態接上（如果 sprint key 還按著）
+        KeyBinding sprintKey = mc.gameSettings.keyBindSprint;
+        if (KeyBindUtil.isKeyDown(sprintKey.getKeyCode()) && !mc.thePlayer.isSprinting()) {
+            mc.thePlayer.setSprinting(true);
+        }
     }
 
     public void pressMovementKeys() {
@@ -150,14 +157,14 @@ public class InvWalk extends Module {
             clientInvOpen = true;
             grimTimer++;
 
-            if (grimTimer >= 22 + random.nextInt(9)) {  // 22~30 ticks，減少頻率
+            if (grimTimer >= 18 + random.nextInt(7)) {
                 grimTimer = 0;
 
                 saveAndStopMovement();
 
                 flushGrimPackets();
 
-                movementRestoreTicks = random.nextInt(4) + 2;  // 2~5 ticks，更短停頓
+                movementRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
