@@ -56,7 +56,6 @@ public class InvWalk extends Module {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
 
-        // UNSPRINT 模式下絕對不按 sprint 鍵
         int sprintKeyCode = mc.gameSettings.keyBindSprint.getKeyCode();
         boolean shouldSprint = (this.mode.getValue() != 4);
 
@@ -68,6 +67,7 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             }
         } else {
+            // UNSPRINT: 強制不 sprint
             KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             KeyBinding.setKeyBindState(sprintKeyCode, false);
         }
@@ -82,17 +82,17 @@ public class InvWalk extends Module {
 
         int m = this.mode.getValue();
 
-        if (m == 4) { // UNSPRINT: 允許走路，但用 packet 強制 unsprint
+        if (m == 4) {
             return true;
         }
 
         switch (m) {
-            case 1: // VANILLA
+            case 1:
                 if (!(mc.currentScreen instanceof GuiInventory)) return false;
                 return this.pendingStatus != null && this.clickQueue.isEmpty();
-            case 2: // BRAINSPOOF
+            case 2:
                 return this.clickQueue.isEmpty();
-            default: // HYPIXEL
+            default:
                 return true;
         }
     }
@@ -130,18 +130,17 @@ public class InvWalk extends Module {
             }
         }
 
-        // ==================== 重寫核心：使用 PACKET 強制 UNSprint ====================
+        // 核心：UNSPRINT 模式 + 在任何 GUI 時，強制覆蓋 sprint 狀態（對抗 Sprint 模組的每 tick set true）
         if (this.mode.getValue() == 4 && isInGui && mc.thePlayer != null) {
-            // 客戶端強制關閉
+            // 1. 客戶端強制關 sprint
             mc.thePlayer.setSprinting(false);
 
-            // 強制鬆開 sprint 鍵
+            // 2. 強制把 sprint 鍵「鬆開」狀態（覆蓋 Sprint 模組的 set true）
             int sprintCode = mc.gameSettings.keyBindSprint.getKeyCode();
             KeyBindUtil.setKeyBindState(sprintCode, false);
             KeyBinding.setKeyBindState(sprintCode, false);
 
-            // 關鍵：發送 STOP_SPRINTING packet（這就是你要求的 packet 方式）
-            // 這會強制伺服器端與客戶端都停止 sprint（圖示、粒子、速度全部失效）
+            // 3. 發 STOP_SPRINTING packet 告訴伺服器停止（防同步問題）
             PacketUtil.sendPacketNoEvent(
                 new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING)
             );
@@ -171,7 +170,7 @@ public class InvWalk extends Module {
 
             int m = this.mode.getValue();
             switch (m) {
-                case 1: // VANILLA
+                case 1:
                     if (packet.getWindowId() == 0) {
                         if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
                             event.setCancelled(true);
@@ -184,7 +183,7 @@ public class InvWalk extends Module {
                         }
                     }
                     break;
-                case 2: // BRAINSPOOF
+                case 2:
                     if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
                         event.setCancelled(true);
                     } else {
@@ -194,7 +193,7 @@ public class InvWalk extends Module {
                         this.delayTicks = 8;
                     }
                     break;
-                case 4: // UNSPRINT: 正常處理點擊
+                case 4:
                     break;
             }
 
