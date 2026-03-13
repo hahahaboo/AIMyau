@@ -29,7 +29,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class InvWalk extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final ModeProperty mode = new ModeProperty("mode", 1, new String[]{"VANILLA", "BRAINSPOOF", "HYPIXEL"});
+
+    public final ModeProperty mode = new ModeProperty("mode", 1, 
+            new String[]{"VANILLA", "BRAINSPOOF", "HYPIXEL", "UNSPRINT"});
+
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
     private boolean keysPressed = false;
     private C16PacketClientStatus pendingStatus = null;
@@ -45,35 +48,54 @@ public class InvWalk extends Module {
                 mc.gameSettings.keyBindBack,
                 mc.gameSettings.keyBindLeft,
                 mc.gameSettings.keyBindRight,
-                mc.gameSettings.keyBindJump,
-                mc.gameSettings.keyBindSprint
+                mc.gameSettings.keyBindJump
+                // 刻意不包含 keyBindSprint，下面單獨處理
         };
+
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
-        if (Myau.moduleManager.modules.get(Sprint.class).isEnabled()) {
-            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
+
+        boolean shouldSprint = false;
+
+        // 決定是否要啟動 sprint
+        if (this.mode.getValue() != 4) {  // 非 UNSPRINT 模式才看 Sprint 模組
+            if (Myau.moduleManager.getModule("Sprint").isEnabled()) {  // 注意：這裡假設 Sprint 模組叫 "Sprint"
+                shouldSprint = true;
+            }
         }
+        // UNSPRINT 模式下故意不 sprint
+
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), shouldSprint);
+
         this.keysPressed = true;
     }
 
     public boolean canInvWalk() {
         if (!(mc.currentScreen instanceof GuiContainer)) {
             return false;
-        } else if (mc.currentScreen instanceof GuiContainerCreative) {
+        }
+        if (mc.currentScreen instanceof GuiContainerCreative) {
             return false;
-        } else {
-            switch (this.mode.getValue()) {
-                case 1:
-                    if (!(mc.currentScreen instanceof GuiInventory)) {
-                        return false;
-                    }
-                    return this.pendingStatus != null && this.clickQueue.isEmpty();
-                case 2:
-                    return this.clickQueue.isEmpty();
-                default:
-                    return true;
-            }
+        }
+
+        int m = this.mode.getValue();
+
+        // UNSPRINT 模式：只要是容器介面就允許走路（但上面會強制不 sprint）
+        if (m == 4) {
+            return true;
+        }
+
+        switch (m) {
+            case 1: // VANILLA
+                if (!(mc.currentScreen instanceof GuiInventory)) {
+                    return false;
+                }
+                return this.pendingStatus != null && this.clickQueue.isEmpty();
+            case 2: // BRAINSPOOF
+                return this.clickQueue.isEmpty();
+            default: // HYPIXEL
+                return true;
         }
     }
 
@@ -91,6 +113,12 @@ public class InvWalk extends Module {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.canInvWalk() && this.delayTicks == 0) {
                 this.pressMovementKeys();
+
+                // UNSPRINT 模式額外強制關閉 sprint（保險）
+                if (this.mode.getValue() == 4) {
+                    mc.thePlayer.setSprinting(false);
+                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+                }
             } else {
                 if (this.keysPressed) {
                     if (mc.currentScreen != null) {
@@ -113,25 +141,24 @@ public class InvWalk extends Module {
     public void onPacket(PacketEvent event) {
         if (this.isEnabled() && event.getType() == EventType.SEND) {
             if (event.getPacket() instanceof C16PacketClientStatus) {
-                if (this.mode.getValue() == 1) {
+                if (this.mode.getValue() == 1) {  // 只在 VANILLA 模式處理這個邏輯
                     C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
                     if (packet.getStatus() == EnumState.OPEN_INVENTORY_ACHIEVEMENT) {
                         event.setCancelled(true);
                         this.pendingStatus = packet;
                     }
                 }
-            } else if (!(event.getPacket() instanceof C0EPacketClickWindow)) {
-                if (event.getPacket() instanceof C0DPacketCloseWindow) {
-                    C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
-                    if (this.pendingStatus != null && ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
-                        this.pendingStatus = null;
-                        event.setCancelled(true);
-                    }
+            } else if (event.getPacket() instanceof C0DPacketCloseWindow) {
+                C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
+                if (this.pendingStatus != null && ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
+                    this.pendingStatus = null;
+                    event.setCancelled(true);
                 }
-            } else {
+            } else if (event.getPacket() instanceof C0EPacketClickWindow) {
                 C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
+
                 switch (this.mode.getValue()) {
-                    case 1:
+                    case 1: // VANILLA
                         if (packet.getWindowId() == 0) {
                             if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
                                 event.setCancelled(true);
@@ -144,7 +171,7 @@ public class InvWalk extends Module {
                             }
                         }
                         break;
-                    case 2:
+                    case 2: // BRAINSPOOF
                         if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
                             event.setCancelled(true);
                         } else {
@@ -153,7 +180,12 @@ public class InvWalk extends Module {
                             this.clickQueue.offer(packet);
                             this.delayTicks = 8;
                         }
+                        break;
+                    case 4: // UNSPRINT
+                        // 不需要特別封包處理，直接允許正常點擊，但走路不停 sprint
+                        break;
                 }
+
                 if (this.pendingStatus != null) {
                     PacketUtil.sendPacketNoEvent(this.pendingStatus);
                     this.pendingStatus = null;
