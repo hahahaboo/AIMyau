@@ -55,41 +55,40 @@ public class InvWalk extends Module {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
 
-        // 決定是否要按 sprint 鍵
+        // UNSPRINT 模式下絕對不按 sprint 鍵
+        int sprintKeyCode = mc.gameSettings.keyBindSprint.getKeyCode();
         boolean shouldSprint = (this.mode.getValue() != 4);
 
         if (shouldSprint) {
-            Module sprintModule = Myau.moduleManager.getModule("Sprint");
-            if (sprintModule != null && sprintModule.isEnabled()) {
-                shouldSprint = true;
+            Module sprintMod = Myau.moduleManager.getModule("Sprint");
+            if (sprintMod != null && sprintMod.isEnabled()) {
+                KeyBindUtil.setKeyBindState(sprintKeyCode, true);
             } else {
-                shouldSprint = false;
+                KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             }
+        } else {
+            // 強制鬆開 sprint 鍵
+            KeyBindUtil.setKeyBindState(sprintKeyCode, false);
+            KeyBinding.setKeyBindState(sprintKeyCode, false); // 額外靜態呼叫
         }
 
-        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), shouldSprint);
         this.keysPressed = true;
     }
 
     public boolean canInvWalk() {
-        if (!(mc.currentScreen instanceof GuiContainer)) {
-            return false;
-        }
-        if (mc.currentScreen instanceof GuiContainerCreative) {
+        if (!(mc.currentScreen instanceof GuiContainer) || mc.currentScreen instanceof GuiContainerCreative) {
             return false;
         }
 
         int m = this.mode.getValue();
 
-        if (m == 4) { // UNSPRINT
+        if (m == 4) { // UNSPRINT: 允許走路，但下面強制 unsprint
             return true;
         }
 
         switch (m) {
             case 1: // VANILLA
-                if (!(mc.currentScreen instanceof GuiInventory)) {
-                    return false;
-                }
+                if (!(mc.currentScreen instanceof GuiInventory)) return false;
                 return this.pendingStatus != null && this.clickQueue.isEmpty();
             case 2: // BRAINSPOOF
                 return this.clickQueue.isEmpty();
@@ -109,21 +108,12 @@ public class InvWalk extends Module {
 
     @EventTarget(Priority.LOWEST)
     public void onUpdate(UpdateEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.PRE) {
-            return;
-        }
+        if (!this.isEnabled() || event.getType() != EventType.PRE) return;
 
-        boolean inContainer = (mc.currentScreen instanceof GuiContainer && !(mc.currentScreen instanceof GuiContainerCreative));
+        boolean isInGui = mc.currentScreen instanceof GuiContainer && !(mc.currentScreen instanceof GuiContainerCreative);
 
         if (this.canInvWalk() && this.delayTicks == 0) {
             this.pressMovementKeys();
-
-            // UNSPRINT 模式：強制停止 sprint（每 tick 執行）
-            if (this.mode.getValue() == 4 && mc.thePlayer != null) {
-                mc.thePlayer.setSprinting(false);
-                // 正確使用靜態方法強制把 sprint 鍵設為未按下
-                KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-            }
         } else {
             if (this.keysPressed) {
                 if (mc.currentScreen != null) {
@@ -140,18 +130,18 @@ public class InvWalk extends Module {
             }
         }
 
-        // 額外保險：只要在容器畫面 + UNSPRINT 模式，就每 tick 強制關 sprint
-        if (this.mode.getValue() == 4 && inContainer && mc.thePlayer != null) {
+        // 重寫的核心：UNSPRINT 強制系統 - 只要在任何容器 GUI 內，就每 tick 關 sprint
+        if (this.mode.getValue() == 4 && isInGui && mc.thePlayer != null) {
             mc.thePlayer.setSprinting(false);
-            KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+            int sprintCode = mc.gameSettings.keyBindSprint.getKeyCode();
+            KeyBindUtil.setKeyBindState(sprintCode, false);
+            KeyBinding.setKeyBindState(sprintCode, false); // 雙重確保鍵狀態被重置
         }
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.SEND) {
-            return;
-        }
+        if (!this.isEnabled() || event.getType() != EventType.SEND) return;
 
         if (event.getPacket() instanceof C16PacketClientStatus) {
             if (this.mode.getValue() == 1) {
@@ -170,7 +160,8 @@ public class InvWalk extends Module {
         } else if (event.getPacket() instanceof C0EPacketClickWindow) {
             C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
 
-            switch (this.mode.getValue()) {
+            int m = this.mode.getValue();
+            switch (m) {
                 case 1: // VANILLA
                     if (packet.getWindowId() == 0) {
                         if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
@@ -194,7 +185,7 @@ public class InvWalk extends Module {
                         this.delayTicks = 8;
                     }
                     break;
-                case 4: // UNSPRINT - 不特別處理點擊封包
+                case 4: // UNSPRINT: 正常處理點擊，不干涉
                     break;
             }
 
@@ -218,9 +209,6 @@ public class InvWalk extends Module {
             this.pendingStatus = null;
         }
         this.delayTicks = 0;
-
-        // 關閉模組時重置 sprint 鍵狀態（可選）
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
     }
 
     @Override
