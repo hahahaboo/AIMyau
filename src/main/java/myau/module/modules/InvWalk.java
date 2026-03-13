@@ -67,7 +67,6 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             }
         } else {
-            // UNSPRINT: 強制不 sprint
             KeyBindUtil.setKeyBindState(sprintKeyCode, false);
             KeyBinding.setKeyBindState(sprintKeyCode, false);
         }
@@ -97,7 +96,7 @@ public class InvWalk extends Module {
         }
     }
 
-    @EventTarget(Priority.LOWEST)
+    @EventTarget(Priority.HIGHEST)
     public void onTick(TickEvent event) {
         if (event.getType() == EventType.PRE) {
             while (!this.clickQueue.isEmpty()) {
@@ -106,7 +105,7 @@ public class InvWalk extends Module {
         }
     }
 
-    @EventTarget(Priority.LOWEST)
+    @EventTarget(Priority.HIGHEST)
     public void onUpdate(UpdateEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) return;
 
@@ -130,24 +129,21 @@ public class InvWalk extends Module {
             }
         }
 
-        // 核心：UNSPRINT 模式 + 在任何 GUI 時，強制覆蓋 sprint 狀態（對抗 Sprint 模組的每 tick set true）
+        // UNSPRINT 強制系統 - 優先級 HIGHEST 讓它盡量在其他模組之前/之後覆蓋
         if (this.mode.getValue() == 4 && isInGui && mc.thePlayer != null) {
-            // 1. 客戶端強制關 sprint
             mc.thePlayer.setSprinting(false);
 
-            // 2. 強制把 sprint 鍵「鬆開」狀態（覆蓋 Sprint 模組的 set true）
             int sprintCode = mc.gameSettings.keyBindSprint.getKeyCode();
             KeyBindUtil.setKeyBindState(sprintCode, false);
             KeyBinding.setKeyBindState(sprintCode, false);
 
-            // 3. 發 STOP_SPRINTING packet 告訴伺服器停止（防同步問題）
             PacketUtil.sendPacketNoEvent(
                 new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING)
             );
         }
     }
 
-    @EventTarget
+    @EventTarget(Priority.HIGHEST)
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.SEND) return;
 
