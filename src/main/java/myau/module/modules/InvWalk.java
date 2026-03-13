@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class InvWalk extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     
-    // 改成從 0 開始編號，方便閱讀，也加入 UNSPRINT
+    // 索引從 0 開始，新增 UNSPRINT
     public final ModeProperty mode = new ModeProperty("mode", 0, 
             new String[]{"VANILLA", "BRAINSPOOF", "HYPIXEL", "UNSPRINT"});
 
@@ -40,7 +40,7 @@ public class InvWalk extends Module {
     private C16PacketClientStatus pendingStatus = null;
     private int delayTicks = 0;
 
-    // 用來記錄關閉視窗前 sprint 鍵是否被按著（用來恢復）
+    // 記錄開啟 GUI 前 sprint 鍵是否被按住，用來關閉時恢復
     private boolean wasSprintKeyDown = false;
 
     public InvWalk() {
@@ -59,7 +59,9 @@ public class InvWalk extends Module {
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
-        if (Myau.moduleManager.modules.get(Sprint.class).isEnabled()) {
+        // 改用字串查找 Sprint 模組（避免 Class 錯誤）
+        Module sprintModule = Myau.moduleManager.getModule("Sprint");
+        if (sprintModule != null && sprintModule.isEnabled()) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
         }
         this.keysPressed = true;
@@ -82,7 +84,7 @@ public class InvWalk extends Module {
                 case 2: // HYPIXEL
                     return true;
                 case 3: // UNSPRINT
-                    return false; // UNSPRINT 模式不使用原本的 invwalk 按鍵邏輯
+                    return false; // UNSPRINT 不使用原本 invwalk 移動邏輯
                 default:
                     return false;
             }
@@ -113,8 +115,8 @@ public class InvWalk extends Module {
             boolean nowShouldUnsprint = shouldUnsprint();
 
             if (nowShouldUnsprint) {
-                // 記錄原本 sprint 鍵狀態，用來關閉時恢復
-                wasSprintKeyDown = mc.gameSettings.keyBindSprint.getIsKeyDown();
+                // 記錄原本 sprint 鍵是否被按住
+                wasSprintKeyDown = mc.gameSettings.keyBindSprint.isKeyDown();
 
                 if (mc.thePlayer.isSprinting()) {
                     mc.thePlayer.setSprinting(false);
@@ -125,19 +127,20 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
             } 
             else {
-                // 關閉視窗後，嘗試恢復 sprint
-                if (wasSprintKeyDown || 
-                    (Myau.moduleManager.getModule(Sprint.class) != null && 
-                     Myau.moduleManager.getModule(Sprint.class).isEnabled())) {
-                    
+                // 關閉 GUI 後嘗試恢復 sprint
+                Module sprintModule = Myau.moduleManager.getModule("Sprint");
+                boolean shouldResume = wasSprintKeyDown ||
+                        (sprintModule != null && sprintModule.isEnabled());
+
+                if (shouldResume) {
                     KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), true);
-                    // 可選：強制讓玩家開始 sprint（視伺服器需求）
-                    // mc.thePlayer.setSprinting(true);
+                    // 如果你的伺服器需要，可選再發一次 START_SPRINTING（大多數情況不需要）
+                    // PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
                 }
                 wasSprintKeyDown = false;
             }
             
-            // UNSPRINT 模式下不執行原本的 pressMovementKeys 邏輯
+            // UNSPRINT 模式跳過原本 invwalk 按鍵處理
             return;
         }
 
@@ -165,10 +168,10 @@ public class InvWalk extends Module {
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.SEND) return;
 
-        // UNSPRINT 模式下不攔截 click/close packet（只控制 sprint）
+        // UNSPRINT 模式完全不處理 click/close packet
         if (mode.getValue() == 3) return;
 
-        // 以下是原本三種模式的 packet 處理邏輯
+        // 原本三種模式的 packet 處理
         if (event.getPacket() instanceof C16PacketClientStatus) {
             if (this.mode.getValue() == 0) { // VANILLA
                 C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
@@ -212,7 +215,7 @@ public class InvWalk extends Module {
                     }
                     break;
                 case 2: // HYPIXEL
-                    // HYPIXEL 模式原本就 return true，不特別處理 click
+                    // HYPIXEL 模式通常不特別攔 click
                     break;
             }
             if (this.pendingStatus != null) {
@@ -236,9 +239,9 @@ public class InvWalk extends Module {
         }
         this.delayTicks = 0;
         
-        // 模組關閉時也恢復 sprint 鍵（保險）
+        // 模組關閉時恢復 sprint 鍵到原本狀態
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), 
-                mc.gameSettings.keyBindSprint.getIsKeyDown());
+                mc.gameSettings.keyBindSprint.isKeyDown());
     }
 
     @Override
