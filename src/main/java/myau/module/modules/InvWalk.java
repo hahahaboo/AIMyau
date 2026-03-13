@@ -50,7 +50,7 @@ public class InvWalk extends Module {
     private int movementRestoreTicks = 0;
     private boolean clientInvOpen = false;
 
-    // 只記住 W A S D + Jump
+    // 只記住 W A S D + Jump 的狀態
     private final Map<KeyBinding, Boolean> savedMovementKeys = new HashMap<>();
 
     public InvWalk() {
@@ -76,24 +76,17 @@ public class InvWalk extends Module {
                 KeyBindUtil.setKeyBindState(key.getKeyCode(), false);
             }
         }
-        // 強制 client sprint off（因為不移動）
-        mc.thePlayer.setSprinting(false);
+        // 嚴格不碰 sprint 狀態，讓遊戲自己處理（不移動 → sprint off）
     }
 
     private void restoreMovement() {
-        // 先恢復 W A S D + Jump
         for (Map.Entry<KeyBinding, Boolean> entry : savedMovementKeys.entrySet()) {
             if (entry.getValue()) {
                 KeyBindUtil.setKeyBindState(entry.getKey().getKeyCode(), true);
             }
         }
         savedMovementKeys.clear();
-
-        // 額外確保 sprint 狀態接上（如果 sprint key 還按著）
-        KeyBinding sprintKey = mc.gameSettings.keyBindSprint;
-        if (KeyBindUtil.isKeyDown(sprintKey.getKeyCode()) && !mc.thePlayer.isSprinting()) {
-            mc.thePlayer.setSprinting(true);
-        }
+        // 不主動 setSprinting(true)，Sprint module 會處理
     }
 
     public void pressMovementKeys() {
