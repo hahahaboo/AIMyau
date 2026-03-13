@@ -18,13 +18,14 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.network.play.client.C0BPacketEntityAction;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -46,16 +47,18 @@ public class InvWalk extends Module {
 
     // Grim mode 變數
     private int grimTimer = 0;
-    private boolean wasSprinting = false;
-    private int sprintRestoreTicks = 0;
+    private int movementRestoreTicks = 0;
     private boolean clientInvOpen = false;
+
+    // 記住原本按下的移動鍵狀態
+    private final Map<KeyBinding, Boolean> savedMovementKeys = new HashMap<>();
 
     public InvWalk() {
         super("InvWalk", "Allows you to walk while in inventories.", Category.MOVEMENT, 0, false, false);
     }
 
-    public void pressMovementKeys() {
-        KeyBinding[] movementKeys = new KeyBinding[]{
+    private KeyBinding[] getMovementKeys() {
+        return new KeyBinding[]{
                 mc.gameSettings.keyBindForward,
                 mc.gameSettings.keyBindBack,
                 mc.gameSettings.keyBindLeft,
@@ -63,6 +66,32 @@ public class InvWalk extends Module {
                 mc.gameSettings.keyBindJump,
                 mc.gameSettings.keyBindSprint
         };
+    }
+
+    private void saveAndStopMovement() {
+        savedMovementKeys.clear();
+        for (KeyBinding key : getMovementKeys()) {
+            boolean isDown = KeyBindUtil.isKeyDown(key.getKeyCode());
+            savedMovementKeys.put(key, isDown);
+            if (isDown) {
+                KeyBindUtil.setKeyBindState(key.getKeyCode(), false);
+            }
+        }
+        // client 端同步停止 sprint
+        mc.thePlayer.setSprinting(false);
+    }
+
+    private void restoreMovement() {
+        for (Map.Entry<KeyBinding, Boolean> entry : savedMovementKeys.entrySet()) {
+            if (entry.getValue()) {
+                KeyBindUtil.setKeyBindState(entry.getKey().getKeyCode(), true);
+            }
+        }
+        savedMovementKeys.clear();
+    }
+
+    public void pressMovementKeys() {
+        KeyBinding[] movementKeys = getMovementKeys();
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
@@ -88,20 +117,6 @@ public class InvWalk extends Module {
                 return this.clickQueue.isEmpty();
             default:
                 return true;
-        }
-    }
-
-    private void stopSprinting() {
-        if (mc.thePlayer.isSprinting()) {
-            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.STOP_SPRINTING));
-            mc.thePlayer.setSprinting(false);
-        }
-    }
-
-    private void restoreSprinting() {
-        if (wasSprinting && !mc.thePlayer.isSprinting()) {
-            PacketUtil.sendPacketNoEvent(new C0BPacketEntityAction(mc.thePlayer, C0BPacketEntityAction.Action.START_SPRINTING));
-            mc.thePlayer.setSprinting(true);
         }
     }
 
@@ -132,23 +147,26 @@ public class InvWalk extends Module {
             if (grimTimer >= 18 + random.nextInt(7)) {
                 grimTimer = 0;
 
-                wasSprinting = mc.thePlayer.isSprinting();
-                stopSprinting();
+                // 停止移動輸入
+                saveAndStopMovement();
 
                 flushGrimPackets();
 
-                sprintRestoreTicks = random.nextInt(5) + 5;  // 5~9 ticks 恢復
+                // 延遲恢復移動輸入
+                movementRestoreTicks = random.nextInt(5) + 4;  // 4~8 ticks
             }
         } else if (clientInvOpen) {
             clientInvOpen = false;
             flushGrimPackets();
-            restoreSprinting();  // 關閉背包時立即恢復
+            // 關閉背包時立即恢復移動
+            restoreMovement();
         }
 
-        if (sprintRestoreTicks > 0) {
-            sprintRestoreTicks--;
-            if (sprintRestoreTicks == 0) {
-                restoreSprinting();
+        // 恢復移動輸入
+        if (movementRestoreTicks > 0) {
+            movementRestoreTicks--;
+            if (movementRestoreTicks == 0) {
+                restoreMovement();
             }
         }
     }
@@ -251,12 +269,13 @@ public class InvWalk extends Module {
         }
         if (this.mode.getValue() == 3) {
             flushGrimPackets();
-            restoreSprinting();
+            restoreMovement();
         }
         this.delayTicks = 0;
         this.grimTimer = 0;
-        this.sprintRestoreTicks = 0;
+        this.movementRestoreTicks = 0;
         this.grimDelayedPackets.clear();
+        this.savedMovementKeys.clear();
     }
 
     @Override
