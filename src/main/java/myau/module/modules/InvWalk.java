@@ -49,25 +49,25 @@ public class InvWalk extends Module {
                 mc.gameSettings.keyBindLeft,
                 mc.gameSettings.keyBindRight,
                 mc.gameSettings.keyBindJump
-                // 刻意不包含 keyBindSprint，下面單獨處理
         };
 
         for (KeyBinding keyBinding : movementKeys) {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
 
-        boolean shouldSprint = false;
+        // 決定是否要按 sprint 鍵
+        boolean shouldSprint = (this.mode.getValue() != 4);
 
-        // 決定是否要啟動 sprint
-        if (this.mode.getValue() != 4) {  // 非 UNSPRINT 模式才看 Sprint 模組
-            if (Myau.moduleManager.getModule("Sprint").isEnabled()) {  // 注意：這裡假設 Sprint 模組叫 "Sprint"
+        if (shouldSprint) {
+            Module sprintModule = Myau.moduleManager.getModule("Sprint");
+            if (sprintModule != null && sprintModule.isEnabled()) {
                 shouldSprint = true;
+            } else {
+                shouldSprint = false;
             }
         }
-        // UNSPRINT 模式下故意不 sprint
 
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), shouldSprint);
-
         this.keysPressed = true;
     }
 
@@ -81,8 +81,7 @@ public class InvWalk extends Module {
 
         int m = this.mode.getValue();
 
-        // UNSPRINT 模式：只要是容器介面就允許走路（但上面會強制不 sprint）
-        if (m == 4) {
+        if (m == 4) { // UNSPRINT
             return true;
         }
 
@@ -110,86 +109,101 @@ public class InvWalk extends Module {
 
     @EventTarget(Priority.LOWEST)
     public void onUpdate(UpdateEvent event) {
-        if (this.isEnabled() && event.getType() == EventType.PRE) {
-            if (this.canInvWalk() && this.delayTicks == 0) {
-                this.pressMovementKeys();
+        if (!this.isEnabled() || event.getType() != EventType.PRE) {
+            return;
+        }
 
-                // UNSPRINT 模式額外強制關閉 sprint（保險）
-                if (this.mode.getValue() == 4) {
-                    mc.thePlayer.setSprinting(false);
-                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
-                }
-            } else {
-                if (this.keysPressed) {
-                    if (mc.currentScreen != null) {
-                        KeyBinding.unPressAllKeys();
-                    }
-                    this.keysPressed = false;
-                }
-                if (this.pendingStatus != null) {
-                    PacketUtil.sendPacketNoEvent(this.pendingStatus);
-                    this.pendingStatus = null;
-                }
-                if (this.delayTicks > 0) {
-                    this.delayTicks--;
-                }
+        boolean inContainer = (mc.currentScreen instanceof GuiContainer && !(mc.currentScreen instanceof GuiContainerCreative));
+
+        if (this.canInvWalk() && this.delayTicks == 0) {
+            this.pressMovementKeys();
+
+            // UNSPRINT 模式：強制停止 sprint（每 tick 執行）
+            if (this.mode.getValue() == 4 && mc.thePlayer != null) {
+                mc.thePlayer.setSprinting(false);
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+                mc.gameSettings.keyBindSprint.pressed = false;          // 直接操作 KeyBinding 的 pressed 狀態
+                mc.gameSettings.keyBindSprint.setKeyBindState(false);   // 再呼叫一次 setKeyBindState
             }
+        } else {
+            if (this.keysPressed) {
+                if (mc.currentScreen != null) {
+                    KeyBinding.unPressAllKeys();
+                }
+                this.keysPressed = false;
+            }
+            if (this.pendingStatus != null) {
+                PacketUtil.sendPacketNoEvent(this.pendingStatus);
+                this.pendingStatus = null;
+            }
+            if (this.delayTicks > 0) {
+                this.delayTicks--;
+            }
+        }
+
+        // 額外保險：只要在任何容器畫面 + UNSPRINT 模式，就強制關 sprint
+        // （即使 canInvWalk 因為其他原因 false，也盡量關）
+        if (this.mode.getValue() == 4 && inContainer && mc.thePlayer != null) {
+            mc.thePlayer.setSprinting(false);
+            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSprint.getKeyCode(), false);
+            mc.gameSettings.keyBindSprint.pressed = false;
         }
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (this.isEnabled() && event.getType() == EventType.SEND) {
-            if (event.getPacket() instanceof C16PacketClientStatus) {
-                if (this.mode.getValue() == 1) {  // 只在 VANILLA 模式處理這個邏輯
-                    C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
-                    if (packet.getStatus() == EnumState.OPEN_INVENTORY_ACHIEVEMENT) {
-                        event.setCancelled(true);
-                        this.pendingStatus = packet;
-                    }
-                }
-            } else if (event.getPacket() instanceof C0DPacketCloseWindow) {
-                C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
-                if (this.pendingStatus != null && ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
-                    this.pendingStatus = null;
-                    event.setCancelled(true);
-                }
-            } else if (event.getPacket() instanceof C0EPacketClickWindow) {
-                C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
+        if (!this.isEnabled() || event.getType() != EventType.SEND) {
+            return;
+        }
 
-                switch (this.mode.getValue()) {
-                    case 1: // VANILLA
-                        if (packet.getWindowId() == 0) {
-                            if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
-                                event.setCancelled(true);
-                                return;
-                            }
-                            if (this.pendingStatus != null) {
-                                KeyBinding.unPressAllKeys();
-                                event.setCancelled(true);
-                                this.clickQueue.offer(packet);
-                            }
-                        }
-                        break;
-                    case 2: // BRAINSPOOF
+        if (event.getPacket() instanceof C16PacketClientStatus) {
+            if (this.mode.getValue() == 1) {
+                C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
+                if (packet.getStatus() == EnumState.OPEN_INVENTORY_ACHIEVEMENT) {
+                    event.setCancelled(true);
+                    this.pendingStatus = packet;
+                }
+            }
+        } else if (event.getPacket() instanceof C0DPacketCloseWindow) {
+            C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
+            if (this.pendingStatus != null && ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
+                this.pendingStatus = null;
+                event.setCancelled(true);
+            }
+        } else if (event.getPacket() instanceof C0EPacketClickWindow) {
+            C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
+
+            switch (this.mode.getValue()) {
+                case 1: // VANILLA
+                    if (packet.getWindowId() == 0) {
                         if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
                             event.setCancelled(true);
-                        } else {
+                            return;
+                        }
+                        if (this.pendingStatus != null) {
                             KeyBinding.unPressAllKeys();
                             event.setCancelled(true);
                             this.clickQueue.offer(packet);
-                            this.delayTicks = 8;
                         }
-                        break;
-                    case 4: // UNSPRINT
-                        // 不需要特別封包處理，直接允許正常點擊，但走路不停 sprint
-                        break;
-                }
+                    }
+                    break;
+                case 2: // BRAINSPOOF
+                    if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
+                        event.setCancelled(true);
+                    } else {
+                        KeyBinding.unPressAllKeys();
+                        event.setCancelled(true);
+                        this.clickQueue.offer(packet);
+                        this.delayTicks = 8;
+                    }
+                    break;
+                case 4: // UNSPRINT - 不特別處理點擊封包，讓它正常運作
+                    break;
+            }
 
-                if (this.pendingStatus != null) {
-                    PacketUtil.sendPacketNoEvent(this.pendingStatus);
-                    this.pendingStatus = null;
-                }
+            if (this.pendingStatus != null) {
+                PacketUtil.sendPacketNoEvent(this.pendingStatus);
+                this.pendingStatus = null;
             }
         }
     }
@@ -207,6 +221,8 @@ public class InvWalk extends Module {
             this.pendingStatus = null;
         }
         this.delayTicks = 0;
+
+        // 關閉模組時不要強制影響 sprint，讓其他模組接管
     }
 
     @Override
