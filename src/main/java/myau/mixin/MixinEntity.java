@@ -4,7 +4,7 @@ import myau.Myau;
 import myau.event.EventManager;
 import myau.events.KnockbackEvent;
 import myau.events.SafeWalkEvent;
-import myau.mixin.interfaces.IMixinEntity;
+import myau.interfaces.IMixinEntity;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
