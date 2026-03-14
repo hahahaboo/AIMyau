@@ -19,7 +19,7 @@ public class HideConfig {
 
     public HideConfig(String name, boolean newConfig) {
         this.name = name;
-        this.file = new File("./config/MyauPlus/", String.format("%s.json", this.name));
+        this.file = new File("./config/AIMyau/", String.format("%s.json", this.name));
         try {
             file.getParentFile().mkdirs();
             if (newConfig) {
