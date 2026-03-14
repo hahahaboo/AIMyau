@@ -22,32 +22,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinEntity implements IMixinEntity {
 
 ```
-@Shadow
-public World worldObj;
-@Shadow
-public double posX;
-@Shadow
-public double posY;
-@Shadow
-public double posZ;
-@Shadow
-public double motionX;
-@Shadow
-public double motionY;
-@Shadow
-public double motionZ;
-@Shadow
-public float rotationYaw;
-@Shadow
-public float rotationPitch;
-@Shadow
-public float prevRotationYaw;
-@Shadow
-public float prevRotationPitch;
-@Shadow
-public boolean onGround;
+@Shadow public World worldObj;
+@Shadow public double posX;
+@Shadow public double posY;
+@Shadow public double posZ;
+@Shadow public double motionX;
+@Shadow public double motionY;
+@Shadow public double motionZ;
+@Shadow public float rotationYaw;
+@Shadow public float rotationPitch;
+@Shadow public float prevRotationYaw;
+@Shadow public float prevRotationPitch;
+@Shadow public boolean onGround;
 
-// Modern Backtrack true position
 private double trueX;
 private double trueY;
 private double trueZ;
@@ -58,7 +45,6 @@ public boolean isRiding() {
     return false;
 }
 
-// Capture server true position
 @Inject(method = "setPosition", at = @At("HEAD"))
 private void updateTruePosition(double x, double y, double z, CallbackInfo ci) {
     this.trueX = x;
@@ -67,13 +53,9 @@ private void updateTruePosition(double x, double y, double z, CallbackInfo ci) {
     this.truePos = true;
 }
 
-@Inject(
-        method = {"setVelocity"},
-        at = {@At("HEAD")},
-        cancellable = true
-)
+@Inject(method = "setVelocity", at = @At("HEAD"), cancellable = true)
 private void setVelocity(double x, double y, double z, CallbackInfo ci) {
-    if ((Entity) ((Object) this) instanceof EntityPlayerSP) {
+    if ((Entity)(Object)this instanceof EntityPlayerSP) {
         KnockbackEvent event = new KnockbackEvent(x, y, z);
         EventManager.call(event);
 
@@ -86,34 +68,22 @@ private void setVelocity(double x, double y, double z, CallbackInfo ci) {
     }
 }
 
-@Inject(
-        method = {"setAngles"},
-        at = {@At("HEAD")},
-        cancellable = true
-)
+@Inject(method = "setAngles", at = @At("HEAD"), cancellable = true)
 private void setAngles(CallbackInfo ci) {
-    if ((Entity) ((Object) this) instanceof EntityPlayerSP && Myau.rotationManager != null && Myau.rotationManager.isRotated()) {
+    if ((Entity)(Object)this instanceof EntityPlayerSP && Myau.rotationManager != null && Myau.rotationManager.isRotated()) {
         ci.cancel();
     }
 }
 
-@ModifyVariable(
-        method = {"moveEntity"},
-        ordinal = 0,
-        at = @At("STORE"),
-        name = {"flag"}
-)
+@ModifyVariable(method = "moveEntity", ordinal = 0, at = @At("STORE"), name = {"flag"})
 private boolean moveEntity(boolean safeWalk) {
-    if ((Entity) ((Object) this) instanceof EntityPlayerSP) {
+    if ((Entity)(Object)this instanceof EntityPlayerSP) {
         SafeWalkEvent event = new SafeWalkEvent(safeWalk);
         EventManager.call(event);
         return event.isSafeWalk();
-    } else {
-        return safeWalk;
     }
+    return safeWalk;
 }
-
-// ===== Modern Backtrack getters =====
 
 @Override
 public double getTrueX() {
@@ -134,6 +104,5 @@ public double getTrueZ() {
 public boolean getTruePos() {
     return truePos;
 }
-```
 
 }
