@@ -116,7 +116,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GlStateManager.translate(-x, -y, 0);
 
         if (FontManager.nunitoBold80 != null) {
-            FontManager.nunitoBold80.drawCenteredString("Myau+", x, y, color);
+            FontManager.nunitoBold80.drawCenteredString("AIMyau", x, y, color);
 
             // 副标题位置保持不变，确保与按钮的间距固定
             if (FontManager.productSans16 != null) {
@@ -126,14 +126,14 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             }
         } else {
             GlStateManager.scale(3.5, 3.5, 1);
-            this.drawCenteredString(this.fontRendererObj, "Myau+", (int) (x / 3.5), (int) (y / 3.5), color);
+            this.drawCenteredString(this.fontRendererObj, "AIMyau", (int) (x / 3.5), (int) (y / 3.5), color);
         }
         GlStateManager.popMatrix();
     }
 
     @Unique
     private void drawFooter() {
-        String text = "Myau+ 1.8.9";
+        String text = "AIMyau 1.8.9";
         int color = new Color(255, 255, 255, 40).getRGB();
         if (FontManager.productSans16 != null) {
             FontManager.productSans16.drawString(text, this.width - FontManager.productSans16.getStringWidth(text) - 4, this.height - 10, color);
