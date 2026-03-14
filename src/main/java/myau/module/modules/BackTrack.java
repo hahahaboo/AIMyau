@@ -345,6 +345,5 @@ private static class TimedPacket {
         this.timer.reset();
     }
 }
-```
 
 }
