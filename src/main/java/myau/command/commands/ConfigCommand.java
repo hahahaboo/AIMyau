@@ -63,12 +63,12 @@ public class ConfigCommand extends Command {
                     return;
                 case "list":
                     try {
-                        File[] configs = new File("./config/MyauPlus/").listFiles(FILE_FILTER);
+                        File[] configs = new File("./config/AIMyau/").listFiles(FILE_FILTER);
                         if (configs == null) {
                             throw new Exception();
                         }
                         if (configs.length == 0) {
-                            ChatUtil.sendFormatted(String.format("%sNo configs found (&o%s&r)&r", Myau.clientName, "./config/MyauPlus/"));
+                            ChatUtil.sendFormatted(String.format("%sNo configs found (&o%s&r)&r", Myau.clientName, "./config/AIMyau/"));
                         }
                         Arrays.sort(configs, LastModifiedFileComparator.LASTMODIFIED_REVERSE);
                         ChatUtil.sendFormatted(String.format("%sConfigs:&r", Myau.clientName));
@@ -85,7 +85,7 @@ public class ConfigCommand extends Command {
                             );
                         }
                     } catch (Exception e) {
-                        ChatUtil.sendFormatted(String.format("%sFailed to read (&o%s&r)&r", Myau.clientName, "./config/MyauPlus/"));
+                        ChatUtil.sendFormatted(String.format("%sFailed to read (&o%s&r)&r", Myau.clientName, "./config/AIMyau/"));
                     }
                     return;
                 case "f":
@@ -93,9 +93,9 @@ public class ConfigCommand extends Command {
                 case "dir":
                 case "directory":
                     try {
-                        Desktop.getDesktop().open(new File("./config/MyauPlus/"));
+                        Desktop.getDesktop().open(new File("./config/AIMyau/"));
                     } catch (Exception e) {
-                        ChatUtil.sendFormatted(String.format("%sFailed to open (&o%s&r)&r", Myau.clientName, "./config/MyauPlus/"));
+                        ChatUtil.sendFormatted(String.format("%sFailed to open (&o%s&r)&r", Myau.clientName, "./config/AIMyau/"));
                     }
                     return;
                 default:
