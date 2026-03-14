@@ -18,7 +18,7 @@ public class WaterMark extends Module {
 
     public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Exhibition", "Modern"});
 
-    public final TextProperty modernText = new TextProperty("Text", "Myau+", () -> mode.getValue() == 1);
+    public final TextProperty modernText = new TextProperty("Text", "AIMyau", () -> mode.getValue() == 1);
     public final BooleanProperty shadow = new BooleanProperty("Shadow", true, () -> mode.getValue() == 1);
 
     public WaterMark() {
