@@ -21,7 +21,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin({Entity.class})
 public abstract class MixinEntity implements IMixinEntity {
 
-```
 @Shadow public World worldObj;
 @Shadow public double posX;
 @Shadow public double posY;
