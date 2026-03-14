@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BackTrack extends Module {
 
-```
 private static final Minecraft mc = Minecraft.getMinecraft();
 
 private final IntProperty minLatency = new IntProperty("Min Latency", 50, 10, 1000);
