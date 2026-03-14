@@ -6,7 +6,7 @@ import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.UpdateEvent;
 import myau.mixin.IAccessorRenderManager;
-import myau.mixin.interfaces.IMixinEntity;
+import myau.interfaces.IMixinEntity;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
