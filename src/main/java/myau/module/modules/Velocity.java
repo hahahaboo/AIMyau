@@ -8,6 +8,7 @@ import myau.event.types.EventType;
 import myau.events.*;
 import myau.mixin.IAccessorEntity;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
@@ -56,7 +57,7 @@ public class Velocity extends Module {
     }
 
     public Velocity() {
-        super("Velocity", false);
+        super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
 
     @EventTarget
