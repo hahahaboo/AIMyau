@@ -6,6 +6,7 @@ import myau.event.types.Priority;
 import myau.events.MoveInputEvent;
 import myau.events.TickEvent;
 import myau.module.Module;
+import myau.module.Category;
 import myau.util.ItemUtil;
 import myau.util.MoveUtil;
 import myau.util.PlayerUtil;
@@ -48,7 +49,7 @@ public class Eagle extends Module {
     }
 
     public Eagle() {
-        super("Eagle", false);
+        super("Eagle", "Automatically sneaks at the edge of blocks.", Category.MOVEMENT, 0, false, false);
     }
 
     @EventTarget(Priority.LOWEST)
