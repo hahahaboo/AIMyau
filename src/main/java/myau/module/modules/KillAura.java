@@ -149,7 +149,7 @@ public class KillAura extends Module {
         this.autoBlock = new ModeProperty("auto-block", 3, new String[]{"NONE", "VANILLA", "SPOOF", "HYPIXEL", "BLINK", "INTERACT", "SWAP", "LEGIT", "FAKE"});
         this.autoBlockCPS = new FloatProperty("AutoBlockCPS", 8.0F, 1.0F, 10.0F);
         this.autoBlockRequirePress = new BooleanProperty("AutoBlockRequirePress", false);
-        this.autoBlockRange = new FloatProperty("AutoBlockRange", 6.0F, 3.0F, 8.0F);
+        this.autoBlockRange = new FloatProperty("AutoBlockRange", 6.0F, 1.0F, 8.0F);
         this.swingRange = new FloatProperty("SwingRange", 3.5F, 3.0F, 6.0F);
         this.attackRange = new FloatProperty("AttackRange", 3.0F, 3.0F, 6.0F);
         this.fov = new IntProperty("FOV", 360, 30, 360);
