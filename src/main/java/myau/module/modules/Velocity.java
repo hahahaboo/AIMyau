@@ -40,7 +40,7 @@ public class Velocity extends Module {
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
     public final PercentProperty chance = new PercentProperty("chance", 100);
-    public final PercentProperty horizontal = new PercentProperty("horizontal", 0);
+    public final PercentProperty horizontal = new PercentProperty("horizontal", 100);
     public final PercentProperty vertical = new PercentProperty("vertical", 100);
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100);
