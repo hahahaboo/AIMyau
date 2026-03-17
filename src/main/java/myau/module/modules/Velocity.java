@@ -39,9 +39,9 @@ public class Velocity extends Module {
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "JUMP", "DELAY", "REVERSE", "LEGIT_TEST"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
-    public final PercentProperty chance = new PercentProperty("chance", 100);
-    public final PercentProperty horizontal = new PercentProperty("horizontal", 100);
-    public final PercentProperty vertical = new PercentProperty("vertical", 100);
+    public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
+    public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
+    public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100);
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
@@ -86,17 +86,19 @@ public class Velocity extends Module {
                 if (this.chanceCounter >= 100) {
                     this.jumpFlag = (this.mode.getValue() == 1 || this.mode.getValue() == 2) && event.getY() > 0.0;
                     this.delayActive = this.mode.getValue() == 3;
-                    if (this.horizontal.getValue() > 0) {
-                        event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
-                        event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
-                    } else {
-                        event.setX(mc.thePlayer.motionX);
-                        event.setZ(mc.thePlayer.motionZ);
-                    }
-                    if (this.vertical.getValue() > 0) {
-                        event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
-                    } else {
-                        event.setY(mc.thePlayer.motionY);
+                    if (this.mode.getValue() == 0) {
+                        if (this.horizontal.getValue() > 0) {
+                            event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
+                            event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
+                        } else {
+                            event.setX(mc.thePlayer.motionX);
+                            event.setZ(mc.thePlayer.motionZ);
+                        }
+                        if (this.vertical.getValue() > 0) {
+                            event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
+                        } else {
+                            event.setY(mc.thePlayer.motionY);
+                        }
                     }
                 }
             }
