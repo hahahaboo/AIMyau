@@ -42,7 +42,7 @@ public class Velocity extends Module {
     // REVERSE mode 專用
     private boolean reverseFlag = false;
 
-    // LEGIT_TEST mode 專用（目前為 jump 變體，可再擴充）
+    // LEGIT_TEST mode 專用
     private boolean shouldJump = false;
     private int jumpCooldown = 0;
 
@@ -76,12 +76,10 @@ public class Velocity extends Module {
         super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
 
-    @Override
     public void onEnable() {
         resetAllStates();
     }
 
-    @Override
     public void onDisable() {
         resetAllStates();
     }
@@ -126,7 +124,7 @@ public class Velocity extends Module {
                     }
                 } else {
                     chanceCounter = (chanceCounter + chance.getValue()) % 100;
-                    if (chanceCounter >= 100 - chance.getValue()) { // 更精確的機率判斷
+                    if (chance.getValue() == 100 || chanceCounter < chance.getValue()) { // 修正機率判斷更直觀
                         if (horizontal.getValue() > 0) {
                             event.setX(event.getX() * horizontal.getValue() / 100.0);
                             event.setZ(event.getZ() * horizontal.getValue() / 100.0);
@@ -143,7 +141,6 @@ public class Velocity extends Module {
                 }
             }
         }
-        // 其他模式不在 onKnockback 這裡處理 → 移到 packet / update 事件
     }
 
     @EventTarget
@@ -161,15 +158,13 @@ public class Velocity extends Module {
                         (!allowNextKnockback || !(Boolean) fakeCheck.getValue())) {
 
                     delayChanceCounter = (delayChanceCounter + delayChance.getValue()) % 100;
-                    if (delayChanceCounter >= 100 - delayChance.getValue()) {
+                    if (delayChance.getValue() == 100 || delayChanceCounter < delayChance.getValue()) {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
                         event.setCancelled(true);
-                        return; // 不執行後續
+                        return;
                     }
                 }
-            } else if (currentMode == 3) { // REVERSE
-                // REVERSE 模式可在此加入特殊邏輯（目前僅用 reverseFlag 標記，實際反轉在 update 處理）
             }
 
             if (debugLog.getValue()) {
@@ -214,7 +209,6 @@ public class Velocity extends Module {
 
         int currentMode = this.mode.getValue();
 
-        // DELAY mode 釋放
         if (currentMode == 2 && reverseFlag) {
             if (canDelay() || isInLiquidOrWeb() || Myau.delayManager.getDelay() >= delayTicks.getValue()) {
                 Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
@@ -222,13 +216,11 @@ public class Velocity extends Module {
             }
         }
 
-        // DELAY mode 速度補償（如果需要）
         if (currentMode == 2 && delayActive) {
             MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
             delayActive = false;
         }
 
-        // LEGIT_TEST mode jump logic
         if (currentMode == 4) {
             int hurt = mc.thePlayer.hurtTime;
             if (hurt >= 8) {
@@ -254,7 +246,8 @@ public class Velocity extends Module {
     public void onLivingUpdate(LivingUpdateEvent event) {
         if (!this.isEnabled()) return;
 
-        if (mode.getValue() == 1 || mode.getValue() == 2) { // JUMP or DELAY (有垂直 knockback 時跳)
+        int currentMode = this.mode.getValue();
+        if (currentMode == 1 || currentMode == 2) {
             if (jumpFlag) {
                 jumpFlag = false;
                 if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() &&
