@@ -37,15 +37,22 @@ public class Velocity extends Module {
     private int jumpCooldown = 0;
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "JUMP", "DELAY", "REVERSE", "LEGIT_TEST"});
-    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
-    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
+    
+    // 只在 VANILLA mode 顯示的設定
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
-    public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100);
-    public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100);
+    
+    // 爆炸相關設定也只在 VANILLA mode 顯示
+    public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
+    public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
+    
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
+    
+    // DELAY mode 專屬設定
+    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
+    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
 
     private boolean isInLiquidOrWeb() {
         return mc.thePlayer.isInWater() || mc.thePlayer.isInLava() || ((IAccessorEntity) mc.thePlayer).getIsInWeb();
@@ -65,27 +72,38 @@ public class Velocity extends Module {
         if (!this.isEnabled() || event.isCancelled()) {
             this.pendingExplosion = false;
             this.allowNext = true;
-        } else if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
+            return;
+        }
+
+        if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
             this.allowNext = true;
+
             if (this.pendingExplosion) {
                 this.pendingExplosion = false;
-                if (this.explosionHorizontal.getValue() > 0) {
-                    event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
-                    event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
-                } else {
-                    event.setX(mc.thePlayer.motionX);
-                    event.setZ(mc.thePlayer.motionZ);
+                
+                // 爆炸處理只在 VANILLA mode 才套用自訂比例，其他模式保持原版爆炸效果
+                if (this.mode.getValue() == 0) {
+                    if (this.explosionHorizontal.getValue() > 0) {
+                        event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
+                        event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+                    } else {
+                        event.setX(mc.thePlayer.motionX);
+                        event.setZ(mc.thePlayer.motionZ);
+                    }
+                    if (this.explosionVertical.getValue() > 0) {
+                        event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                    } else {
+                        event.setY(mc.thePlayer.motionY);
+                    }
                 }
-                if (this.explosionVertical.getValue() > 0) {
-                    event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
-                } else {
-                    event.setY(mc.thePlayer.motionY);
-                }
+                // 其他 mode 不特別處理爆炸 → 保持原版行為
             } else {
+                // 非爆炸的普通 knockback 處理
                 this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
                 if (this.chanceCounter >= 100) {
                     this.jumpFlag = (this.mode.getValue() == 1 || this.mode.getValue() == 2) && event.getY() > 0.0;
-                    this.delayActive = this.mode.getValue() == 3;
+                    this.delayActive = this.mode.getValue() == 2;
+
                     if (this.mode.getValue() == 0) {
                         if (this.horizontal.getValue() > 0) {
                             event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
@@ -193,21 +211,16 @@ public class Velocity extends Module {
                         );
                     }
                 }
-            } else if (!(event.getPacket() instanceof S27PacketExplosion)) {
-                if (event.getPacket() instanceof S19PacketEntityStatus) {
-                    S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
-                    Entity entity = packet.getEntity(mc.theWorld);
-                    if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                        this.allowNext = false;
-                    }
-                }
-            } else {
+            } else if (event.getPacket() instanceof S27PacketExplosion) {
                 S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
                 if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
                     this.pendingExplosion = true;
-                    if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
+                    
+                    // 只有 VANILLA mode 才允許取消或修改爆炸包，其他模式一律不攔截爆炸包
+                    if (this.mode.getValue() == 0 && (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0)) {
                         event.setCancelled(true);
                     }
+                    
                     if (this.debugLog.getValue()) {
                         ChatUtil.sendFormatted(
                                 String.format(
@@ -220,6 +233,12 @@ public class Velocity extends Module {
                                 )
                         );
                     }
+                }
+            } else if (event.getPacket() instanceof S19PacketEntityStatus) {
+                S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
+                Entity entity = packet.getEntity(mc.theWorld);
+                if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
+                    this.allowNext = false;
                 }
             }
         }
