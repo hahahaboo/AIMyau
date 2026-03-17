@@ -25,34 +25,43 @@ import net.minecraft.potion.Potion;
 public class Velocity extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
+    // 通用計數器
     private int chanceCounter = 0;
-    private int delayChanceCounter = 0;
+
+    // VANILLA mode 專用
     private boolean pendingExplosion = false;
-    private boolean allowNext = true;
+    private boolean allowNextKnockback = true;
+
+    // JUMP mode 專用
     private boolean jumpFlag = false;
-    private boolean reverseFlag = false;
+
+    // DELAY mode 專用
+    private int delayChanceCounter = 0;
     private boolean delayActive = false;
 
+    // REVERSE mode 專用
+    private boolean reverseFlag = false;
+
+    // LEGIT_TEST mode 專用（目前為 jump 變體，可再擴充）
     private boolean shouldJump = false;
     private int jumpCooldown = 0;
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "JUMP", "DELAY", "REVERSE", "LEGIT_TEST"});
-    
-    // 只在 VANILLA mode 顯示的設定
+
+    // VANILLA 專屬設定
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
-    
-    // 爆炸相關設定也只在 VANILLA mode 顯示
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
-    
-    public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
-    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
-    
-    // DELAY mode 專屬設定
+
+    // DELAY 專屬設定
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
+
+    // 通用設定
+    public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
+    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean isInLiquidOrWeb() {
         return mc.thePlayer.isInWater() || mc.thePlayer.isInLava() || ((IAccessorEntity) mc.thePlayer).getIsInWeb();
@@ -67,53 +76,66 @@ public class Velocity extends Module {
         super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
 
+    @Override
+    public void onEnable() {
+        resetAllStates();
+    }
+
+    @Override
+    public void onDisable() {
+        resetAllStates();
+    }
+
+    private void resetAllStates() {
+        chanceCounter = 0;
+        delayChanceCounter = 0;
+        pendingExplosion = false;
+        allowNextKnockback = true;
+        jumpFlag = false;
+        reverseFlag = false;
+        delayActive = false;
+        shouldJump = false;
+        jumpCooldown = 0;
+
+        Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
+    }
+
     @EventTarget
     public void onKnockback(KnockbackEvent event) {
-        if (!this.isEnabled() || event.isCancelled()) {
-            this.pendingExplosion = false;
-            this.allowNext = true;
-            return;
-        }
+        if (!this.isEnabled() || event.isCancelled()) return;
 
-        if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
-            this.allowNext = true;
+        int currentMode = this.mode.getValue();
 
-            if (this.pendingExplosion) {
-                this.pendingExplosion = false;
-                
-                // 爆炸處理只在 VANILLA mode 才套用自訂比例，其他模式保持原版爆炸效果
-                if (this.mode.getValue() == 0) {
-                    if (this.explosionHorizontal.getValue() > 0) {
-                        event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
-                        event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+        if (currentMode == 0) { // VANILLA
+            if (!allowNextKnockback || !(Boolean) fakeCheck.getValue()) {
+                allowNextKnockback = true;
+
+                if (pendingExplosion) {
+                    pendingExplosion = false;
+                    if (explosionHorizontal.getValue() > 0) {
+                        event.setX(event.getX() * explosionHorizontal.getValue() / 100.0);
+                        event.setZ(event.getZ() * explosionHorizontal.getValue() / 100.0);
                     } else {
                         event.setX(mc.thePlayer.motionX);
                         event.setZ(mc.thePlayer.motionZ);
                     }
-                    if (this.explosionVertical.getValue() > 0) {
-                        event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                    if (explosionVertical.getValue() > 0) {
+                        event.setY(event.getY() * explosionVertical.getValue() / 100.0);
                     } else {
                         event.setY(mc.thePlayer.motionY);
                     }
-                }
-                // 其他 mode 不特別處理爆炸 → 保持原版行為
-            } else {
-                // 非爆炸的普通 knockback 處理
-                this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
-                if (this.chanceCounter >= 100) {
-                    this.jumpFlag = (this.mode.getValue() == 1 || this.mode.getValue() == 2) && event.getY() > 0.0;
-                    this.delayActive = this.mode.getValue() == 2;
-
-                    if (this.mode.getValue() == 0) {
-                        if (this.horizontal.getValue() > 0) {
-                            event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
-                            event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
+                } else {
+                    chanceCounter = (chanceCounter + chance.getValue()) % 100;
+                    if (chanceCounter >= 100 - chance.getValue()) { // 更精確的機率判斷
+                        if (horizontal.getValue() > 0) {
+                            event.setX(event.getX() * horizontal.getValue() / 100.0);
+                            event.setZ(event.getZ() * horizontal.getValue() / 100.0);
                         } else {
                             event.setX(mc.thePlayer.motionX);
                             event.setZ(mc.thePlayer.motionZ);
                         }
-                        if (this.vertical.getValue() > 0) {
-                            event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
+                        if (vertical.getValue() > 0) {
+                            event.setY(event.getY() * vertical.getValue() / 100.0);
                         } else {
                             event.setY(mc.thePlayer.motionY);
                         }
@@ -121,124 +143,123 @@ public class Velocity extends Module {
                 }
             }
         }
+        // 其他模式不在 onKnockback 這裡處理 → 移到 packet / update 事件
+    }
+
+    @EventTarget
+    public void onPacket(PacketEvent event) {
+        if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) return;
+
+        int currentMode = this.mode.getValue();
+
+        if (event.getPacket() instanceof S12PacketEntityVelocity) {
+            S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
+            if (packet.getEntityID() != mc.thePlayer.getEntityId()) return;
+
+            if (currentMode == 2) { // DELAY
+                if (!reverseFlag && canDelay() && !isInLiquidOrWeb() && !pendingExplosion &&
+                        (!allowNextKnockback || !(Boolean) fakeCheck.getValue())) {
+
+                    delayChanceCounter = (delayChanceCounter + delayChance.getValue()) % 100;
+                    if (delayChanceCounter >= 100 - delayChance.getValue()) {
+                        Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
+                        Myau.delayManager.delayedPacket.offer(packet);
+                        event.setCancelled(true);
+                        return; // 不執行後續
+                    }
+                }
+            } else if (currentMode == 3) { // REVERSE
+                // REVERSE 模式可在此加入特殊邏輯（目前僅用 reverseFlag 標記，實際反轉在 update 處理）
+            }
+
+            if (debugLog.getValue()) {
+                ChatUtil.sendFormatted(String.format(
+                        "%sVelocity (&otick: %d, x: %.2f, y: %.2f, z: %.2f&r)&r",
+                        Myau.clientName, mc.thePlayer.ticksExisted,
+                        packet.getMotionX() / 8000.0, packet.getMotionY() / 8000.0, packet.getMotionZ() / 8000.0
+                ));
+            }
+        } else if (event.getPacket() instanceof S27PacketExplosion) {
+            S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
+            float mx = packet.func_149149_c(), my = packet.func_149144_d(), mz = packet.func_149147_e();
+            if (mx == 0 && my == 0 && mz == 0) return;
+
+            pendingExplosion = true;
+
+            if (currentMode == 0 && (explosionHorizontal.getValue() == 0 || explosionVertical.getValue() == 0)) {
+                event.setCancelled(true);
+            }
+
+            if (debugLog.getValue()) {
+                ChatUtil.sendFormatted(String.format(
+                        "%sExplosion (&otick: %d, x: %.2f, y: %.2f, z: %.2f&r)&r",
+                        Myau.clientName, mc.thePlayer.ticksExisted,
+                        mc.thePlayer.motionX + mx, mc.thePlayer.motionY + my, mc.thePlayer.motionZ + mz
+                ));
+            }
+        } else if (event.getPacket() instanceof S19PacketEntityStatus) {
+            S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
+            if (packet.getOpCode() == 2) {
+                Entity entity = packet.getEntity(mc.theWorld);
+                if (entity != null && entity == mc.thePlayer) {
+                    allowNextKnockback = false;
+                }
+            }
+        }
     }
 
     @EventTarget
     public void onUpdate(UpdateEvent event) {
-        if (event.getType() == EventType.POST) {
-            if (this.reverseFlag
-                    && (
-                    this.canDelay()
-                            || this.isInLiquidOrWeb()
-                            || Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
-            )) {
+        if (event.getType() != EventType.POST) return;
+
+        int currentMode = this.mode.getValue();
+
+        // DELAY mode 釋放
+        if (currentMode == 2 && reverseFlag) {
+            if (canDelay() || isInLiquidOrWeb() || Myau.delayManager.getDelay() >= delayTicks.getValue()) {
                 Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
-                this.reverseFlag = false;
+                reverseFlag = false;
             }
-            if (this.delayActive) {
-                MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
-                this.delayActive = false;
+        }
+
+        // DELAY mode 速度補償（如果需要）
+        if (currentMode == 2 && delayActive) {
+            MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
+            delayActive = false;
+        }
+
+        // LEGIT_TEST mode jump logic
+        if (currentMode == 4) {
+            int hurt = mc.thePlayer.hurtTime;
+            if (hurt >= 8) {
+                if (jumpCooldown <= 0) {
+                    shouldJump = true;
+                    jumpCooldown = 2;
+                }
+            } else if (hurt <= 1) {
+                shouldJump = false;
+                jumpCooldown = 0;
             }
 
-            if (this.mode.getValue() == 4) {
-                int hurtTime = mc.thePlayer.hurtTime;
-
-                if (hurtTime >= 8) {
-                    if (jumpCooldown <= 0) {
-                        shouldJump = true;
-                        jumpCooldown = 2;
-                    }
-                } else if (hurtTime <= 1) {
-                    shouldJump = false;
-                    jumpCooldown = 0;
-                }
-
-                if (shouldJump && mc.thePlayer.onGround && jumpCooldown <= 0) {
-                    mc.thePlayer.jump();
-                    shouldJump = false;
-                }
-
-                if (jumpCooldown > 0) {
-                    jumpCooldown--;
-                }
+            if (shouldJump && mc.thePlayer.onGround && jumpCooldown <= 0) {
+                mc.thePlayer.jump();
+                shouldJump = false;
             }
+
+            if (jumpCooldown > 0) jumpCooldown--;
         }
     }
 
     @EventTarget
     public void onLivingUpdate(LivingUpdateEvent event) {
-        if (this.jumpFlag) {
-            this.jumpFlag = false;
-            if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() && !mc.thePlayer.isPotionActive(Potion.jump) && !this.isInLiquidOrWeb()) {
-                mc.thePlayer.movementInput.jump = true;
-            }
-        }
-    }
+        if (!this.isEnabled()) return;
 
-    @EventTarget
-    public void onPacket(PacketEvent event) {
-        if (this.isEnabled() && event.getType() == EventType.RECEIVE && !event.isCancelled()) {
-            if (event.getPacket() instanceof S12PacketEntityVelocity) {
-                S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
-                if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
-                    LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
-                    if (this.mode.getValue() == 2
-                            && !this.reverseFlag
-                            && !this.canDelay()
-                            && !this.isInLiquidOrWeb()
-                            && !this.pendingExplosion
-                            && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())
-                            && (!longJump.isEnabled() || !longJump.canStartJump())) {
-                        this.delayChanceCounter = this.delayChanceCounter % 100 + this.delayChance.getValue();
-                        if (this.delayChanceCounter >= 100) {
-                            Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
-                            Myau.delayManager.delayedPacket.offer(packet);
-                            event.setCancelled(true);
-                            this.reverseFlag = true;
-                            return;
-                        }
-                    }
-                    if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(
-                                String.format(
-                                        "%sVelocity (&otick: %d, x: %.2f, y: %.2f, z: %.2f&r)&r",
-                                        Myau.clientName,
-                                        mc.thePlayer.ticksExisted,
-                                        (double) packet.getMotionX() / 8000.0,
-                                        (double) packet.getMotionY() / 8000.0,
-                                        (double) packet.getMotionZ() / 8000.0
-                                )
-                        );
-                    }
-                }
-            } else if (event.getPacket() instanceof S27PacketExplosion) {
-                S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
-                if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
-                    this.pendingExplosion = true;
-                    
-                    // 只有 VANILLA mode 才允許取消或修改爆炸包，其他模式一律不攔截爆炸包
-                    if (this.mode.getValue() == 0 && (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0)) {
-                        event.setCancelled(true);
-                    }
-                    
-                    if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(
-                                String.format(
-                                        "%sExplosion (&otick: %d, x: %.2f, y: %.2f, z: %.2f&r)&r",
-                                        Myau.clientName,
-                                        mc.thePlayer.ticksExisted,
-                                        mc.thePlayer.motionX + (double) packet.func_149149_c(),
-                                        mc.thePlayer.motionY + (double) packet.func_149144_d(),
-                                        mc.thePlayer.motionZ + (double) packet.func_149147_e()
-                                )
-                        );
-                    }
-                }
-            } else if (event.getPacket() instanceof S19PacketEntityStatus) {
-                S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
-                Entity entity = packet.getEntity(mc.theWorld);
-                if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                    this.allowNext = false;
+        if (mode.getValue() == 1 || mode.getValue() == 2) { // JUMP or DELAY (有垂直 knockback 時跳)
+            if (jumpFlag) {
+                jumpFlag = false;
+                if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() &&
+                        !mc.thePlayer.isPotionActive(Potion.jump) && !isInLiquidOrWeb()) {
+                    mc.thePlayer.movementInput.jump = true;
                 }
             }
         }
@@ -246,19 +267,11 @@ public class Velocity extends Module {
 
     @EventTarget
     public void onLoadWorld(LoadWorldEvent event) {
-        this.onDisabled();
-    }
-
-    @Override
-    public void onDisabled() {
-        this.pendingExplosion = false;
-        this.allowNext = true;
-        this.shouldJump = false;
-        this.jumpCooldown = 0;
+        resetAllStates();
     }
 
     @Override
     public String[] getSuffix() {
-        return new String[]{CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, this.mode.getModeString())};
+        return new String[]{CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, mode.getModeString())};
     }
 }
