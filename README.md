@@ -1,31 +1,17 @@
-MyauPlus
+# AIMyau
 
-一个基于 Openmyau-0910 的 Forge 辅助模组。
+base on [MyauPlus](https://github.com/UnfairGaming/MyauPlus)
 
-整合内容包含：
+support by：
 
-RavenBS+
+Grok
 
-Epilogue
-
-NightSky
-
-技术支持：
-
-Gemini3
+Gemini
 
 DeepSeek
 
+ChatGPT
+
 -----------------------------------------
 
-如何构建？
-
-1.打开你的idea
-
-2.打开此项目
-
-3.将你的大象（gradle）设置为jdk17
-
-4.运行gradle build
-
-另外注意。本项目有大量ai code所导致的注释。我懒得删了。
+get latest build at [github action](https://github.com/hahahaboo/AIMyau/actions)
