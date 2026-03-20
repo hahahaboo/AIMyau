@@ -8,7 +8,6 @@ import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.TickEvent;
 import myau.events.UpdateEvent;
-import myau.mixin.IAccessorC0DPacketCloseWindow;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.ModeProperty;
@@ -19,10 +18,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
-import net.minecraft.network.play.client.C16PacketClientStatus;
-import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,13 +27,12 @@ public class InvWalk extends Module {
 
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    public final ModeProperty mode = new ModeProperty("mode", 1,
-            new String[]{"VANILLA", "BRAINSPOOF", "HYPIXEL", "UNSPRINT"});
+    public final ModeProperty mode = new ModeProperty("mode", 0,
+            new String[]{"VANILLA", "HYPIXEL", "UNSPRINT"});
 
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
 
     private boolean keysPressed = false;
-    private C16PacketClientStatus pendingStatus = null;
     private int delayTicks = 0;
 
     public InvWalk() {
@@ -58,7 +53,7 @@ public class InvWalk extends Module {
             KeyBindUtil.updateKeyState(keyBinding.getKeyCode());
         }
 
-        boolean unsprintMode = this.mode.getValue() == 3;
+        boolean unsprintMode = this.mode.getValue() == 2;
 
         if (unsprintMode && mc.currentScreen instanceof GuiContainer) {
 
@@ -90,19 +85,13 @@ public class InvWalk extends Module {
 
         switch (this.mode.getValue()) {
 
-            case 1:
-                if (!(mc.currentScreen instanceof GuiInventory)) {
-                    return false;
-                }
-                return this.pendingStatus != null && this.clickQueue.isEmpty();
-
-            case 2:
+            case 1: // HYPIXEL
                 return this.clickQueue.isEmpty();
 
-            case 3:
+            case 2: // UNSPRINT
                 return true;
 
-            default:
+            default: // VANILLA
                 return true;
         }
     }
@@ -129,7 +118,7 @@ public class InvWalk extends Module {
                 this.pressMovementKeys();
 
                 // 確保 GUI 中不 sprint
-                if (this.mode.getValue() == 3 && mc.currentScreen instanceof GuiContainer) {
+                if (this.mode.getValue() == 2 && mc.currentScreen instanceof GuiContainer) {
                     mc.thePlayer.setSprinting(false);
                 }
 
@@ -144,11 +133,6 @@ public class InvWalk extends Module {
                     this.keysPressed = false;
                 }
 
-                if (this.pendingStatus != null) {
-                    PacketUtil.sendPacketNoEvent(this.pendingStatus);
-                    this.pendingStatus = null;
-                }
-
                 if (this.delayTicks > 0) {
                     this.delayTicks--;
                 }
@@ -161,64 +145,13 @@ public class InvWalk extends Module {
 
         if (this.isEnabled() && event.getType() == EventType.SEND) {
 
-            if (event.getPacket() instanceof C16PacketClientStatus) {
-
-                if (this.mode.getValue() == 1) {
-
-                    C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
-
-                    if (packet.getStatus() == EnumState.OPEN_INVENTORY_ACHIEVEMENT) {
-
-                        event.setCancelled(true);
-                        this.pendingStatus = packet;
-
-                    }
-                }
-
-            } else if (!(event.getPacket() instanceof C0EPacketClickWindow)) {
-
-                if (event.getPacket() instanceof C0DPacketCloseWindow) {
-
-                    C0DPacketCloseWindow packet = (C0DPacketCloseWindow) event.getPacket();
-
-                    if (this.pendingStatus != null &&
-                            ((IAccessorC0DPacketCloseWindow) packet).getWindowId() == 0) {
-
-                        this.pendingStatus = null;
-                        event.setCancelled(true);
-
-                    }
-                }
-
-            } else {
+            if (event.getPacket() instanceof C0EPacketClickWindow) {
 
                 C0EPacketClickWindow packet = (C0EPacketClickWindow) event.getPacket();
 
                 switch (this.mode.getValue()) {
 
-                    case 1:
-
-                        if (packet.getWindowId() == 0) {
-
-                            if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
-
-                                event.setCancelled(true);
-                                return;
-
-                            }
-
-                            if (this.pendingStatus != null) {
-
-                                KeyBinding.unPressAllKeys();
-                                event.setCancelled(true);
-                                this.clickQueue.offer(packet);
-
-                            }
-                        }
-
-                        break;
-
-                    case 2:
+                    case 1: // HYPIXEL
 
                         if ((packet.getMode() == 3 || packet.getMode() == 4) && packet.getSlotId() == -999) {
 
@@ -235,13 +168,6 @@ public class InvWalk extends Module {
 
                         break;
                 }
-
-                if (this.pendingStatus != null) {
-
-                    PacketUtil.sendPacketNoEvent(this.pendingStatus);
-                    this.pendingStatus = null;
-
-                }
             }
         }
     }
@@ -256,11 +182,6 @@ public class InvWalk extends Module {
             }
 
             this.keysPressed = false;
-        }
-
-        if (this.pendingStatus != null) {
-            PacketUtil.sendPacketNoEvent(this.pendingStatus);
-            this.pendingStatus = null;
         }
 
         this.delayTicks = 0;
