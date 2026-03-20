@@ -35,16 +35,16 @@ public class InvManager extends Module {
     public final BooleanProperty dropTrash = new BooleanProperty("drop-trash", false);
     public final BooleanProperty checkDurability = new BooleanProperty("check-durability", true);
     public final IntProperty swordSlot = new IntProperty("sword-slot", 1, 0, 9);
-    public final IntProperty pickaxeSlot = new IntProperty("pickaxe-slot", 3, 0, 9);
-    public final IntProperty shovelSlot = new IntProperty("shovel-slot", 4, 0, 9);
-    public final IntProperty axeSlot = new IntProperty("axe-slot", 5, 0, 9);
-    public final IntProperty blocksSlot = new IntProperty("blocks-slot", 2, 0, 9);
-    public final IntProperty blocks = new IntProperty("blocks", 128, 64, 2304);
-    public final IntProperty projectileSlot = new IntProperty("projectile-slot", 7, 0, 9);
+    public final IntProperty bowSlot = new IntProperty("bow-slot", 2, 0, 9);
+    public final IntProperty projectileSlot = new IntProperty("projectile-slot", 4, 0, 9);
+    public final IntProperty pickaxeSlot = new IntProperty("pickaxe-slot", 5, 0, 9);
+    public final IntProperty axeSlot = new IntProperty("axe-slot", 6, 0, 9);
+    public final IntProperty shovelSlot = new IntProperty("shovel-slot", 7, 0, 9);
+    public final IntProperty goldAppleSlot = new IntProperty("gold-apple-slot", 8, 0, 9);
+    public final IntProperty blocksSlot = new IntProperty("blocks-slot", 9, 0, 9);
+    public final IntProperty blocks = new IntProperty("blocks", 256, 64, 2304);
     public final IntProperty projectiles = new IntProperty("projectiles", 64, 16, 2304);
-    public final IntProperty goldAppleSlot = new IntProperty("gold-apple-slot", 9, 0, 9);
     public final IntProperty arrow = new IntProperty("arrow", 256, 0, 2304);
-    public final IntProperty bowSlot = new IntProperty("bow-slot", 8, 0, 9);
 
     private boolean isValidGameMode() {
         GameType gameType = mc.playerController.getCurrentGameType();
