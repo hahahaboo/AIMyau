@@ -2,13 +2,12 @@ package myau.mixin;
 
 import myau.Myau;
 import myau.event.EventManager;
+import myau.event.events.RenderLivingEvent;
 import myau.event.types.EventType;
-import myau.events.RenderLivingEvent;
 import myau.module.modules.ESP;
 import myau.module.modules.NameTags;
 import net.minecraft.client.renderer.entity.Render;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.entity.RendererLivingEntity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -19,10 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @SideOnly(Side.CLIENT)
-@Mixin(
-        value = {RendererLivingEntity.class},
-        priority = 991
-)
+@Mixin({RendererLivingEntity.class})
 public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> extends Render<T> {
     protected MixinRendererLivingEntity(RenderManager renderManager) {
         super(renderManager);
@@ -45,17 +41,11 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
     }
 
     @Inject(method = "canRenderName(Lnet/minecraft/entity/EntityLivingBase;)Z", at = @At("HEAD"), cancellable = true)
-    private void canRenderName(T entity, CallbackInfoReturnable<Boolean> cir) {
+    private void canRenderName(T entity, CallbackInfoReturnable cir) {
         if (Myau.moduleManager == null) return;
 
         NameTags nameTags = (NameTags) Myau.moduleManager.modules.get(NameTags.class);
         if (nameTags != null && nameTags.isEnabled() && nameTags.shouldRenderTags(entity)) {
-            cir.setReturnValue(false);
-            return;
-        }
-
-        myau.module.modules.ESP2D esp2d = (myau.module.modules.ESP2D) Myau.moduleManager.modules.get(myau.module.modules.ESP2D.class);
-        if (esp2d != null && esp2d.isEnabled() && esp2d.tagsValue.getValue() && esp2d.isValidEntity(entity)) {
             cir.setReturnValue(false);
             return;
         }
