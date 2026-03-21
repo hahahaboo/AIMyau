@@ -1,12 +1,10 @@
 package myau.mixin;
 
 import myau.Myau;
-import myau.module.modules.AntiObbyTrap;
 import myau.module.modules.Jesus;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
-import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
@@ -43,18 +41,6 @@ public abstract class MixinWorld {
             )
     )
     private IBlockState rayTraceBlocks(World world, BlockPos blockPos) {
-        if (Myau.moduleManager == null) {
-            return world.getBlockState(blockPos);
-        } else {
-            AntiObbyTrap antiObbyTrap = (AntiObbyTrap) Myau.moduleManager.modules.get(AntiObbyTrap.class);
-            if (antiObbyTrap.isEnabled() && antiObbyTrap.isInsideBlock(world, blockPos)) {
-                if (antiObbyTrap.setAir.getValue()) {
-                    world.setBlockToAir(blockPos);
-                }
-                return Blocks.air.getDefaultState();
-            } else {
-                return world.getBlockState(blockPos);
-            }
-        }
+        return world.getBlockState(blockPos);
     }
 }

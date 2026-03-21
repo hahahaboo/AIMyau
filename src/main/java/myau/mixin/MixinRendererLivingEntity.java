@@ -54,12 +54,6 @@ public abstract class MixinRendererLivingEntity<T extends EntityLivingBase> exte
             return;
         }
 
-        myau.module.modules.ESP2D esp2d = (myau.module.modules.ESP2D) Myau.moduleManager.modules.get(myau.module.modules.ESP2D.class);
-        if (esp2d != null && esp2d.isEnabled() && esp2d.tagsValue.getValue() && esp2d.isValidEntity(entity)) {
-            cir.setReturnValue(false);
-            return;
-        }
-
         ESP esp = (ESP) Myau.moduleManager.modules.get(ESP.class);
         if (esp != null && esp.isEnabled() && !esp.isOutlineEnabled()) {
             cir.setReturnValue(false);

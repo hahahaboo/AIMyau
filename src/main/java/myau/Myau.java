@@ -65,10 +65,8 @@ public class Myau {
         moduleManager.modules.put(Animations.class, new Animations());
         moduleManager.modules.put(AntiDebuff.class, new AntiDebuff());
         moduleManager.modules.put(AntiFireball.class, new AntiFireball());
-        moduleManager.modules.put(AntiObbyTrap.class, new AntiObbyTrap());
         moduleManager.modules.put(AntiObfuscate.class, new AntiObfuscate());
         moduleManager.modules.put(AntiVoid.class, new AntiVoid());
-        moduleManager.modules.put(AutoBan.class, new AutoBan());
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoHeal.class, new AutoHeal());
@@ -84,7 +82,6 @@ public class Myau {
         moduleManager.modules.put(ChestStealer.class, new ChestStealer());
         moduleManager.modules.put(ClickGUIModule.class, new ClickGUIModule());
         moduleManager.modules.put(Eagle.class, new Eagle());
-        moduleManager.modules.put(ESP2D.class, new ESP2D());
         moduleManager.modules.put(ESP.class, new ESP());
         moduleManager.modules.put(FastPlace.class, new FastPlace());
         moduleManager.modules.put(Fly.class, new Fly());
@@ -99,7 +96,6 @@ public class Myau {
         moduleManager.modules.put(KeepSprint.class, new KeepSprint());
         moduleManager.modules.put(KillAura.class, new KillAura());
         moduleManager.modules.put(LagRange.class, new LagRange());
-        moduleManager.modules.put(LightningTracker.class, new LightningTracker());
         moduleManager.modules.put(LongJump.class, new LongJump());
         moduleManager.modules.put(MCF.class, new MCF());
         moduleManager.modules.put(MoreKB.class, new MoreKB());
@@ -122,14 +118,12 @@ public class Myau {
         moduleManager.modules.put(TargetESP.class, new TargetESP());
         moduleManager.modules.put(TargetHUD.class, new TargetHUD());
         moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());
-        moduleManager.modules.put(ThrowAura.class, new ThrowAura());
         moduleManager.modules.put(Tracers.class, new Tracers());
         moduleManager.modules.put(Trajectories.class, new Trajectories());
         moduleManager.modules.put(Velocity.class, new Velocity());
         moduleManager.modules.put(ViewClip.class, new ViewClip());
         moduleManager.modules.put(WaterMark.class, new WaterMark());
         moduleManager.modules.put(Wtap.class, new Wtap());
-        moduleManager.modules.put(Xray.class, new Xray());
 
         commandManager.commands.add(new BindCommand());
         commandManager.commands.add(new ClickGuiCommand());
