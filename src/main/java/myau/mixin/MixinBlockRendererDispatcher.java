@@ -2,7 +2,6 @@ package myau.mixin;
 
 import myau.Myau;
 import myau.module.modules.BedESP;
-import myau.module.modules.Xray;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockBed;
 import net.minecraft.block.BlockBed.EnumPartType;
@@ -36,14 +35,6 @@ public abstract class MixinBlockRendererDispatcher {
             BedESP bedESP = (BedESP) Myau.moduleManager.modules.get(BedESP.class);
             if (bedESP.isEnabled() && iBlockState.getBlock() instanceof BlockBed && iBlockState.getValue(BlockBed.PART) == EnumPartType.HEAD) {
                 bedESP.beds.add(new BlockPos(blockPos));
-            }
-            Xray Xray = (Xray) Myau.moduleManager.modules.get(Xray.class);
-            if (Xray.isEnabled() && Xray.isXrayBlock(Block.getIdFromBlock(iBlockState.getBlock()))) {
-                if (Xray.checkBlock(blockPos)) {
-                    Xray.trackedBlocks.add(new BlockPos(blockPos));
-                } else {
-                    Xray.trackedBlocks.remove(blockPos);
-                }
             }
         }
     }
