@@ -199,6 +199,14 @@ public class KillAura extends Module {
         }
     }
     
+        private boolean canAutoBlock() {
+        if (!ItemUtil.isHoldingSword()) {
+            return false;
+        } else {
+            return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
+        }
+    }
+    
     private boolean hasValidTarget() {
         return mc.theWorld
                 .loadedEntityList
