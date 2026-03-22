@@ -168,7 +168,7 @@ public class KillAura extends Module {
         }
     }
 
-private boolean canAttack() {
+    private boolean canAttack() {
         if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) {
             return false;
         } else if (!(Boolean) this.weaponsOnly.getValue()
@@ -179,24 +179,25 @@ private boolean canAttack() {
             } else if ((ItemUtil.isEating() || ItemUtil.isUsingBow()) && PlayerUtil.isUsingItem()) {
                 return false;
             } else {
-                BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
-                AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
-                if (bedNuker.isEnabled() && bedNuker.isReady()) {
-                    return false;
-                } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
-                    return false;
-                } else if (autoBlockIn.isEnabled()) {
-                    return false;
-                } else if (this.requirePress.getValue()) {
-                    return PlayerUtil.isAttacking();
-                } else {
-                    return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
+                    BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
+                    AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
+                    if (bedNuker.isEnabled() && bedNuker.isReady()) {
+                        return false;
+                    } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
+                        return false;
+                    } else if (autoBlockIn.isEnabled()) {
+                        return false;
+                    } else if (this.requirePress.getValue()) {
+                        return PlayerUtil.isAttacking();
+                    } else {
+                        return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
+                    }
                 }
-            }
+            
         } else {
-        return false;
-    }                             
-}
+            return false;
+        }
+    }
     
     private boolean hasValidTarget() {
         return mc.theWorld
