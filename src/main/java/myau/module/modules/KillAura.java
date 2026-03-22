@@ -168,7 +168,7 @@ public class KillAura extends Module {
         }
     }
 
-private boolean canAttack() {
+private boolean canAttack() {{
         if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) {
             return false;
         } else if (!(Boolean) this.weaponsOnly.getValue()
@@ -196,7 +196,8 @@ private boolean canAttack() {
         }
     } else {
         return false;
-}
+    }
+}                             
     
     private boolean hasValidTarget() {
         return mc.theWorld
