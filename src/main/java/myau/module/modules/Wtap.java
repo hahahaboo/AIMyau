@@ -25,7 +25,7 @@ public class Wtap extends Module {
     private long durationTicks = 0L;
 
     public Wtap() {
-        super("WTap", "WTap", Category.MOVEMENT, 0, false, false);
+        super("WTap", "WTap", Category.COMBAT, 0, false, false);
     }
 
     private boolean canTrigger() {
