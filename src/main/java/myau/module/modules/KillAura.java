@@ -183,24 +183,22 @@ private boolean canAttack() {
                 AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
                 if (bedNuker.isEnabled() && bedNuker.isReady()) {
                     return false;
-                } else if (autoBlockIn.isEnabled() && autoBlockIn.isBlocking()) {
+                } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
                     return false;
+                } else if (autoBlockIn.isEnabled()) {
+                    return false;
+                } else if (this.requirePress.getValue()) {
+                    return PlayerUtil.isAttacking();
                 } else {
-                    return true;
+                    return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
                 }
             }
-        } else {
-            return false;
         }
+    } else {
+        return false;
     }
-    private boolean canAutoBlock() {
-        if (!ItemUtil.isHoldingSword()) {
-            return false;
-        } else {
-            return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
-        }
-    }
-
+}
+    
     private boolean hasValidTarget() {
         return mc.theWorld
                 .loadedEntityList
