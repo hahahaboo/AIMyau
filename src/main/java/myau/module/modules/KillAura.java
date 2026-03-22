@@ -179,10 +179,6 @@ public class KillAura extends Module {
             } else if ((ItemUtil.isEating() || ItemUtil.isUsingBow()) && PlayerUtil.isUsingItem()) {
                 return false;
             } else {
-                AutoHeal autoHeal = (AutoHeal) Myau.moduleManager.modules.get(AutoHeal.class);
-                if (autoHeal.isEnabled() && autoHeal.isSwitching()) {
-                    return false;
-                } else {
                     BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
                     AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
                     if (bedNuker.isEnabled() && bedNuker.isReady()) {
@@ -197,20 +193,20 @@ public class KillAura extends Module {
                         return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
                     }
                 }
-            }
+            
         } else {
             return false;
         }
     }
-
-    private boolean canAutoBlock() {
+    
+        private boolean canAutoBlock() {
         if (!ItemUtil.isHoldingSword()) {
             return false;
         } else {
             return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
         }
     }
-
+    
     private boolean hasValidTarget() {
         return mc.theWorld
                 .loadedEntityList
