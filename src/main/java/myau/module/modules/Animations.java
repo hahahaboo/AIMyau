@@ -14,7 +14,7 @@ public class Animations extends Module {
     public final FloatProperty scale = new FloatProperty("Item-Size", 0f, -0.5f, 0.5f);
 
     public Animations() {
-        super("Animations", true);
+        super("Animations", "Different Animations", Category.RENDER, 0, false, true);
         INSTANCE = this;
     }
 
