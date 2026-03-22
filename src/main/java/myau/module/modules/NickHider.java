@@ -16,7 +16,7 @@ public class NickHider extends Module {
     public final BooleanProperty level = new BooleanProperty("level", true);
 
     public NickHider() {
-        super("NickHider", "Custom ur IGN", Category.PLAYER, 0, false, true);
+        super("NickHider", "Custom ur IGN", Category.MISC, 0, false, true);
         this.protectName = new TextProperty("name", "You");
     }
 

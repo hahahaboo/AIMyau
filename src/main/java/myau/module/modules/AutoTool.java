@@ -22,7 +22,7 @@ public class AutoTool extends Module {
     private int tickDelayCounter = 0;
 
     public AutoTool() {
-        super("AutoTool", "Auto Switch to tools to break blocks", Category.WORLD, 0, false, false);
+        super("AutoTool", "Auto Switch to tools to break blocks", Category.PLAYER, 0, false, false);
     }
 
     @EventTarget

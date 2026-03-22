@@ -30,7 +30,7 @@ public class FastPlace extends Module {
     private long delayMS = 0L;
 
     public FastPlace() {
-        super("FastPlace", "Allows you to place blocks faster.", Category.MOVEMENT, 0, false, false);
+        super("FastPlace", "Allows you to place blocks faster.", Category.PLAYER, 0, false, false);
     }
 
     private boolean canPlace() {

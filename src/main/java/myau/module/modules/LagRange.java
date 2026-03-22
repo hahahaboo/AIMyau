@@ -50,7 +50,7 @@ public class LagRange extends Module {
     private Vec3 currentPosition = null;
 
     public LagRange() {
-        super("LagRange", "Use lag to make more range to attack others", Category.PLAYER, 0, false, false);
+        super("LagRange", "Use lag to make more range to attack others", Category.COMBAT, 0, false, false);
     }
 
     private boolean isValidTarget(EntityPlayer entityPlayer) {

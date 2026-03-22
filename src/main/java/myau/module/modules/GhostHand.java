@@ -13,7 +13,7 @@ public class GhostHand extends Module {
     public final BooleanProperty ignoreWeapons = new BooleanProperty("ignore-weapons", false);
 
     public GhostHand() {
-        super("GhostHand", "Allows you to interact with blocks through certain entities.", Category.RENDER, 0, false, false);
+        super("GhostHand", "Allows you to interact with blocks through certain entities.", Category.MISC, 0, false, false);
     }
 
     public boolean shouldSkip(Entity entity) {

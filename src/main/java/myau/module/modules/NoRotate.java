@@ -20,7 +20,7 @@ public class NoRotate extends Module {
     private boolean reset = false;
 
     public NoRotate() {
-        super("NoRotate", "", Category.MISC, 0, false, false);
+        super("NoRotate", "", Category.RENDER, 0, false, false);
     }
 
     @EventTarget

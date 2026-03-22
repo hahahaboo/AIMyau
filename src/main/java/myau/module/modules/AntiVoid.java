@@ -28,7 +28,7 @@ public class AntiVoid extends Module {
     private double[] lastSafePosition = null;
 
     public AntiVoid() {
-        super("AntiVoid", "Prevents you from falling into the void.", Category.COMBAT, 0, false, false);
+        super("AntiVoid", "Prevents you from falling into the void.", Category.PLAYER, 0, false, false);
     }
 
     private void resetBlink() {

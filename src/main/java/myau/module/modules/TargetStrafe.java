@@ -9,6 +9,7 @@ import myau.events.Render3DEvent;
 import myau.events.StrafeEvent;
 import myau.events.UpdateEvent;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
@@ -35,7 +36,7 @@ public class TargetStrafe extends Module {
     private int direction = 1;
 
     public TargetStrafe() {
-        super("TargetStrafe", false);
+        super("TargetStrafe", "", Category.COMBAT, 0, false, false);
     }
 
     private boolean canStrafe() {

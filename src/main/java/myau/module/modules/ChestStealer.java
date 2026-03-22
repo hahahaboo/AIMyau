@@ -38,7 +38,7 @@ public class ChestStealer extends Module {
     private boolean warnedFull = false;
 
     public ChestStealer() {
-        super("ChestStealer", "Auto steal good things in chests", Category.WORLD, 0, false, false);
+        super("ChestStealer", "Auto steal good things in chests", Category.PLAYER, 0, false, false);
     }
 
     private boolean isValidGameMode() {
