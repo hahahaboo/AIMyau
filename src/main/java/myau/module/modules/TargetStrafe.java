@@ -35,7 +35,7 @@ public class TargetStrafe extends Module {
     private int direction = 1;
 
     public TargetStrafe() {
-        super("TargetStrafe", false);
+        super("TargetStrafe", "", Category.COMBAT, 0, false, false);
     }
 
     private boolean canStrafe() {
