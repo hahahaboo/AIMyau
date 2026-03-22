@@ -69,15 +69,12 @@ public class Myau {
         moduleManager.modules.put(AntiVoid.class, new AntiVoid());
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
-        moduleManager.modules.put(AutoHeal.class, new AutoHeal());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
         moduleManager.modules.put(BackTrack.class, new BackTrack());
         moduleManager.modules.put(BedESP.class, new BedESP());
         moduleManager.modules.put(BedNuker.class, new BedNuker());
-        moduleManager.modules.put(BedTracker.class, new BedTracker());
         moduleManager.modules.put(Blink.class, new Blink());
         moduleManager.modules.put(Chams.class, new Chams());
-        moduleManager.modules.put(Chat.class, new Chat());
         moduleManager.modules.put(ChestESP.class, new ChestESP());
         moduleManager.modules.put(ChestStealer.class, new ChestStealer());
         moduleManager.modules.put(ClickGUIModule.class, new ClickGUIModule());
@@ -115,7 +112,6 @@ public class Myau {
         moduleManager.modules.put(Speed.class, new Speed());
         moduleManager.modules.put(SpeedMine.class, new SpeedMine());
         moduleManager.modules.put(Sprint.class, new Sprint());
-        moduleManager.modules.put(TargetESP.class, new TargetESP());
         moduleManager.modules.put(TargetHUD.class, new TargetHUD());
         moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());
         moduleManager.modules.put(Tracers.class, new Tracers());
