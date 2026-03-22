@@ -196,7 +196,6 @@ private boolean canAttack() {
         }
     } else {
         return false;
-    }
 }
     
     private boolean hasValidTarget() {
