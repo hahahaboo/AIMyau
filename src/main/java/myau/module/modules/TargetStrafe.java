@@ -9,6 +9,7 @@ import myau.events.Render3DEvent;
 import myau.events.StrafeEvent;
 import myau.events.UpdateEvent;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
