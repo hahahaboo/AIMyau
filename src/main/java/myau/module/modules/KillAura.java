@@ -168,7 +168,7 @@ public class KillAura extends Module {
         }
     }
 
-    private boolean canAttack() {
+private boolean canAttack() {
         if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) {
             return false;
         } else if (!(Boolean) this.weaponsOnly.getValue()
@@ -183,22 +183,16 @@ public class KillAura extends Module {
                 AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
                 if (bedNuker.isEnabled() && bedNuker.isReady()) {
                     return false;
-                } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
+                } else if (autoBlockIn.isEnabled() && autoBlockIn.isBlocking()) {
                     return false;
-                } else if (autoBlockIn.isEnabled()) {
-                    return false;
-                } else if (this.requirePress.getValue()) {
-                    return PlayerUtil.isAttacking();
                 } else {
-                    return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
-                    }
+                    return true;
                 }
             }
         } else {
             return false;
         }
     }
-
     private boolean canAutoBlock() {
         if (!ItemUtil.isHoldingSword()) {
             return false;
