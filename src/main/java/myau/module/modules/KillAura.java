@@ -168,7 +168,7 @@ public class KillAura extends Module {
         }
     }
 
-private boolean canAttack() {{
+private boolean canAttack() {
         if (this.inventoryCheck.getValue() && mc.currentScreen instanceof GuiContainer) {
             return false;
         } else if (!(Boolean) this.weaponsOnly.getValue()
@@ -193,10 +193,8 @@ private boolean canAttack() {{
                     return !this.allowMining.getValue() || !mc.objectMouseOver.typeOfHit.equals(MovingObjectType.BLOCK) || !PlayerUtil.isAttacking();
                 }
             }
-        }
-    } else {
+        } else {
         return false;
-    }
 }                             
     
     private boolean hasValidTarget() {
