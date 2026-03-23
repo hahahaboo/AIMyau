@@ -7,7 +7,7 @@ import myau.management.altmanager.AltManagerGui;
 import java.io.*;
 
 public class AltJsonHandler {
-    public static File ROOT_DIR = new File("config/AIMyau");
+    public static File ROOT_DIR = new File("config/AIMyau/alts");
     public static File alts = new File(ROOT_DIR, "alts.json");
     public static Gson prettyGson = new GsonBuilder().setPrettyPrinting().create();
     public static JsonParser jsonParser = new JsonParser();
