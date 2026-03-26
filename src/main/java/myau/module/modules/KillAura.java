@@ -328,13 +328,13 @@ public class KillAura extends Module {
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
-        this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 3.0F, 8.0F);
-        this.swingRange = new FloatProperty("swing-range", 3.5F, 3.0F, 6.0F);
+        this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
+        this.swingRange = new FloatProperty("swing-range", 4.0F, 3.0F, 6.0F);
         this.attackRange = new FloatProperty("attack-range", 3.0F, 3.0F, 6.0F);
         this.fov = new IntProperty("fov", 360, 30, 360);
-        this.minCPS = new IntProperty("min-aps", 14, 1, 20);
+        this.minCPS = new IntProperty("min-aps", 12, 1, 20);
         this.maxCPS = new IntProperty("max-aps", 14, 1, 20);
-        this.switchDelay = new IntProperty("switch-delay", 150, 0, 1000);
+        this.switchDelay = new IntProperty("switch-delay", 0, 0, 1000);
         this.rotations = new ModeProperty("rotations", 2, new String[]{"NONE", "LEGIT", "SILENT", "LOCK_VIEW"});
         this.moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT", "STRICT"});
         this.smoothing = new PercentProperty("smoothing", 0);
@@ -342,7 +342,7 @@ public class KillAura extends Module {
         this.throughWalls = new BooleanProperty("through-walls", true);
         this.requirePress = new BooleanProperty("require-press", false);
         this.allowMining = new BooleanProperty("allow-mining", true);
-        this.weaponsOnly = new BooleanProperty("weapons-only", true);
+        this.weaponsOnly = new BooleanProperty("weapons-only", false);
         this.allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
         this.inventoryCheck = new BooleanProperty("inventory-check", true);
         this.botCheck = new BooleanProperty("bot-check", true);
