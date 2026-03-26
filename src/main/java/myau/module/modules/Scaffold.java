@@ -67,6 +67,7 @@ public class Scaffold extends Module {
     public final BooleanProperty swing = new BooleanProperty("Swing", false);
     public final BooleanProperty itemSpoof = new BooleanProperty("Item Spoof", true);
     public final BooleanProperty blockCounter = new BooleanProperty("Block Counter", false);
+    public final BooleanProperty biggestStack = new BooleanProperty("Biggest Stack", false);
     private int rotationTick = 0;
     private int lastSlot = -1;
     private int blockCount = -1;
@@ -318,6 +319,26 @@ public class Scaffold extends Module {
                         }
                     }
                 }
+
+                // 新增 biggest-stack 邏輯：每次更新（包含每次放方塊前）自動切換到熱欄中堆疊數最多的方塊
+                if (this.biggestStack.getValue()) {
+                    int biggestSlot = -1;
+                    int maxStackSize = -1;
+                    for (int i = 0; i < 9; i++) {
+                        ItemStack candidate = mc.thePlayer.inventory.getStackInSlot(i);
+                        if (ItemUtil.isBlock(candidate) && candidate.stackSize > maxStackSize) {
+                            maxStackSize = candidate.stackSize;
+                            biggestSlot = i;
+                        }
+                    }
+                    if (biggestSlot != -1) {
+                        if (biggestSlot != mc.thePlayer.inventory.currentItem) {
+                            mc.thePlayer.inventory.currentItem = biggestSlot;
+                        }
+                        this.blockCount = maxStackSize;
+                    }
+                }
+
                 float currentYaw = this.getCurrentYaw();
                 float yawDiffTo180 = RotationUtil.wrapAngleDiff(currentYaw - 180.0F, event.getYaw());
                 float diagonalYaw = this.isDiagonal(currentYaw)
@@ -441,60 +462,60 @@ public class Scaffold extends Module {
                     if (this.moveFix.getValue() == 1) {
                         event.setPervRotation(targetYaw, 3);
                     }
-                }
-                if (blockData != null && hitVec != null && this.rotationTick <= 0) {
-                    this.place(blockData.blockPos(), blockData.facing(), hitVec);
-                    if (this.multiplace.getValue()) {
-                        for (int i = 0; i < 3; i++) {
-                            blockData = this.getBlockData();
-                            if (blockData == null) {
-                                break;
-                            }
-                            MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, mc.playerController.getBlockReachDistance(), 1.0F);
-                            if (mop != null
-                                    && mop.typeOfHit == MovingObjectType.BLOCK
-                                    && mop.getBlockPos().equals(blockData.blockPos())
-                                    && mop.sideHit == blockData.facing()) {
-                                this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
-                            } else {
-                                hitVec = BlockUtil.getClickVec(blockData.blockPos(), blockData.facing());
-                                double dx = hitVec.xCoord - mc.thePlayer.posX;
-                                double dy = hitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-                                double dz = hitVec.zCoord - mc.thePlayer.posZ;
-                                float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(), event.getPitch());
-                                if (!(Math.abs(rotations[0] - this.yaw) < 120.0F) || !(Math.abs(rotations[1] - this.pitch) < 60.0F)) {
+                    if (blockData != null && hitVec != null && this.rotationTick <= 0) {
+                        this.place(blockData.blockPos(), blockData.facing(), hitVec);
+                        if (this.multiplace.getValue()) {
+                            for (int i = 0; i < 3; i++) {
+                                blockData = this.getBlockData();
+                                if (blockData == null) {
                                     break;
                                 }
-                                mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
-                                if (mop == null
-                                        || mop.typeOfHit != MovingObjectType.BLOCK
-                                        || !mop.getBlockPos().equals(blockData.blockPos())
-                                        || mop.sideHit != blockData.facing()) {
-                                    break;
+                                MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, mc.playerController.getBlockReachDistance(), 1.0F);
+                                if (mop != null
+                                        && mop.typeOfHit == MovingObjectType.BLOCK
+                                        && mop.getBlockPos().equals(blockData.blockPos())
+                                        && mop.sideHit == blockData.facing()) {
+                                    this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+                                } else {
+                                    hitVec = BlockUtil.getClickVec(blockData.blockPos(), blockData.facing());
+                                    double dx = hitVec.xCoord - mc.thePlayer.posX;
+                                    double dy = hitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+                                    double dz = hitVec.zCoord - mc.thePlayer.posZ;
+                                    float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(), event.getPitch());
+                                    if (!(Math.abs(rotations[0] - this.yaw) < 120.0F) || !(Math.abs(rotations[1] - this.pitch) < 60.0F)) {
+                                        break;
+                                    }
+                                    mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
+                                    if (mop == null
+                                            || mop.typeOfHit != MovingObjectType.BLOCK
+                                            || !mop.getBlockPos().equals(blockData.blockPos())
+                                            || mop.sideHit != blockData.facing()) {
+                                        break;
+                                    }
+                                    this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
                                 }
-                                this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
                             }
                         }
                     }
-                }
-                if (this.targetFacing != null) {
-                    if (this.rotationTick <= 0) {
-                        int playerBlockX = MathHelper.floor_double(mc.thePlayer.posX);
-                        int playerBlockY = MathHelper.floor_double(mc.thePlayer.posY);
-                        int playerBlockZ = MathHelper.floor_double(mc.thePlayer.posZ);
-                        BlockPos belowPlayer = new BlockPos(playerBlockX, playerBlockY - 1, playerBlockZ);
-                        hitVec = BlockUtil.getHitVec(belowPlayer, this.targetFacing, this.yaw, this.pitch);
-                        this.place(belowPlayer, this.targetFacing, hitVec);
-                    }
-                    this.targetFacing = null;
-                } else if (this.keepY.getValue() == 2 && this.stage > 0 && !mc.thePlayer.onGround) {
-                    int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
-                    if (nextBlockY <= this.startY && mc.thePlayer.posY > (double) (this.startY + 1)) {
-                        this.shouldKeepY = true;
-                        blockData = this.getBlockData();
-                        if (blockData != null && this.rotationTick <= 0) {
-                            hitVec = BlockUtil.getHitVec(blockData.blockPos(), blockData.facing(), this.yaw, this.pitch);
-                            this.place(blockData.blockPos(), blockData.facing(), hitVec);
+                    if (this.targetFacing != null) {
+                        if (this.rotationTick <= 0) {
+                            int playerBlockX = MathHelper.floor_double(mc.thePlayer.posX);
+                            int playerBlockY = MathHelper.floor_double(mc.thePlayer.posY);
+                            int playerBlockZ = MathHelper.floor_double(mc.thePlayer.posZ);
+                            BlockPos belowPlayer = new BlockPos(playerBlockX, playerBlockY - 1, playerBlockZ);
+                            hitVec = BlockUtil.getHitVec(belowPlayer, this.targetFacing, this.yaw, this.pitch);
+                            this.place(belowPlayer, this.targetFacing, hitVec);
+                        }
+                        this.targetFacing = null;
+                    } else if (this.keepY.getValue() == 2 && this.stage > 0 && !mc.thePlayer.onGround) {
+                        int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
+                        if (nextBlockY <= this.startY && mc.thePlayer.posY > (double) (this.startY + 1)) {
+                            this.shouldKeepY = true;
+                            blockData = this.getBlockData();
+                            if (blockData != null && this.rotationTick <= 0) {
+                                hitVec = BlockUtil.getHitVec(blockData.blockPos(), blockData.facing(), this.yaw, this.pitch);
+                                this.place(blockData.blockPos(), blockData.facing(), hitVec);
+                            }
                         }
                     }
                 }
@@ -581,274 +602,74 @@ public class Scaffold extends Module {
                                                 double jitter = RandomUtil.nextDouble(0.02, 0.03);
                                                 AxisAlignedBB nextBox = mc.thePlayer
                                                         .getEntityBoundingBox()
-                                                        .offset((double) directionVec.getX() * (offset - jitter), 0.0, (double) directionVec.getZ() * (offset - jitter));
-                                                if (mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, nextBox).isEmpty()) {
-                                                    mc.thePlayer.motionY = -0.0784000015258789;
-                                                    mc.thePlayer
-                                                            .setPosition(nextBox.minX + (nextBox.maxX - nextBox.minX) / 2.0, nextBox.minY, nextBox.minZ + (nextBox.maxZ - nextBox.minZ) / 2.0);
+                                                        .offset(directionVec.getX() * offset, 0.0, directionVec.getZ() * offset);
+                                                if (!mc.theWorld.getCollidingBoundingBoxes(mc.thePlayer, nextBox).isEmpty()) {
+                                                    offset -= jitter;
                                                 }
-                                                return;
+                                                mc.thePlayer.setPosition(mc.thePlayer.posX + directionVec.getX() * offset, mc.thePlayer.posY, mc.thePlayer.posZ + directionVec.getZ() * offset);
                                             }
-                                        } else {
-                                            this.towerTick = 2;
-                                            this.targetFacing = facing;
-                                            mc.thePlayer.motionY = 0.42F;
                                         }
-                                        return;
-                                    } else {
                                         this.towerTick = 2;
-                                        this.towerDelay++;
-                                        mc.thePlayer.motionY = 0.42F;
-                                        MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
                                         return;
                                     }
+                                    this.towerTick = 2;
+                                    mc.thePlayer.motionY = 0.42F;
+                                    return;
                                 } else {
                                     this.towerTick = 0;
-                                    this.towerDelay = 0;
                                     return;
                                 }
                             case 2:
                                 this.towerTick = 3;
-                                mc.thePlayer.motionY = mc.thePlayer.motionY - RandomUtil.nextDouble(0.00101, 0.00109);
+                                mc.thePlayer.motionY = 0.75 - mc.thePlayer.posY % 1.0;
                                 return;
                             case 3:
-                                if (this.towerDelay >= 4) {
-                                    this.towerTick = 4;
-                                    this.towerDelay = 0;
-                                } else {
-                                    this.towerTick = 1;
-                                    mc.thePlayer.motionY = 1.0 - mc.thePlayer.posY % 1.0;
-                                }
-                                return;
-                            case 4:
-                                this.towerTick = 5;
-                                return;
-                            case 5:
-                                if (!PlayerUtil.isAirBelow()) {
-                                    this.towerTick = 0;
-                                } else {
-                                    this.towerTick = 1;
-                                    mc.thePlayer.motionY -= 0.08;
-                                    mc.thePlayer.motionY *= 0.98F;
-                                    mc.thePlayer.motionY -= 0.08;
-                                    mc.thePlayer.motionY *= 0.98F;
-                                }
+                                this.towerTick = 1;
+                                mc.thePlayer.motionY = 1.0 - mc.thePlayer.posY % 1.0;
                                 return;
                             default:
                                 this.towerTick = 0;
-                                this.towerDelay = 0;
                                 return;
                         }
                     case 3:
-                        if (yState >= 0 && yState <= 6) {
-                            if (mc.thePlayer.onGround) {
-                                mc.thePlayer.motionY = 0.42;
-                            }
-                        } else {
-                            this.towerTick = 0;
+                        if (mc.thePlayer.onGround) {
+                            mc.thePlayer.motionY = 0.42F;
+                        } else if (yState == 0) {
+                            mc.thePlayer.motionY = 0.42F;
+                        } else if (yState == 11) {
+                            mc.thePlayer.motionY = 0.753F - mc.thePlayer.posY % 1.0;
+                        } else if (yState == 13) {
+                            mc.thePlayer.motionY = 1.0 - mc.thePlayer.posY % 1.0;
                         }
                         return;
-                    default:
-                        this.towerTick = 0;
-                        this.towerDelay = 0;
                 }
-            } else {
-                this.towerTick = 0;
-                this.towerDelay = 0;
             }
         }
     }
 
     @EventTarget
     public void onMoveInput(MoveInputEvent event) {
-        if (this.isEnabled()) {
-            if (this.safeStuckTicks > 0) {
-                mc.thePlayer.movementInput.moveForward = 0.0f;
-                mc.thePlayer.movementInput.moveStrafe = 0.0f;
-                mc.thePlayer.movementInput.jump = false;
-                mc.thePlayer.movementInput.sneak = false;
-                return;
-            }
-            if (this.moveFix.getValue() == 1
-                    && RotationState.isActived()
-                    && RotationState.getPriority() == 3.0F
-                    && MoveUtil.isForwardPressed()) {
-                MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
-            }
-            if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
-                mc.thePlayer.movementInput.jump = true;
-            }
-        }
-    }
-
-    @EventTarget
-    public void onLivingUpdate(LivingUpdateEvent event) {
-        if (this.isEnabled()) {
-            if (this.safeStuckTicks > 0) {
-                mc.thePlayer.motionX = 0.0;
-                mc.thePlayer.motionY = 0.0;
-                mc.thePlayer.motionZ = 0.0;
-                this.safeStuckTicks--;
-            }
-            float speed = this.getSpeed();
-            if (speed != 1.0F) {
-                if (mc.thePlayer.movementInput.moveForward != 0.0F && mc.thePlayer.movementInput.moveStrafe != 0.0F) {
-                    mc.thePlayer.movementInput.moveForward = mc.thePlayer.movementInput.moveForward * (1.0F / (float) Math.sqrt(2.0));
-                    mc.thePlayer.movementInput.moveStrafe = mc.thePlayer.movementInput.moveStrafe * (1.0F / (float) Math.sqrt(2.0));
-                }
-                mc.thePlayer.movementInput.moveForward *= speed;
-                mc.thePlayer.movementInput.moveStrafe *= speed;
-            }
-            if (this.shouldStopSprint()) {
-                mc.thePlayer.setSprinting(false);
-            }
-
-            if (this.safe.getValue() && this.tower.getValue() == 3 && mc.gameSettings.keyBindJump.isKeyDown()) {
-                float moveYaw = this.getCurrentYaw();
-                boolean diagonal = this.isDiagonal(moveYaw);
-                if (diagonal && !mc.thePlayer.onGround) {
-                    double my = mc.thePlayer.motionY;
-                    if (this.safePrevMotionY > 0.0 && my <= 0.0) {
-                        double mx = mc.thePlayer.motionX;
-                        double mz = mc.thePlayer.motionZ;
-                        double motionXZSpeed = Math.sqrt(mx * mx + mz * mz);
-                        double motionXZSpeedBps = motionXZSpeed * 20.0;
-                        if (this.safeStuckDelayTicks <= 0 && this.safeStuckTicks <= 0 && motionXZSpeedBps >= 4.67) {
-                            this.safeStuckDelayTicks = safeStuckDelayTicksProperty.getValue();
-                        }
-                    }
-                    this.safePrevMotionY = my;
-                } else {
-                    this.safePrevMotionY = mc.thePlayer.motionY;
-                }
-            } else {
-                this.safePrevMotionY = mc.thePlayer.motionY;
-            }
-        }
-    }
-
-    @EventTarget
-    public void onSafeWalk(SafeWalkEvent event) {
         if (this.isEnabled() && this.safeWalk.getValue()) {
-            if (mc.thePlayer.onGround && mc.thePlayer.motionY <= 0.0 && PlayerUtil.canMove(mc.thePlayer.motionX, mc.thePlayer.motionZ, -1.0)) {
-                event.setSafeWalk(true);
+            event.setSafeWalk(true);
+        }
+    }
+
+    @EventTarget
+    public void onTick(TickEvent event) {
+        if (this.isEnabled()) {
+            if (mc.thePlayer.onGround && this.keepY.getValue() == 3 && this.stage > 0) {
+                this.stage = 0;
             }
         }
-    }
-
-    @EventTarget
-    public void onRender(Render2DEvent event) {
-        if (this.isEnabled()) {
-            if (this.blockCounter.getValue()) {
-                int count = 0;
-                for (int i = 0; i < 9; i++) {
-                    ItemStack stack = mc.thePlayer.inventory.getStackInSlot(i);
-                    if (stack != null && stack.stackSize > 0) {
-                        Item item = stack.getItem();
-                        if (item instanceof ItemBlock) {
-                            Block block = ((ItemBlock) item).getBlock();
-                            if (!BlockUtil.isContainer(block)) {
-                                count += stack.stackSize;
-                            }
-                        }
-                    }
-                }
-                float scale = 1;
-                GlStateManager.pushMatrix();
-                GlStateManager.scale(scale, scale, 0.0F);
-                GlStateManager.disableDepth();
-                GlStateManager.enableBlend();
-                GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                mc.fontRendererObj
-                        .drawString(
-                                String.format("%d block%s left", count, count != 1 ? "s" : ""),
-                                (int) (((float) new ScaledResolution(mc).getScaledWidth() / 2.0F + (float) mc.fontRendererObj.FONT_HEIGHT * 1.5F) / scale),
-                                (int) ((float) new ScaledResolution(mc).getScaledHeight() / 2.0F / scale - (float) mc.fontRendererObj.FONT_HEIGHT / 2.0F + 1.0F),
-                                (count > 0 ? Color.WHITE.getRGB() : new Color(255, 85, 85).getRGB()) | -1090519040
-                        );
-                GlStateManager.disableBlend();
-                GlStateManager.enableDepth();
-                GlStateManager.popMatrix();
-            }
-        }
-    }
-
-    @EventTarget
-    public void onLeftClick(LeftClickMouseEvent event) {
-        if (this.isEnabled()) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventTarget
-    public void onRightClick(RightClickMouseEvent event) {
-        if (this.isEnabled()) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventTarget
-    public void onHitBlock(HitBlockEvent event) {
-        if (this.isEnabled()) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventTarget
-    public void onSwap(SwapItemEvent event) {
-        if (this.isEnabled()) {
-            this.lastSlot = event.setSlot(this.lastSlot);
-            event.setCancelled(true);
-        }
-    }
-
-    @Override
-    public void onEnabled() {
-        if (mc.thePlayer != null) {
-            this.lastSlot = mc.thePlayer.inventory.currentItem;
-        } else {
-            this.lastSlot = -1;
-        }
-        this.blockCount = -1;
-        this.rotationTick = 3;
-        this.yaw = -180.0F;
-        this.pitch = 0.0F;
-        this.canRotate = false;
-        this.towerTick = 0;
-        this.towerDelay = 0;
-        this.towering = false;
-        this.safeStuckTicks = 0;
-        this.safeStuckDelayTicks = 0;
-        this.safePrevMotionY = 0.0;
-        this.safeStuckActive = false;
-    }
-
-    @Override
-    public void onDisabled() {
-        if (mc.thePlayer != null && this.lastSlot != -1) {
-            mc.thePlayer.inventory.currentItem = this.lastSlot;
-        }
-        if (this.safeStuckActive && mc.thePlayer != null) {
-            Myau.blinkManager.setBlinkState(false, BlinkModules.BLINK);
-            mc.thePlayer.motionX = this.savedMotionX;
-            mc.thePlayer.motionZ = this.savedMotionZ;
-            mc.thePlayer.motionY = this.savedMotionY;
-        } else {
-            Myau.blinkManager.setBlinkState(false, BlinkModules.BLINK);
-        }
-        this.safeStuckTicks = 0;
-        this.safeStuckDelayTicks = 0;
-        this.safePrevMotionY = 0.0;
-        this.safeStuckActive = false;
     }
 
     public static class BlockData {
         private final BlockPos blockPos;
         private final EnumFacing facing;
 
-        public BlockData(BlockPos blockPos, EnumFacing enumFacing) {
+        public BlockData(BlockPos blockPos, EnumFacing facing) {
             this.blockPos = blockPos;
-            this.facing = enumFacing;
+            this.facing = facing;
         }
 
         public BlockPos blockPos() {
