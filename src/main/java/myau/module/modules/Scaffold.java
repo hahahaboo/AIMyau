@@ -67,6 +67,7 @@ public class Scaffold extends Module {
     public final BooleanProperty swing = new BooleanProperty("Swing", false);
     public final BooleanProperty itemSpoof = new BooleanProperty("Item Spoof", true);
     public final BooleanProperty blockCounter = new BooleanProperty("Block Counter", false);
+    public final BooleanProperty biggestStack = new BooleanProperty("Biggest Stack", true);
     private int rotationTick = 0;
     private int lastSlot = -1;
     private int blockCount = -1;
@@ -179,19 +180,35 @@ public class Scaffold extends Module {
     }
 
     private void place(BlockPos blockPos, EnumFacing enumFacing, Vec3 vec3) {
-        if (ItemUtil.isHoldingBlock() && this.blockCount > 0) {
-            if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld, mc.thePlayer.inventory.getCurrentItem(), blockPos, enumFacing, vec3)) {
-                if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) {
-                    this.blockCount--;
+    if (ItemUtil.isHoldingBlock() && this.blockCount > 0) {
+        if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld, mc.thePlayer.inventory.getCurrentItem(), blockPos, enumFacing, vec3)) {
+            if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) {
+                this.blockCount--;
+            }
+            if (this.swing.getValue()) {
+                mc.thePlayer.swingItem();
+            } else {
+                PacketUtil.sendPacket(new C0APacketAnimation());
+            }
+
+            // 新增：啟用 biggest-stack 時，每次成功放方塊後自動切換到 hotbar 中方塊 stack 數量最多的 slot
+            if (this.biggestStack.getValue()) {
+                int bestSlot = -1;
+                int maxStack = 0;
+                for (int i = 0; i < 9; ++i) {
+                    ItemStack itemStack = mc.thePlayer.inventory.getStackInSlot(i);
+                    if (ItemUtil.isBlock(itemStack) && itemStack.stackSize > maxStack) {
+                        maxStack = itemStack.stackSize;
+                        bestSlot = i;
+                    }
                 }
-                if (this.swing.getValue()) {
-                    mc.thePlayer.swingItem();
-                } else {
-                    PacketUtil.sendPacket(new C0APacketAnimation());
+                if (bestSlot != -1) {
+                    mc.thePlayer.inventory.currentItem = bestSlot;
                 }
             }
         }
     }
+}
 
     private EnumFacing yawToFacing(float float1) {
         if (float1 < -135.0F || float1 > 135.0F) {
