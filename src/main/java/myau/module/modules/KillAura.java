@@ -97,7 +97,6 @@ public class KillAura extends Module {
     public final BooleanProperty silverfish;
     public final BooleanProperty teams;
     public final ModeProperty showTarget;
-    public final ModeProperty debugLog;
 
     private long getAttackDelay() {
         return this.isBlocking ? (long) (1000.0F / RandomUtil.nextLong(this.autoBlockMinCPS.getValue().longValue(), this.autoBlockMaxCPS.getValue().longValue())) : 1000L / RandomUtil.nextLong(this.minCPS.getValue(), this.maxCPS.getValue());
@@ -355,7 +354,6 @@ public class KillAura extends Module {
         this.silverfish = new BooleanProperty("silverfish", false);
         this.teams = new BooleanProperty("teams", true);
         this.showTarget = new ModeProperty("show-target", 0, new String[]{"NONE", "DEFAULT", "HUD"});
-        this.debugLog = new ModeProperty("debug-log", 0, new String[]{"NONE", "HEALTH"});
     }
 
     public EntityLivingBase getTarget() {
@@ -791,47 +789,9 @@ public class KillAura extends Module {
                     mc.thePlayer.stopUsingItem();
                 }
             }
-            if (this.debugLog.getValue() == 1 && this.isAttackAllowed()) {
-                if (event.getPacket() instanceof S06PacketUpdateHealth) {
-                    float packet = ((S06PacketUpdateHealth) event.getPacket()).getHealth() - mc.thePlayer.getHealth();
-                    if (packet != 0.0F && this.lastTickProcessed != mc.thePlayer.ticksExisted) {
-                        this.lastTickProcessed = mc.thePlayer.ticksExisted;
-                        ChatUtil.sendFormatted(
-                                String.format(
-                                        "%sHealth: %s&l%s&r (&otick: %d&r)&r",
-                                        Myau.clientName,
-                                        packet > 0.0F ? "&a" : "&c",
-                                        df.format(packet),
-                                        mc.thePlayer.ticksExisted
-                                )
-                        );
-                    }
-                }
-                if (event.getPacket() instanceof S1CPacketEntityMetadata) {
-                    S1CPacketEntityMetadata packet = (S1CPacketEntityMetadata) event.getPacket();
-                    if (packet.getEntityId() == mc.thePlayer.getEntityId()) {
-                        for (WatchableObject watchableObject : packet.func_149376_c()) {
-                            if (watchableObject.getDataValueId() == 6) {
-                                float diff = (Float) watchableObject.getObject() - mc.thePlayer.getHealth();
-                                if (diff != 0.0F && this.lastTickProcessed != mc.thePlayer.ticksExisted) {
-                                    this.lastTickProcessed = mc.thePlayer.ticksExisted;
-                                    ChatUtil.sendFormatted(
-                                            String.format(
-                                                    "%sHealth: %s&l%s&r (&otick: %d&r)&r",
-                                                    Myau.clientName,
-                                                    diff > 0.0F ? "&a" : "&c",
-                                                    df.format(diff),
-                                                    mc.thePlayer.ticksExisted
-                                            )
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
+          
 
     @EventTarget
     public void onMove(MoveInputEvent event) {
