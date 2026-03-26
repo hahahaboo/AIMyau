@@ -51,7 +51,7 @@ public class Scaffold extends Module {
             0.90625,
             0.96875
     };
-    public final ModeProperty rotationMode = new ModeProperty("Rotations", 2, new String[]{"None", "Vanilla", "Backwards", "Hypixel"});
+    public final ModeProperty rotationMode = new ModeProperty("Rotations", 1, new String[]{"None", "Vanilla", "Backwards", "Hypixel"});
     public final ModeProperty keepY = new ModeProperty("Mode", 3, new String[]{"None", "KeepY", "ExtraBlockKeepY", "Telly"});
     public final ModeProperty tower = new ModeProperty("Tower", 3, new String[]{"None", "Vanilla", "ExtraBlock", "Telly"});
     public final ModeProperty moveFix = new ModeProperty("Move Fix", 1, new String[]{"None", "Silent"});
@@ -60,11 +60,11 @@ public class Scaffold extends Module {
     public final PercentProperty airMotion = new PercentProperty("Air Motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("Speed Motion", 100);
     public final BooleanProperty keepYonPress = new BooleanProperty("Keep Y On Press", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty multiplace = new BooleanProperty("0 Tick Place", false);
+    public final BooleanProperty multiplace = new BooleanProperty("Multi Place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("Safe Walk", false);
     public final BooleanProperty safe = new BooleanProperty("Safe", false, () -> this.tower.getValue() == 3);
     public final IntProperty safeStuckDelayTicksProperty = new IntProperty("Safe Delay Ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
-    public final BooleanProperty swing = new BooleanProperty("Swing", false);
+    public final BooleanProperty swing = new BooleanProperty("Swing", true);
     public final BooleanProperty itemSpoof = new BooleanProperty("Item Spoof", true);
     public final BooleanProperty blockCounter = new BooleanProperty("Block Counter", false);
     public final BooleanProperty biggestStack = new BooleanProperty("Biggest Stack", true);
