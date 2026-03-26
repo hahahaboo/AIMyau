@@ -320,7 +320,7 @@ public class Scaffold extends Module {
                     }
                 }
 
-                // 新增 biggest-stack 邏輯：每次更新（包含每次放方塊前）自動切換到熱欄中堆疊數最多的方塊
+                // biggest-stack 邏輯：每次 tick（包含每次放方塊前）自動切換到熱欄中堆疊數最多的方塊
                 if (this.biggestStack.getValue()) {
                     int biggestSlot = -1;
                     int maxStackSize = -1;
@@ -523,6 +523,14 @@ public class Scaffold extends Module {
         }
     }
 
+    // 修正：使用 SafeWalkEvent（與 SafeWalk module 一致），而不是不存在 setSafeWalk 的 MoveInputEvent
+    @EventTarget
+    public void onSafeWalk(SafeWalkEvent event) {
+        if (this.isEnabled() && this.safeWalk.getValue()) {
+            event.setSafeWalk(true);
+        }
+    }
+
     @EventTarget
     public void onStrafe(StrafeEvent event) {
         if (this.isEnabled()) {
@@ -644,13 +652,6 @@ public class Scaffold extends Module {
                         return;
                 }
             }
-        }
-    }
-
-    @EventTarget
-    public void onMoveInput(MoveInputEvent event) {
-        if (this.isEnabled() && this.safeWalk.getValue()) {
-            event.setSafeWalk(true);
         }
     }
 
