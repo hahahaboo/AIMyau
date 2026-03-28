@@ -6,6 +6,7 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.*;
 import myau.mixin.IAccessorEntity;
+import myau.mixin.IAccessorPlayerControllerMP;
 import myau.module.Module;
 import myau.module.Category;
 import myau.property.properties.BooleanProperty;
@@ -140,7 +141,7 @@ public class Velocity extends Module {
         int blockSlot = this.getBlockSlot();
         if (blockSlot != -1 && blockSlot != this.originalSlot) {
             mc.thePlayer.inventory.currentItem = blockSlot;
-            mc.playerController.syncCurrentPlayItem();
+            ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
         }
     }
 
@@ -238,7 +239,7 @@ public class Velocity extends Module {
                     // 放完後切回原本 slot
                     if (this.originalSlot != -1 && this.originalSlot != mc.thePlayer.inventory.currentItem) {
                         mc.thePlayer.inventory.currentItem = this.originalSlot;
-                        mc.playerController.syncCurrentPlayItem();
+                        ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
                     }
 
                     // 恢復已暫停的 module
