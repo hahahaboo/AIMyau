@@ -144,8 +144,11 @@ public class Velocity extends Module {
             ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
         }
 
-        // === 新增 debug（方便你確認是否觸發）===
-        ChatUtil.sendFormatted("%s §e[BLOCK MODE] KB triggered! (kbX: %.2f, kbZ: %.2f) → placing at %s", Myau.clientName, kbX, kbZ, lower);
+        // === debug（已修正格式）===
+        ChatUtil.sendFormatted(String.format(
+                "%s §e[BLOCK MODE] KB triggered! (kbX: %.2f, kbZ: %.2f) → placing at %s",
+                Myau.clientName, kbX, kbZ, lower
+        ));
     }
 
     public Velocity() {
@@ -160,11 +163,9 @@ public class Velocity extends Module {
             return;
         }
 
-        // === 更改1：BLOCK mode 現在無條件觸發（不再受 allowNext / fakeCheck 影響）===
-        // 這樣保證每次收到 KnockbackEvent 都會執行放置，不會「什麼都不做」
+        // BLOCK mode 現在無條件觸發（不再受 allowNext / fakeCheck 影響）
         if (this.mode.getValue() == 4) {
             this.startBlockPlacement(event.getX(), event.getZ());
-            // 不 return，讓後面的程式碼繼續跑（其他 mode 不受影響）
         }
 
         if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
