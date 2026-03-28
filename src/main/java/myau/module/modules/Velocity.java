@@ -41,7 +41,7 @@ public class Velocity extends Module {
     private boolean reverseFlag = false;
     private boolean delayActive = false;
 
-    // === 新增：PLACE BLOCK MODE 專用變數（僅此 mode 使用）===
+    // === PLACE BLOCK MODE 專用變數（僅此 mode 使用）===
     private boolean placingBlocks = false;
     private int blocksPlaced = 0;
     private final BlockPos[] placePositions = new BlockPos[2];
@@ -68,7 +68,6 @@ public class Velocity extends Module {
         return mc.thePlayer.onGround && (!killAura.isEnabled() || !killAura.shouldAutoBlock());
     }
 
-    // === 新增：取得 Hotbar 中第一個可放置的方塊 slot（參考 Scaffold 邏輯）===
     private int getBlockSlot() {
         for (int i = 0; i < 9; i++) {
             ItemStack stack = mc.thePlayer.inventory.mainInventory[i];
@@ -79,24 +78,22 @@ public class Velocity extends Module {
         return -1;
     }
 
-    // === 新增：無轉頭放置單一格方塊（1 tick 1 個，參考 Scaffold + BlockUtil）===
     private void placeBlock(BlockPos pos) {
         if (pos == null || !BlockUtil.isReplaceable(pos)) return;
 
         ItemStack stack = mc.thePlayer.getHeldItem();
         if (stack == null || !(stack.getItem() instanceof ItemBlock)) return;
 
-        // 找一個可放置的面（從玩家腳下或相鄰 solid block）
         EnumFacing facing = null;
         BlockPos playerFeet = new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY - 1, mc.thePlayer.posZ);
         for (EnumFacing f : EnumFacing.VALUES) {
             BlockPos neighbor = pos.offset(f);
             if (!BlockUtil.isReplaceable(neighbor) && !BlockUtil.isContainer(neighbor)) {
-                facing = f.getOpposite(); // 對面即為放置面
+                facing = f.getOpposite();
                 break;
             }
         }
-        if (facing == null) facing = EnumFacing.UP; // fallback
+        if (facing == null) facing = EnumFacing.UP;
 
         Vec3 hitVec = BlockUtil.getClickVec(pos, facing);
 
@@ -105,15 +102,12 @@ public class Velocity extends Module {
                 (float) hitVec.xCoord, (float) hitVec.yCoord, (float) hitVec.zCoord
         ));
 
-        // swing（與 Scaffold 一致）
         mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
     }
 
-    // === 新增：開始 PLACE BLOCK 流程（在 Knockback 發生時呼叫）===
     private void startBlockPlacement(double kbX, double kbZ) {
-        if (Math.abs(kbX) < 0.5 && Math.abs(kbZ) < 0.5) return; // KB 太小不觸發
+        if (Math.abs(kbX) < 0.5 && Math.abs(kbZ) < 0.5) return;
 
-        // 使用擊退方向（讓玩家被推向新放置的方塊 → 真正「接住」玩家）
         Vec3 dir = new Vec3(kbX, 0, kbZ).normalize();
         int ox = (int) Math.signum(dir.xCoord);
         int oz = (int) Math.signum(dir.zCoord);
@@ -131,12 +125,10 @@ public class Velocity extends Module {
         this.blocksPlaced = 0;
         this.placingBlocks = true;
 
-        // 暫停會影響功能的 module（目前僅 KillAura，符合你「如killaura」的例子）
         KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
         this.kaWasEnabled = ka.isEnabled();
         if (this.kaWasEnabled) ka.setEnabled(false);
 
-        // 自動切換到方塊 slot
         this.originalSlot = mc.thePlayer.inventory.currentItem;
         int blockSlot = this.getBlockSlot();
         if (blockSlot != -1 && blockSlot != this.originalSlot) {
@@ -144,7 +136,6 @@ public class Velocity extends Module {
             ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
         }
 
-        // === debug（已修正格式）===
         ChatUtil.sendFormatted(String.format(
                 "%s §e[BLOCK MODE] KB triggered! (kbX: %.2f, kbZ: %.2f) → placing at %s",
                 Myau.clientName, kbX, kbZ, lower
@@ -161,11 +152,6 @@ public class Velocity extends Module {
             this.pendingExplosion = false;
             this.allowNext = true;
             return;
-        }
-
-        // BLOCK mode 現在無條件觸發（不再受 allowNext / fakeCheck 影響）
-        if (this.mode.getValue() == 4) {
-            this.startBlockPlacement(event.getX(), event.getZ());
         }
 
         if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
@@ -215,7 +201,6 @@ public class Velocity extends Module {
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
-            // REVERSE 模式處理
             if (this.reverseFlag && (
                     this.canDelay() ||
                             this.isInLiquidOrWeb() ||
@@ -225,13 +210,11 @@ public class Velocity extends Module {
                 this.reverseFlag = false;
             }
 
-            // DELAY 模式處理
             if (this.delayActive) {
                 MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
                 this.delayActive = false;
             }
 
-            // === BLOCK mode 放置邏輯（1 tick 1 格，共 2 格）===
             if (this.placingBlocks) {
                 if (this.blocksPlaced < 2) {
                     BlockPos pos = this.placePositions[this.blocksPlaced];
@@ -245,13 +228,11 @@ public class Velocity extends Module {
                 if (this.blocksPlaced >= 2) {
                     this.placingBlocks = false;
 
-                    // 放完後切回原本 slot
                     if (this.originalSlot != -1 && this.originalSlot != mc.thePlayer.inventory.currentItem) {
                         mc.thePlayer.inventory.currentItem = this.originalSlot;
                         ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
                     }
 
-                    // 恢復已暫停的 module
                     if (this.kaWasEnabled) {
                         KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                         if (!ka.isEnabled()) ka.setEnabled(true);
@@ -284,6 +265,14 @@ public class Velocity extends Module {
         if (event.getPacket() instanceof S12PacketEntityVelocity) {
             S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
+
+                // === BLOCK mode 觸發點（改到這裡，因為 onKnockback 完全沒執行）===
+                if (this.mode.getValue() == 4) {
+                    double kbX = (double) packet.getMotionX() / 8000.0;
+                    double kbZ = (double) packet.getMotionZ() / 8000.0;
+                    this.startBlockPlacement(kbX, kbZ);
+                }
+
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
                 if (this.mode.getValue() == 2
