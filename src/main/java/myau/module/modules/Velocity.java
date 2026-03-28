@@ -258,7 +258,7 @@ public class Velocity extends Module {
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) {
+        if (!this.isEnabled() || event.getType() != EventType.RECEIVE) {
             return;
         }
 
@@ -266,12 +266,18 @@ public class Velocity extends Module {
             S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
 
-                // === BLOCK mode 觸發點（改到這裡，因為 onKnockback 完全沒執行）===
+                // === BLOCK mode 觸發點（最前面，忽略 event.isCancelled()）===
                 if (this.mode.getValue() == 4) {
                     double kbX = (double) packet.getMotionX() / 8000.0;
                     double kbZ = (double) packet.getMotionZ() / 8000.0;
                     this.startBlockPlacement(kbX, kbZ);
                 }
+
+                // === 新增診斷 debug（每次收到玩家速度封包都會顯示）===
+                ChatUtil.sendFormatted(String.format(
+                        "%s §c[DEBUG] S12 VELOCITY packet received for player! (mode=%d)",
+                        Myau.clientName, this.mode.getValue()
+                ));
 
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
