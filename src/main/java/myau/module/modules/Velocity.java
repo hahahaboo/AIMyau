@@ -143,6 +143,9 @@ public class Velocity extends Module {
             mc.thePlayer.inventory.currentItem = blockSlot;
             ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
         }
+
+        // === 新增 debug（方便你確認是否觸發）===
+        ChatUtil.sendFormatted("%s §e[BLOCK MODE] KB triggered! (kbX: %.2f, kbZ: %.2f) → placing at %s", Myau.clientName, kbX, kbZ, lower);
     }
 
     public Velocity() {
@@ -155,6 +158,13 @@ public class Velocity extends Module {
             this.pendingExplosion = false;
             this.allowNext = true;
             return;
+        }
+
+        // === 更改1：BLOCK mode 現在無條件觸發（不再受 allowNext / fakeCheck 影響）===
+        // 這樣保證每次收到 KnockbackEvent 都會執行放置，不會「什麼都不做」
+        if (this.mode.getValue() == 4) {
+            this.startBlockPlacement(event.getX(), event.getZ());
+            // 不 return，讓後面的程式碼繼續跑（其他 mode 不受影響）
         }
 
         if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
@@ -193,8 +203,6 @@ public class Velocity extends Module {
                             event.setY(mc.thePlayer.motionY);
                         }
                     }
-                } else if (this.mode.getValue() == 4) { // === 新增：BLOCK mode 觸發放置 ===
-                    this.startBlockPlacement(event.getX(), event.getZ());
                 } else {
                     this.jumpFlag = (this.mode.getValue() == 1) && event.getY() > 0.0;
                     this.delayActive = this.mode.getValue() == 3;
@@ -222,7 +230,7 @@ public class Velocity extends Module {
                 this.delayActive = false;
             }
 
-            // === 新增：BLOCK mode 放置邏輯（1 tick 1 格，共 2 格）===
+            // === BLOCK mode 放置邏輯（1 tick 1 格，共 2 格）===
             if (this.placingBlocks) {
                 if (this.blocksPlaced < 2) {
                     BlockPos pos = this.placePositions[this.blocksPlaced];
