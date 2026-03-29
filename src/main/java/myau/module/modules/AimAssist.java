@@ -95,7 +95,7 @@ public class AimAssist extends Module {
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
                                 // 新增 deadzone 檢查（使用原有 angleToEntity 與 fov，確保與目標選擇邏輯一致）
-                                float threshold = this.aimPoint.getValue() * 7.5F;
+                                float threshold = this.aimPoint.getValue() * 15.0F;
                                 if (RotationUtil.angleToEntity(player) > threshold) {
                                     AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
                                     double collisionBorderSize = player.getCollisionBorderSize();
