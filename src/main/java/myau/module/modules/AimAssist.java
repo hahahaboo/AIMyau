@@ -27,6 +27,7 @@ public class AimAssist extends Module {
     public final FloatProperty vSpeed = new FloatProperty("vertical-speed", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
+    public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
     public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
@@ -93,14 +94,17 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
-                                AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
-                                double collisionBorderSize = player.getCollisionBorderSize();
-                                float[] rotation = RotationUtil.getRotationsToBox(
-                                        axisAlignedBB.expand(collisionBorderSize, collisionBorderSize, collisionBorderSize),
-                                        mc.thePlayer.rotationYaw,
-                                        mc.thePlayer.rotationPitch,
-                                        180.0F,
-                                        (float) this.smoothing.getValue() / 100.0F
+                                // 新增 deadzone 檢查（使用原有 angleToEntity 與 fov，確保與目標選擇邏輯一致）
+                                float threshold = this.aimPoint.getValue() * (float) this.fov.getValue();
+                                if (RotationUtil.angleToEntity(player) > threshold) {
+                                    AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
+                                    double collisionBorderSize = player.getCollisionBorderSize();
+                                    float[] rotation = RotationUtil.getRotationsToBox(
+                                            axisAlignedBB.expand(collisionBorderSize, collisionBorderSize, collisionBorderSize),
+                                            mc.thePlayer.rotationYaw,
+                                            mc.thePlayer.rotationPitch,
+                                            180.0F,
+                                            (float) this.smoothing.getValue() / 100.0F
                                 );
                                 float yaw = Math.min(Math.abs(this.hSpeed.getValue()), 10.0F);
                                 float pitch = Math.min(Math.abs(this.vSpeed.getValue()), 10.0F);
@@ -117,6 +121,7 @@ public class AimAssist extends Module {
                 }
             }
         }
+    }
     }
 
     @EventTarget
