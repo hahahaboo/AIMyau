@@ -25,6 +25,7 @@ public class AimAssist extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final FloatProperty hSpeed = new FloatProperty("horizontal-speed", 3.0F, 0.0F, 10.0F);
     public final FloatProperty vSpeed = new FloatProperty("vertical-speed", 0.0F, 0.0F, 10.0F);
+    public final FloatProperty randomSpeed = new FloatProperty("random-speed", 0.0F, 0.0F, 10.0F);  // ← 新增的 Random speed 設定
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
     public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
@@ -105,23 +106,37 @@ public class AimAssist extends Module {
                                             mc.thePlayer.rotationPitch,
                                             180.0F,
                                             (float) this.smoothing.getValue() / 100.0F
-                                );
-                                float yaw = Math.min(Math.abs(this.hSpeed.getValue()), 10.0F);
-                                float pitch = Math.min(Math.abs(this.vSpeed.getValue()), 10.0F);
-                                Myau.rotationManager
-                                        .setRotation(
-                                                mc.thePlayer.rotationYaw + (rotation[0] - mc.thePlayer.rotationYaw) * 0.1F * yaw,
-                                                mc.thePlayer.rotationPitch + (rotation[1] - mc.thePlayer.rotationPitch) * 0.1F * pitch,
-                                                0,
-                                                false
-                                        );
+                                    );
+
+                                    // Random speed 邏輯：Horizontal/Vertical speed 各自產生 min speed 與 max speed
+                                    float rand = this.randomSpeed.getValue();
+
+                                    // Horizontal
+                                    float hBase = this.hSpeed.getValue();
+                                    float hMin = Math.max(0.0F, hBase - rand);
+                                    float hMax = Math.min(10.0F, hBase + rand);
+                                    float yaw = RandomUtil.randomFloat(hMin, hMax);
+
+                                    // Vertical
+                                    float vBase = this.vSpeed.getValue();
+                                    float vMin = Math.max(0.0F, vBase - rand);
+                                    float vMax = Math.min(10.0F, vBase + rand);
+                                    float pitch = RandomUtil.randomFloat(vMin, vMax);
+
+                                    Myau.rotationManager
+                                            .setRotation(
+                                                    mc.thePlayer.rotationYaw + (rotation[0] - mc.thePlayer.rotationYaw) * 0.1F * yaw,
+                                                    mc.thePlayer.rotationPitch + (rotation[1] - mc.thePlayer.rotationPitch) * 0.1F * pitch,
+                                                    0,
+                                                    false
+                                            );
+                                }
                             }
                         }
                     }
                 }
             }
         }
-    }
     }
 
     @EventTarget
