@@ -115,13 +115,13 @@ public class AimAssist extends Module {
                                     float hBase = this.hSpeed.getValue();
                                     float hMin = Math.max(0.0F, hBase - rand);
                                     float hMax = Math.min(10.0F, hBase + rand);
-                                    float yaw = RandomUtil.randomFloat(hMin, hMax);
+                                    float yaw = RandomUtil.nextFloat(hMin, hMax);
 
                                     // Vertical
                                     float vBase = this.vSpeed.getValue();
                                     float vMin = Math.max(0.0F, vBase - rand);
                                     float vMax = Math.min(10.0F, vBase + rand);
-                                    float pitch = RandomUtil.randomFloat(vMin, vMax);
+                                    float pitch = RandomUtil.nextFloat(vMin, vMax);
 
                                     Myau.rotationManager
                                             .setRotation(
