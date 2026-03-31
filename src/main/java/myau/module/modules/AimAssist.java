@@ -25,21 +25,28 @@ public class AimAssist extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final FloatProperty hSpeed = new FloatProperty("horizontal-speed", 3.0F, 0.0F, 10.0F);
     public final FloatProperty vSpeed = new FloatProperty("vertical-speed", 0.0F, 0.0F, 10.0F);
-    public final FloatProperty randomSpeed = new FloatProperty("random-speed", 0.0F, 0.0F, 10.0F);  // ← 新增的 Random speed 設定
+    public final FloatProperty randomSpeed = new FloatProperty("random-speed", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
     public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
     public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
+    public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
+    public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
+    public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
     public final BooleanProperty team = new BooleanProperty("teams", true);
     private final TimerUtil timer = new TimerUtil();
-
+    
     public AimAssist() {
         super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
     }
 
+    private float currentPitchOffset = 0.0f;
+    private int tickCounter = 0;
+    private int currentInterval = 0;
+    
     private boolean isValidTarget(EntityPlayer entityPlayer) {
         if (entityPlayer != mc.thePlayer && entityPlayer != mc.thePlayer.ridingEntity) {
             if (entityPlayer == mc.getRenderViewEntity() || entityPlayer == mc.getRenderViewEntity().ridingEntity) {
@@ -75,6 +82,19 @@ public class AimAssist extends Module {
     @EventTarget
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
+            if (this.randomPitch.getValue()) {
+            this.tickCounter++;
+            if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
+                float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
+                angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
+                int sign = RandomUtil.nextInt(0, 1);
+                this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
+
+                int ticksVar = this.randomTicks.getValue() + RandomUtil.nextInt(-5, 5);
+                this.currentInterval = Math.max(0, Math.min(40, ticksVar));
+                this.tickCounter = 0;
+            }
+        }
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
@@ -123,10 +143,12 @@ public class AimAssist extends Module {
                                     float vMax = Math.min(10.0F, vBase + rand);
                                     float pitch = RandomUtil.nextFloat(vMin, vMax);
 
+                                    float targetYaw = rotation[0];
+                                    float targetPitch = rotation[1] + this.currentPitchOffset;
                                     Myau.rotationManager
                                             .setRotation(
-                                                    mc.thePlayer.rotationYaw + (rotation[0] - mc.thePlayer.rotationYaw) * 0.1F * yaw,
-                                                    mc.thePlayer.rotationPitch + (rotation[1] - mc.thePlayer.rotationPitch) * 0.1F * pitch,
+                                                    mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw,
+                                                    mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch,
                                                     0,
                                                     false
                                             );
