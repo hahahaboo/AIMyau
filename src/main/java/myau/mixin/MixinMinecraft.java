@@ -21,6 +21,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import myau.module.modules.AimAssist;
+import net.minecraft.util.MouseHelper;
 
 @SideOnly(Side.CLIENT)
 @Mixin({Minecraft.class})
@@ -157,6 +159,23 @@ public abstract class MixinMinecraft {
         EventManager.call(event);
         if (!event.isCancelled()) {
             inventoryPlayer.changeCurrentItem(slot);
+        }
+    }
+
+@Redirect(
+            method = {"runTick"},
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V"
+            )
+    )
+    private void mouseXYChange(MouseHelper mouseHelper) {
+        mouseHelper.mouseXYChange(); // 先執行原本的滑鼠更新
+
+        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
+        if (aimAssist != null && aimAssist.isEnabled() && aimAssist.noMouseMove.getValue()) {
+            mouseHelper.deltaX = 0;
+            mouseHelper.deltaY = 0;
         }
     }
 }
