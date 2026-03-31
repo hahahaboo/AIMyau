@@ -133,6 +133,22 @@ public abstract class MixinMinecraft {
         }
     }
 
+    @Inject(
+            method = {"runTick"},
+            at = {@At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
+                    shift = At.Shift.AFTER
+            )}
+    )
+    private void onMouseXYChange(CallbackInfo callbackInfo) {
+        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
+        if (aimAssist != null && aimAssist.isEnabled() && aimAssist.noMouseMove.getValue()) {
+            Minecraft.getMinecraft().mouseHelper.deltaX = 0;
+            Minecraft.getMinecraft().mouseHelper.deltaY = 0;
+        }
+    }
+
     @Redirect(
             method = {"runTick"},
             at = @At(
@@ -159,23 +175,6 @@ public abstract class MixinMinecraft {
         EventManager.call(event);
         if (!event.isCancelled()) {
             inventoryPlayer.changeCurrentItem(slot);
-        }
-    }
-
-@Redirect(
-            method = {"runTick"},
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V"
-            )
-    )
-    private void mouseXYChange(MouseHelper mouseHelper) {
-        mouseHelper.mouseXYChange(); // 先執行原本的滑鼠更新
-
-        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
-        if (aimAssist != null && aimAssist.isEnabled() && aimAssist.noMouseMove.getValue()) {
-            mouseHelper.deltaX = 0;
-            mouseHelper.deltaY = 0;
         }
     }
 }
