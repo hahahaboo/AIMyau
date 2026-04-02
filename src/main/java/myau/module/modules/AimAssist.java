@@ -170,4 +170,8 @@ public class AimAssist extends Module {
             this.timer.reset();
         }
     }
+    
+    public boolean isAiming() {
+        return this.aiming;
+    }
 }
