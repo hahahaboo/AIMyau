@@ -162,27 +162,10 @@ public abstract class MixinMinecraft {
         }
     }
 
-@Inject(
-            method = "runTick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
-                    shift = At.Shift.AFTER
-            )
-    )
-    private void afterMouseXYChange(CallbackInfo ci) {
-        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
-        if (aimAssist != null 
-                && aimAssist.isEnabled() 
-                && aimAssist.noMouseMove.getValue() 
-                && aimAssist.isAiming()) {
-            // 強制歸零，讓 AimAssist 完全接手視角
-            this.mouseHelper.deltaX = 0;
-            this.mouseHelper.deltaY = 0;
-        }
-    }
-    
-@Inject(
+    // 【本次修正】改用 @Inject + AFTER 的新方法（取代原本的 @Redirect）
+    // 先讓 mouseXYChange() 正常執行（消耗滑鼠輸入），再根據 AimAssist 狀態歸零 delta
+    // 徹底解決 tick 之間還能移動的問題
+    @Inject(
             method = "runTick",
             at = @At(
                     value = "INVOKE",
