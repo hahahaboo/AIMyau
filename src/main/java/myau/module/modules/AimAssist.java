@@ -80,23 +80,24 @@ public class AimAssist extends Module {
         return mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK;
     }
 
-    @EventTarget
+@EventTarget
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
-            this.aiming = false;
-            if (this.randomPitch.getValue()) {
-            this.tickCounter++;
-            if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
-                float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
-                angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
-                int sign = RandomUtil.nextInt(0, 1);
-                this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
+            boolean aimingThisTick = false;   // 【本次新增】計算本 tick 是否真正瞄準目標（供下一 tick 的 mouseXYChange 使用）
 
-                int ticksVar = this.randomTicks.getValue() + RandomUtil.nextInt(-5, 5);
-                this.currentInterval = Math.max(0, Math.min(40, ticksVar));
-                this.tickCounter = 0;
+            if (this.randomPitch.getValue()) {
+                this.tickCounter++;
+                if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
+                    float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
+                    angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
+                    int sign = RandomUtil.nextInt(0, 1);
+                    this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
+
+                    int ticksVar = this.randomTicks.getValue() + RandomUtil.nextInt(-5, 5);
+                    this.currentInterval = Math.max(0, Math.min(40, ticksVar));
+                    this.tickCounter = 0;
+                }
             }
-        }
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
@@ -117,7 +118,6 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
-                                // 新增 deadzone 檢查（使用原有 angleToEntity 與 fov，確保與目標選擇邏輯一致）
                                 float threshold = this.aimPoint.getValue() * 15.0F;
                                 if (RotationUtil.angleToEntity(player) > threshold) {
                                     AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
@@ -130,16 +130,13 @@ public class AimAssist extends Module {
                                             (float) this.smoothing.getValue() / 100.0F
                                     );
 
-                                    // Random speed 邏輯：Horizontal/Vertical speed 各自產生 min speed 與 max speed
                                     float rand = this.randomSpeed.getValue();
 
-                                    // Horizontal
                                     float hBase = this.hSpeed.getValue();
                                     float hMin = Math.max(0.0F, hBase - rand);
                                     float hMax = Math.min(10.0F, hBase + rand);
                                     float yaw = RandomUtil.nextFloat(hMin, hMax);
 
-                                    // Vertical
                                     float vBase = this.vSpeed.getValue();
                                     float vMin = Math.max(0.0F, vBase - rand);
                                     float vMax = Math.min(10.0F, vBase + rand);
@@ -154,13 +151,14 @@ public class AimAssist extends Module {
                                                     0,
                                                     false
                                             );
-                                    this.aiming = true;
+                                    aimingThisTick = true;   // 【修改】只有真正執行旋轉時才標記為瞄準
                                 }
                             }
                         }
                     }
                 }
             }
+            this.aiming = aimingThisTick;   // 【本次新增】在 onTick 結尾設定旗標 → 下一 tick 的 mouseXYChange 就能立即讀到正確狀態，消除 tick 間隙
         }
     }
 
