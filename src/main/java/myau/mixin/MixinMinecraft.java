@@ -162,25 +162,43 @@ public abstract class MixinMinecraft {
         }
     }
 
-   @Redirect(
+@Inject(
             method = "runTick",
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V"
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
+                    shift = At.Shift.AFTER
             )
     )
-    private void mouseXYChange(MouseHelper mouseHelper) {
-        // 先呼叫原始方法（必須！消耗滑鼠移動，解決「tick 之間還能轉動」問題）
-        mouseHelper.mouseXYChange();
-
-        // 再判斷是否要阻擋視角移動
+    private void afterMouseXYChange(CallbackInfo ci) {
         AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
         if (aimAssist != null 
                 && aimAssist.isEnabled() 
                 && aimAssist.noMouseMove.getValue() 
                 && aimAssist.isAiming()) {
-            mouseHelper.deltaX = 0;
-            mouseHelper.deltaY = 0;
+            // 強制歸零，讓 AimAssist 完全接手視角
+            this.mouseHelper.deltaX = 0;
+            this.mouseHelper.deltaY = 0;
+        }
+    }
+    
+@Inject(
+            method = "runTick",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
+                    shift = At.Shift.AFTER
+            )
+    )
+    private void afterMouseXYChange(CallbackInfo ci) {
+        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
+        if (aimAssist != null 
+                && aimAssist.isEnabled() 
+                && aimAssist.noMouseMove.getValue() 
+                && aimAssist.isAiming()) {
+            // 強制歸零，讓 AimAssist 完全接手視角
+            this.mouseHelper.deltaX = 0;
+            this.mouseHelper.deltaY = 0;
         }
     }
 }
