@@ -170,6 +170,10 @@ public abstract class MixinMinecraft {
             )
     )
     private void mouseXYChange(MouseHelper mouseHelper) {
+        // 先呼叫原始方法（必須！消耗滑鼠移動，解決「tick 之間還能轉動」問題）
+        mouseHelper.mouseXYChange();
+
+        // 再判斷是否要阻擋視角移動
         AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
         if (aimAssist != null 
                 && aimAssist.isEnabled() 
@@ -177,8 +181,6 @@ public abstract class MixinMinecraft {
                 && aimAssist.isAiming()) {
             mouseHelper.deltaX = 0;
             mouseHelper.deltaY = 0;
-        } else {
-            mouseHelper.mouseXYChange();
         }
     }
 }
