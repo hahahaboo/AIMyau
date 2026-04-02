@@ -35,18 +35,19 @@ public class AimAssist extends Module {
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
+    public final BooleanProperty noMouseMove = new BooleanProperty("no-mouse-move", false);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
     public final BooleanProperty team = new BooleanProperty("teams", true);
     private final TimerUtil timer = new TimerUtil();
-    
+    private boolean aiming = false;
+    private float currentPitchOffset = 0.0f;
+    private int tickCounter = 0;
+    private int currentInterval = 0;
+
     public AimAssist() {
         super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
     }
 
-    private float currentPitchOffset = 0.0f;
-    private int tickCounter = 0;
-    private int currentInterval = 0;
-    
     private boolean isValidTarget(EntityPlayer entityPlayer) {
         if (entityPlayer != mc.thePlayer && entityPlayer != mc.thePlayer.ridingEntity) {
             if (entityPlayer == mc.getRenderViewEntity() || entityPlayer == mc.getRenderViewEntity().ridingEntity) {
@@ -82,6 +83,7 @@ public class AimAssist extends Module {
     @EventTarget
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
+            this.aiming = false;
             if (this.randomPitch.getValue()) {
             this.tickCounter++;
             if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
@@ -152,6 +154,7 @@ public class AimAssist extends Module {
                                                     0,
                                                     false
                                             );
+                                    this.aiming = true;
                                 }
                             }
                         }
