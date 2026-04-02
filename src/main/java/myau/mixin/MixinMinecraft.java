@@ -13,6 +13,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.multiplayer.PlayerControllerMP;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.util.MouseHelper;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -161,7 +162,7 @@ public abstract class MixinMinecraft {
         }
     }
 
-    @Redirect(
+   @Redirect(
             method = "runTick",
             at = @At(
                     value = "INVOKE",
@@ -180,5 +181,4 @@ public abstract class MixinMinecraft {
             mouseHelper.mouseXYChange();
         }
     }
-}
 }
