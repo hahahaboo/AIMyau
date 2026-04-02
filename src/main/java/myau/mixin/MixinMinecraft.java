@@ -5,6 +5,7 @@ import myau.event.EventManager;
 import myau.event.types.EventType;
 import myau.events.*;
 import myau.init.Initializer;
+import myau.module.modules.AimAssist;
 import myau.module.modules.NoHitDelay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
@@ -159,4 +160,25 @@ public abstract class MixinMinecraft {
             inventoryPlayer.changeCurrentItem(slot);
         }
     }
+
+    @Redirect(
+            method = "runTick",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V"
+            )
+    )
+    private void mouseXYChange(MouseHelper mouseHelper) {
+        AimAssist aimAssist = (AimAssist) Myau.moduleManager.modules.get(AimAssist.class);
+        if (aimAssist != null 
+                && aimAssist.isEnabled() 
+                && aimAssist.noMouseMove.getValue() 
+                && aimAssist.isAiming()) {
+            mouseHelper.deltaX = 0;
+            mouseHelper.deltaY = 0;
+        } else {
+            mouseHelper.mouseXYChange();
+        }
+    }
+}
 }
