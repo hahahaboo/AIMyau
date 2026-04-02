@@ -24,6 +24,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+
 @SideOnly(Side.CLIENT)
 @Mixin({Minecraft.class})
 public abstract class MixinMinecraft {
@@ -165,6 +166,10 @@ public abstract class MixinMinecraft {
     // 【本次修正】改用 @Inject + AFTER 的新方法（取代原本的 @Redirect）
     // 先讓 mouseXYChange() 正常執行（消耗滑鼠輸入），再根據 AimAssist 狀態歸零 delta
     // 徹底解決 tick 之間還能移動的問題
+
+    @Shadow
+    private MouseHelper mouseHelper;
+    
     @Inject(
             method = "runTick",
             at = @At(
