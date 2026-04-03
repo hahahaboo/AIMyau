@@ -216,4 +216,9 @@ public class Velocity extends Module {
             }
         }
     }
+
+        @Override
+    public String[] getSuffix() {
+        return new String[]{mode.getModeString()};
+    }
 }
