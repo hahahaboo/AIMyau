@@ -14,9 +14,9 @@ import myau.property.properties.PercentProperty;
 import myau.util.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,18 +35,24 @@ public class AimAssist extends Module {
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
+    public final BooleanProperty complyGCD = new BooleanProperty("comply-gcd", false);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
     public final BooleanProperty team = new BooleanProperty("teams", true);
     private final TimerUtil timer = new TimerUtil();
     
-    public AimAssist() {
-        super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
-    }
-
     private float currentPitchOffset = 0.0f;
     private int tickCounter = 0;
     private int currentInterval = 0;
     
+    public AimAssist() {
+        super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
+    }
+    
+    private float getGCD() {
+        float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
+        return f * f * f * 1.2F;
+    }
+
     private boolean isValidTarget(EntityPlayer entityPlayer) {
         if (entityPlayer != mc.thePlayer && entityPlayer != mc.thePlayer.ridingEntity) {
             if (entityPlayer == mc.getRenderViewEntity() || entityPlayer == mc.getRenderViewEntity().ridingEntity) {
@@ -145,10 +151,30 @@ public class AimAssist extends Module {
 
                                     float targetYaw = rotation[0];
                                     float targetPitch = rotation[1] + this.currentPitchOffset;
+
+                                    // 先計算原本的平滑插值
+                                    float interpYaw = mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw;
+                                    float interpPitch = mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch;
+
+                                    // 【新增】comply GCD 邏輯
+                                    if (this.complyGCD.getValue()) {
+                                        float deltaYaw = MathHelper.wrapAngleTo180_float(interpYaw - mc.thePlayer.rotationYaw);
+                                        float deltaPitch = MathHelper.clamp_float(interpPitch - mc.thePlayer.rotationPitch, -90.0F, 90.0F);
+
+                                        float gcd = this.getGCD();
+                                        if (gcd != 0.0F) {
+                                            deltaYaw = (float) Math.round(deltaYaw / gcd) * gcd;
+                                            deltaPitch = (float) Math.round(deltaPitch / gcd) * gcd;
+                                        }
+
+                                        interpYaw = mc.thePlayer.rotationYaw + deltaYaw;
+                                        interpPitch = mc.thePlayer.rotationPitch + deltaPitch;
+                                    }
+
                                     Myau.rotationManager
                                             .setRotation(
-                                                    mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw,
-                                                    mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch,
+                                                    interpYaw,
+                                                    interpPitch,
                                                     0,
                                                     false
                                             );
