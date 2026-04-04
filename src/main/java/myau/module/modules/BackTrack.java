@@ -502,7 +502,7 @@ public class BackTrack extends Module {
         if (this.packetQueue.isEmpty() && areQueuedPacketsEmpty()) {
             if (!this.modernDelay.changed && !shouldBacktrack()) {
                 this.delayForNextBacktrack = System.currentTimeMillis() + this.nextBacktrackDelay.getValue();
-                this.modernDelay = new ModernDelay((int) unfair.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), true);
+                this.modernDelay = new ModernDelay((int) myau.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), true);
             }
         } else {
             this.modernDelay = new ModernDelay(this.modernDelay.delay, false);
@@ -816,7 +816,7 @@ public class BackTrack extends Module {
         this.target = null;
         this.globalTimer.reset();
         this.delayForNextBacktrack = 0L;
-        this.modernDelay = new ModernDelay((int) unfair.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), false);
+        this.modernDelay = new ModernDelay((int) myau.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), false);
     }
 
     private void clear() {
