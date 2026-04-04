@@ -16,7 +16,7 @@ public class AttackEvent implements Event {
         this.cancelled = false;
     }
 
-     public Entity getTarget() {
+    public Entity getTarget() {
         return this.target;
     }
 
