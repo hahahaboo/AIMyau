@@ -451,7 +451,7 @@ public class BackTrack extends Module {
     }
 
     @EventTarget
-    public void onTick(unfair.events.TickEvent event) {
+    public void onTick(myau.events.TickEvent event) {
         if (!this.isEnabled()) return;
         syncContextAndResetIfNeeded();
         if (mc.thePlayer == null || mc.theWorld == null || mc.getNetHandler() == null) return;
