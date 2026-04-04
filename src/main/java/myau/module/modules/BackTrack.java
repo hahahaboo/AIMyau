@@ -1,293 +1,917 @@
-//This class is full of shit by gemini!
-package myau.module.modules;
+package myau.module.modules.combat;
 
-import myau.event.EventTarget;
-import myau.event.types.EventType;
-import myau.events.PacketEvent;
-import myau.events.Render3DEvent;
-import myau.events.UpdateEvent;
-import myau.mixin.IAccessorRenderManager;
-import myau.module.Category;
-import myau.module.Module;
-import myau.property.properties.BooleanProperty;
-import myau.property.properties.FloatProperty;
-import myau.property.properties.IntProperty;
-import myau.util.RenderUtil;
-import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.Packet;
+import net.minecraft.network.handshake.client.C00Handshake;
 import net.minecraft.network.play.INetHandlerPlayClient;
-import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.server.*;
+import net.minecraft.network.status.client.C00PacketServerQuery;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.Vec3;
+import myau.event.EventTarget;
+import myau.event.types.EventType;
+import myau.events.AttackEvent;
+import myau.events.LoadWorldEvent;
+import myau.events.PacketEvent;
+import myau.events.Render3DEvent;
+import myau.mixin.IAccessorRenderManager;
+import myau.module.Module;
+import myau.module.Category;
+import myau.property.properties.*;
+import myau.util.RenderUtil;
+import myau.util.RotationUtil;
+import myau.util.TimerUtil;
 
-import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Queue;
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BackTrack extends Module {
+
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    private final IntProperty minLatency = new IntProperty("Min Latency", 50, 10, 1000);
-    private final IntProperty maxLatency = new IntProperty("Max Latency", 100, 10, 1000);
-    private final FloatProperty minDistance = new FloatProperty("Min Distance", 0.0f, 0.0f, 3.0f);
-    private final FloatProperty maxDistance = new FloatProperty("Max Distance", 6.0f, 0.0f, 10.0f);
-    private final IntProperty stopOnTargetHurtTime = new IntProperty("Stop Target HurtTime", 10, -1, 10);
-    private final IntProperty stopOnSelfHurtTime = new IntProperty("Stop Self HurtTime", 10, -1, 10);
-    private final BooleanProperty drawRealPosition = new BooleanProperty("Draw Real Position", true);
+    public final ModeProperty mode = new ModeProperty("Mode", 1, new String[]{"Legacy", "Modern"});
 
-    private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<>();
-    private final List<Packet<?>> skipPackets = new ArrayList<>();
+    public final IntProperty nextBacktrackDelay = new IntProperty(
+            "NextBacktrackDelay",
+            0,
+            0,
+            2000,
+            () -> this.mode.getValue() == 1
+    );
 
-    private EntityLivingBase target;
-    private Vec3 realTargetPos;
-    private int currentLatency = 0;
+    public final IntProperty maxDelay = new IntProperty("MaxDelay", 80, 0, 2000);
+    public final IntProperty minDelay = new IntProperty(
+            "MinDelay",
+            80,
+            0,
+            2000,
+            () -> this.mode.getValue() == 1
+    );
 
-    private double renderX, renderY, renderZ;
+    public final ModeProperty cachingMode = new ModeProperty(
+            "Caching mode",
+            0,
+            new String[]{"ClientPos", "ServerPos"},
+            () -> this.mode.getValue() == 0
+    );
+
+    public final ModeProperty style = new ModeProperty(
+            "Style",
+            1,
+            new String[]{"Pulse", "Smooth"},
+            () -> this.mode.getValue() == 1
+    );
+
+    public final FloatProperty distanceMin = new FloatProperty(
+            "DistanceMin",
+            2.0f,
+            0.0f,
+            6.0f,
+            () -> this.mode.getValue() == 1
+    );
+
+    public final FloatProperty distanceMax = new FloatProperty(
+            "DistanceMax",
+            3.0f,
+            0.0f,
+            6.0f,
+            () -> this.mode.getValue() == 1
+    );
+
+    public final BooleanProperty smart = new BooleanProperty(
+            "Smart",
+            true,
+            () -> this.mode.getValue() == 1
+    );
+
+    public final ModeProperty espMode = new ModeProperty(
+            "ESP-Mode",
+            0,
+            new String[]{"Box", "FullBox"},
+            () -> this.mode.getValue() == 1
+    );
+
+    public final ColorProperty espColor = new ColorProperty(
+            "ESPColor",
+            0x00FF00,
+            () -> this.mode.getValue() == 1
+    );
+    public final IntProperty maximumCachedPositions = new IntProperty(
+            "MaxCachedPositions",
+            10,
+            1,
+            20,
+            () -> this.mode.getValue() == 0
+    );
+    private final Queue<QueueData> packetQueue = new ConcurrentLinkedQueue<>();
+    private final Queue<PosData> positions = new ConcurrentLinkedQueue<>();
+    private final Map<Integer, Vec3> truePositions = new HashMap<>();
+    private final TimerUtil globalTimer = new TimerUtil();
+    private final ConcurrentHashMap<UUID, LinkedList<BacktrackData>> backtrackedPlayer = new ConcurrentHashMap<>();
+    private final String[] nonDelayedSoundSubstrings = new String[]{"game.player.hurt", "game.player.die"};
+    private final ArrayDeque<Packet<?>> queuedPackets = new ArrayDeque<>();
+    private final Object queueLock = new Object();
+    private EntityLivingBase target = null;
+    private boolean shouldRender = true;
+    private boolean ignoreWholeTick = false;
+    private long delayForNextBacktrack = 0L;
+    private ModernDelay modernDelay = new ModernDelay(80, false);
+    private Object lastWorld = null;
+    private Object lastNetHandler = null;
 
     public BackTrack() {
-        super("BackTrack", "Allows you to hit past opponents", Category.COMBAT, 0, false, false);
+        super("BackTrack", " ", Category.COMBAT, 0, false, false);
     }
 
-    @Override
-    public String[] getSuffix() {
-        return new String[]{(currentLatency == 0 ? maxLatency.getValue() : currentLatency) + "ms"};
+    private boolean areQueuedPacketsEmpty() {
+        synchronized (queueLock) {
+            return queuedPackets.isEmpty();
+        }
     }
 
     @Override
     public void onEnabled() {
-        resetStates();
+        this.reset();
+        this.clearPackets(true, false);
+        this.backtrackedPlayer.clear();
+        this.lastWorld = mc.theWorld;
+        this.lastNetHandler = mc.getNetHandler();
     }
 
     @Override
     public void onDisabled() {
-        releaseAll();
-        resetStates();
-    }
+        this.clearPackets(true, true);
+        this.backtrackedPlayer.clear();
+        this.truePositions.clear();
+        this.target = null;
+        this.lastWorld = null;
+        this.lastNetHandler = null;
 
-    private void resetStates() {
-        packetQueue.clear();
-        skipPackets.clear();
-        realTargetPos = null;
-        target = null;
-        renderX = 0;
-        renderY = 0;
-        renderZ = 0;
-    }
-
-    @EventTarget
-    public void onUpdate(UpdateEvent event) {
-        if (!this.isEnabled() || mc.thePlayer == null) return;
-        if (event.getType() == EventType.PRE) {
-            // 距离检查：如果目标太远，强制停止 Backtrack
-            if (target != null && realTargetPos != null) {
-                double distance = realTargetPos.distanceTo(mc.thePlayer.getPositionVector());
-                if (distance > maxDistance.getValue() || distance < minDistance.getValue()) {
-                    releaseAll(); // 距离不满足时释放所有包
-                }
-            }
-
-            // 处理队列中的数据包
-            while (!packetQueue.isEmpty()) {
-                TimedPacket timedPacket = packetQueue.peek();
-                if (timedPacket != null && timedPacket.timer.hasTimeElapsed(currentLatency)) {
-                    packetQueue.poll();
-                    Packet<?> packet = timedPacket.packet;
-                    skipPackets.add(packet);
-                    handlePacket(packet);
-                } else {
-                    break;
-                }
-            }
+        synchronized (queueLock) {
+            queuedPackets.clear();
         }
     }
 
-    @EventTarget
-    public void onRender3D(Render3DEvent event) {
-        if (!this.isEnabled() || mc.thePlayer == null) return;
-        if (target == null || realTargetPos == null || target.isDead || !drawRealPosition.getValue())
+    private void resetAllState(boolean handleQueuedPackets) {
+        this.clearPackets(handleQueuedPackets, true);
+        this.reset();
+        this.backtrackedPlayer.clear();
+        this.truePositions.clear();
+        this.target = null;
+    }
+
+    private void syncContextAndResetIfNeeded() {
+        Object world = mc.theWorld;
+        Object netHandler = mc.getNetHandler();
+
+        if (world == null || mc.thePlayer == null || netHandler == null) {
+            if (!this.packetQueue.isEmpty() || !this.positions.isEmpty() || !this.truePositions.isEmpty() || this.target != null) {
+                resetAllState(false);
+            }
+            this.lastWorld = world;
+            this.lastNetHandler = netHandler;
             return;
-
-        Vec3 pos = realTargetPos;
-
-        if (renderX == 0 && renderY == 0 && renderZ == 0) {
-            renderX = pos.xCoord;
-            renderY = pos.yCoord;
-            renderZ = pos.zCoord;
         }
 
-        renderX = RenderUtil.lerpDouble(pos.xCoord, renderX, 0.5);
-        renderY = RenderUtil.lerpDouble(pos.yCoord, renderY, 0.5);
-        renderZ = RenderUtil.lerpDouble(pos.zCoord, renderZ, 0.5);
+        if (this.lastWorld != world || this.lastNetHandler != netHandler) {
+            resetAllState(false);
+        }
 
-        double viewerX = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX();
-        double viewerY = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY();
-        double viewerZ = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ();
+        this.lastWorld = world;
+        this.lastNetHandler = netHandler;
+    }
 
-        double x = renderX - viewerX;
-        double y = renderY - viewerY;
-        double z = renderZ - viewerZ;
+    @Override
+    public void verifyValue(String name) {
+        if (this.maxDelay.getName().equals(name)) {
+            if (this.maxDelay.getValue() < this.minDelay.getValue()) {
+                this.maxDelay.setValue(this.minDelay.getValue());
+            }
+        } else if (this.minDelay.getName().equals(name)) {
+            if (this.minDelay.getValue() > this.maxDelay.getValue()) {
+                this.minDelay.setValue(this.maxDelay.getValue());
+            }
+        } else if (this.distanceMin.getName().equals(name)) {
+            if (this.distanceMin.getValue() > this.distanceMax.getValue()) {
+                this.distanceMin.setValue(this.distanceMax.getValue());
+            }
+        } else if (this.distanceMax.getName().equals(name)) {
+            if (this.distanceMax.getValue() < this.distanceMin.getValue()) {
+                this.distanceMax.setValue(this.distanceMin.getValue());
+            }
+        } else if (this.mode.getName().equals(name)) {
+            this.clearPackets(true, true);
+            this.backtrackedPlayer.clear();
+            this.target = null;
+        }
+    }
 
-        double width = target.width / 2.0;
-        double height = target.height;
+    private boolean isModern() {
+        return this.mode.getValue() == 1;
+    }
 
-        AxisAlignedBB box = new AxisAlignedBB(
-                x - width, y, z - width,
-                x + width, y + height, z + width
-        );
+    private boolean isLegacy() {
+        return this.mode.getValue() == 0;
+    }
 
-        Color color = new Color(72, 125, 227, 100);
+    private int supposedDelay() {
+        if (isModern()) {
+            return modernDelay.delay;
+        }
+        return this.maxDelay.getValue();
+    }
 
-        RenderUtil.enableRenderState();
-        RenderUtil.drawFilledBox(box, color.getRed(), color.getGreen(), color.getBlue());
-        RenderUtil.disableRenderState();
+    private boolean inDistanceRange(double range) {
+        return range >= this.distanceMin.getValue() && range <= this.distanceMax.getValue();
+    }
+
+    @EventTarget
+    public void onAttack(AttackEvent event) {
+        if (!this.isEnabled()) return;
+        if (!(event.getTarget() instanceof EntityLivingBase)) return;
+
+        EntityLivingBase newTarget = (EntityLivingBase) event.getTarget();
+        if (this.target != newTarget) {
+            this.clearPackets(true, true);
+            this.reset();
+        }
+        this.target = newTarget;
+    }
+
+    @EventTarget
+    public void onLoadWorld(LoadWorldEvent event) {
+        if (!this.isEnabled()) return;
+        resetAllState(false);
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || mc.thePlayer == null) return;
+        if (!this.isEnabled()) return;
+        syncContextAndResetIfNeeded();
+        if (mc.thePlayer == null || mc.theWorld == null || mc.getNetHandler() == null) return;
+        if (event.isCancelled()) return;
+
         Packet<?> packet = event.getPacket();
 
-        if (event.getType() == EventType.SEND) {
-            if (packet instanceof C02PacketUseEntity) {
-                C02PacketUseEntity wrapper = (C02PacketUseEntity) packet;
-                if (wrapper.getAction() == C02PacketUseEntity.Action.ATTACK) {
-                    Entity entity = wrapper.getEntityFromWorld(mc.theWorld);
-                    if (entity instanceof EntityLivingBase) {
-                        EntityLivingBase newTarget = (EntityLivingBase) entity;
+        if (isLegacy()) {
+            handleLegacyPacket(packet, event);
+            return;
+        }
 
-                        // 核心修复：只有当目标改变，或者还没有初始化位置时，才重置 realTargetPos
-                        // 这样连续攻击同一个目标时，realTargetPos 会保持由 Receive 包更新的状态，不会跳回
-                        if (this.target != newTarget || this.realTargetPos == null) {
-                            this.target = newTarget;
-                            this.realTargetPos = new Vec3(target.serverPosX / 32.0D, target.serverPosY / 32.0D, target.serverPosZ / 32.0D);
+        handleModernPacket(packet, event);
+    }
 
-                            this.renderX = this.realTargetPos.xCoord;
-                            this.renderY = this.realTargetPos.yCoord;
-                            this.renderZ = this.realTargetPos.zCoord;
+    private void handleLegacyPacket(Packet<?> packet, PacketEvent event) {
+        if (packet instanceof S0CPacketSpawnPlayer) {
+            S0CPacketSpawnPlayer p = (S0CPacketSpawnPlayer) packet;
+            Entity e = mc.theWorld.getEntityByID(p.getEntityID());
+            if (e instanceof EntityPlayer) {
+                addBacktrackData(e.getUniqueID(), p.getX() / 32.0, p.getY() / 32.0, p.getZ() / 32.0, System.currentTimeMillis());
+            }
+            return;
+        }
 
-                            // 只有切换目标时才重新随机延迟，或者你想每次攻击都随机也可以放在外面
-                            double distance = realTargetPos.distanceTo(mc.thePlayer.getPositionVector());
-                            if (distance <= maxDistance.getValue() && distance >= minDistance.getValue()) {
-                                int min = minLatency.getValue();
-                                int max = maxLatency.getValue();
-                                this.currentLatency = min + (int) (Math.random() * ((max - min) + 1));
+        if (packet instanceof S14PacketEntity) {
+            updateTruePosition((S14PacketEntity) packet);
+            if (this.cachingMode.getValue() == 1) {
+                Entity e = ((S14PacketEntity) packet).getEntity(mc.theWorld);
+                if (e != null) {
+                    Vec3 v = this.truePositions.get(e.getEntityId());
+                    if (v != null) {
+                        addBacktrackData(e.getUniqueID(), v.xCoord, v.yCoord, v.zCoord, System.currentTimeMillis());
+                    }
+                }
+            }
+            return;
+        }
+
+        if (packet instanceof S18PacketEntityTeleport) {
+            updateTruePosition((S18PacketEntityTeleport) packet);
+            if (this.cachingMode.getValue() == 1) {
+                Entity e = mc.theWorld.getEntityByID(((S18PacketEntityTeleport) packet).getEntityId());
+                if (e != null) {
+                    Vec3 v = this.truePositions.get(e.getEntityId());
+                    if (v != null) {
+                        addBacktrackData(e.getUniqueID(), v.xCoord, v.yCoord, v.zCoord, System.currentTimeMillis());
+                    }
+                }
+            }
+        }
+
+        if (packet instanceof S29PacketSoundEffect) {
+            // no-op
+        }
+
+        if (this.cachingMode.getValue() == 0 && packet instanceof S14PacketEntity) {
+            Entity e = ((S14PacketEntity) packet).getEntity(mc.theWorld);
+            if (e instanceof EntityPlayer) {
+                addBacktrackData(e.getUniqueID(), e.posX, e.posY, e.posZ, System.currentTimeMillis());
+            }
+        }
+    }
+
+    private void handleModernPacket(Packet<?> packet, PacketEvent event) {
+        if (mc.isSingleplayer()) {
+            clearPackets(true, true);
+            return;
+        }
+
+        if (packet instanceof S40PacketDisconnect) {
+            resetAllState(false);
+            return;
+        }
+
+        if (packet instanceof S01PacketJoinGame
+                || packet instanceof S07PacketRespawn
+                || packet instanceof S08PacketPlayerPosLook
+                || packet instanceof S21PacketChunkData
+                || packet instanceof S26PacketMapChunkBulk) {
+            this.clearPackets(false, true);
+            this.reset();
+            this.target = null;
+            this.truePositions.clear();
+            return;
+        }
+
+        if (packet instanceof C00Handshake
+                || packet instanceof C00PacketServerQuery
+                || packet instanceof S02PacketChat
+                || packet instanceof net.minecraft.network.status.server.S01PacketPong) {
+            return;
+        }
+
+        if (packet instanceof S29PacketSoundEffect) {
+            S29PacketSoundEffect s29 = (S29PacketSoundEffect) packet;
+            for (String s : nonDelayedSoundSubstrings) {
+                if (s29.getSoundName().contains(s)) {
+                    return;
+                }
+            }
+        }
+
+        if (packet instanceof S06PacketUpdateHealth) {
+            if (((S06PacketUpdateHealth) packet).getHealth() <= 0.0f) {
+                clearPackets(true, true);
+                return;
+            }
+        }
+
+        if (packet instanceof S13PacketDestroyEntities && this.target != null) {
+            for (int id : ((S13PacketDestroyEntities) packet).getEntityIDs()) {
+                if (id == this.target.getEntityId()) {
+                    clearPackets(true, true);
+                    reset();
+                    return;
+                }
+            }
+        }
+
+        if (packet instanceof S1CPacketEntityMetadata && this.target != null) {
+            S1CPacketEntityMetadata meta = (S1CPacketEntityMetadata) packet;
+            if (meta.getEntityId() == this.target.getEntityId()) {
+                List<?> data = meta.func_149376_c();
+                if (data != null) {
+                    for (Object obj : data) {
+                        if (obj instanceof net.minecraft.entity.DataWatcher.WatchableObject) {
+                            net.minecraft.entity.DataWatcher.WatchableObject wo = (net.minecraft.entity.DataWatcher.WatchableObject) obj;
+                            if (wo.getDataValueId() == 6) {
+                                try {
+                                    double v = Double.parseDouble(String.valueOf(wo.getObject()));
+                                    if (!Double.isNaN(v) && v <= 0.0) {
+                                        clearPackets(true, true);
+                                        reset();
+                                        return;
+                                    }
+                                } catch (Exception ignored) {
+                                }
                             }
                         }
                     }
                 }
-            }
-        } else if (event.getType() == EventType.RECEIVE) {
-            if (skipPackets.contains(packet)) {
-                skipPackets.remove(packet);
                 return;
             }
+        }
 
-            // 伤害时间检查
-            if (target != null && stopOnTargetHurtTime.getValue() != -1 && target.hurtTime > stopOnTargetHurtTime.getValue()) {
-                releaseAll();
+        if (packet instanceof S19PacketEntityStatus && this.target != null) {
+            int id = PacketFieldCache.getS19EntityId((S19PacketEntityStatus) packet);
+            if (id != -1 && id == this.target.getEntityId()) {
                 return;
             }
-            if (stopOnSelfHurtTime.getValue() != -1 && mc.thePlayer.hurtTime > stopOnSelfHurtTime.getValue()) {
-                releaseAll();
-                return;
-            }
+        }
 
-            if (mc.thePlayer.ticksExisted < 20 || target == null || target.isDead) {
-                releaseAll();
-                return;
-            }
+        if (packet instanceof S0CPacketSpawnPlayer) {
+            S0CPacketSpawnPlayer p = (S0CPacketSpawnPlayer) packet;
+            this.truePositions.put(p.getEntityID(), new Vec3(p.getX() / 32.0, p.getY() / 32.0, p.getZ() / 32.0));
+        } else if (packet instanceof S0FPacketSpawnMob) {
+            S0FPacketSpawnMob p = (S0FPacketSpawnMob) packet;
+            this.truePositions.put(p.getEntityID(), new Vec3(p.getX() / 32.0, p.getY() / 32.0, p.getZ() / 32.0));
+        } else if (packet instanceof S14PacketEntity) {
+            updateTruePosition((S14PacketEntity) packet);
+        } else if (packet instanceof S18PacketEntityTeleport) {
+            updateTruePosition((S18PacketEntityTeleport) packet);
+        }
 
-            if (packet instanceof S19PacketEntityStatus
-                    || packet instanceof S02PacketChat
-                    || packet instanceof S0BPacketAnimation
-                    || packet instanceof S06PacketUpdateHealth
-                    || packet instanceof S08PacketPlayerPosLook
-                    || packet instanceof S40PacketDisconnect) {
+        if (this.packetQueue.isEmpty() && areQueuedPacketsEmpty() && !shouldBacktrack()) {
+            return;
+        }
 
-                if (packet instanceof S08PacketPlayerPosLook || packet instanceof S40PacketDisconnect) {
-                    releaseAll();
-                }
-                return;
-            }
-
-            if (packet instanceof S13PacketDestroyEntities) {
-                S13PacketDestroyEntities wrapper = (S13PacketDestroyEntities) packet;
-                for (int id : wrapper.getEntityIDs()) {
-                    if (target != null && id == target.getEntityId()) {
-                        releaseAll();
-                        return;
+        if (event.getType() == EventType.RECEIVE) {
+            if (packet instanceof S14PacketEntity && this.target != null) {
+                S14PacketEntity p = (S14PacketEntity) packet;
+                int id = PacketFieldCache.getS14EntityId(p);
+                if (id != -1 && id == this.target.getEntityId()) {
+                    Vec3 v = this.truePositions.get(id);
+                    if (v != null) {
+                        this.positions.add(new PosData(v, System.currentTimeMillis()));
                     }
                 }
             }
 
-            boolean shouldCancel = false;
-
-            if (packet instanceof S14PacketEntity) {
-                S14PacketEntity wrapper = (S14PacketEntity) packet;
-                Entity entity = wrapper.getEntity(mc.theWorld);
-                if (entity != null && target != null && entity.getEntityId() == target.getEntityId()) {
-                    if (realTargetPos != null) {
-                        // S14 累加逻辑
-                        realTargetPos = realTargetPos.addVector(
-                                wrapper.func_149062_c() / 32.0D,
-                                wrapper.func_149061_d() / 32.0D,
-                                wrapper.func_149064_e() / 32.0D
-                        );
+            if (packet instanceof S18PacketEntityTeleport && this.target != null) {
+                S18PacketEntityTeleport p = (S18PacketEntityTeleport) packet;
+                int id = PacketFieldCache.getS18EntityId(p);
+                if (id != -1 && id == this.target.getEntityId()) {
+                    Vec3 v = this.truePositions.get(id);
+                    if (v != null) {
+                        this.positions.add(new PosData(v, System.currentTimeMillis()));
                     }
-                    shouldCancel = true;
-                }
-            } else if (packet instanceof S18PacketEntityTeleport) {
-                S18PacketEntityTeleport wrapper = (S18PacketEntityTeleport) packet;
-                if (wrapper.getEntityId() == target.getEntityId()) {
-                    // S18 绝对定位
-                    realTargetPos = new Vec3(wrapper.getX() / 32.0D, wrapper.getY() / 32.0D, wrapper.getZ() / 32.0D);
-                    shouldCancel = true;
                 }
             }
 
-            if (shouldCancel) {
-                packetQueue.add(new TimedPacket(packet));
-                event.setCancelled(true);
+            event.setCancelled(true);
+            this.packetQueue.add(new QueueData(packet, System.currentTimeMillis()));
+        }
+    }
+
+    @EventTarget
+    public void onTick(unfair.events.TickEvent event) {
+        if (!this.isEnabled()) return;
+        syncContextAndResetIfNeeded();
+        if (mc.thePlayer == null || mc.theWorld == null || mc.getNetHandler() == null) return;
+        if (event.getType() != EventType.POST) return;
+
+        if (isLegacy()) {
+            long now = System.currentTimeMillis();
+            for (Map.Entry<UUID, LinkedList<BacktrackData>> e : backtrackedPlayer.entrySet()) {
+                LinkedList<BacktrackData> list = e.getValue();
+                list.removeIf(d -> d.time + supposedDelay() < now);
+                if (list.isEmpty()) {
+                    backtrackedPlayer.remove(e.getKey());
+                }
+            }
+
+            processQueuedPackets();
+            return;
+        }
+
+        if (shouldBacktrack() && this.target != null) {
+            Vec3 truePos = this.truePositions.get(this.target.getEntityId());
+            if (truePos != null) {
+                double trueDist = mc.thePlayer.getDistance(truePos.xCoord, truePos.yCoord, truePos.zCoord);
+                double dist = mc.thePlayer.getDistanceToEntity(this.target);
+
+                boolean smoothAllow = this.style.getValue() == 1 || !this.globalTimer.hasTimeElapsed(supposedDelay());
+
+                if (trueDist <= 6.0
+                        && (!this.smart.getValue() || trueDist >= dist)
+                        && smoothAllow) {
+                    this.shouldRender = true;
+                    double rangeToTarget = RotationUtil.distanceToEntity(this.target);
+                    if (inDistanceRange(rangeToTarget)) {
+                        handlePackets();
+                    } else {
+                        handlePacketsRange();
+                    }
+                } else {
+                    clear();
+                }
+            } else {
+                clear();
+            }
+        } else {
+            clear();
+        }
+
+        if (this.packetQueue.isEmpty() && areQueuedPacketsEmpty()) {
+            if (!this.modernDelay.changed && !shouldBacktrack()) {
+                this.delayForNextBacktrack = System.currentTimeMillis() + this.nextBacktrackDelay.getValue();
+                this.modernDelay = new ModernDelay((int) unfair.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), true);
+            }
+        } else {
+            this.modernDelay = new ModernDelay(this.modernDelay.delay, false);
+        }
+
+        this.ignoreWholeTick = false;
+
+        processQueuedPackets();
+    }
+
+    @EventTarget
+    public void onRender3D(Render3DEvent event) {
+        if (!this.isEnabled()) return;
+        if (!isModern()) return;
+        if (!shouldBacktrack() || !this.shouldRender) return;
+        if (this.target == null) return;
+
+        Vec3 truePos = this.truePositions.get(this.target.getEntityId());
+        if (truePos == null) return;
+
+        double x = truePos.xCoord;
+        double y = truePos.yCoord;
+        double z = truePos.zCoord;
+
+        int rgb = this.espColor.getValue();
+        int r = (rgb >> 16) & 255;
+        int g = (rgb >> 8) & 255;
+        int b = rgb & 255;
+
+        AxisAlignedBB aabb = this.target.getEntityBoundingBox()
+                .offset(x - this.target.posX, y - this.target.posY, z - this.target.posZ)
+                .offset(
+                        -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX(),
+                        -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY(),
+                        -((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ()
+                );
+
+        switch (this.espMode.getValue()) {
+            case 0: {
+                GlStateManager.pushMatrix();
+                GlStateManager.disableTexture2D();
+                GlStateManager.disableLighting();
+                GlStateManager.enableBlend();
+                GlStateManager.disableDepth();
+                GlStateManager.depthMask(false);
+
+                RenderGlobal.drawOutlinedBoundingBox(aabb, r, g, b, 153);
+
+                GlStateManager.depthMask(true);
+                GlStateManager.enableDepth();
+                GlStateManager.disableBlend();
+                GlStateManager.enableLighting();
+                GlStateManager.enableTexture2D();
+                GlStateManager.popMatrix();
+                break;
+            }
+            case 1: {
+                RenderUtil.enableRenderState();
+                RenderUtil.drawFilledBox(aabb, r, g, b);
+                RenderUtil.disableRenderState();
+                break;
             }
         }
     }
 
-    private void releaseAll() {
-        if (!packetQueue.isEmpty()) {
-            for (TimedPacket timedPacket : packetQueue) {
-                Packet<?> packet = timedPacket.packet;
-                skipPackets.add(packet);
-                handlePacket(packet);
+    private void handlePackets() {
+        long now = System.currentTimeMillis();
+        int delay = supposedDelay();
+
+        packetQueue.removeIf(data -> {
+            if (data.time <= now - delay) {
+                schedulePacketProcess(data.packet);
+                return true;
             }
-            packetQueue.clear();
+            return false;
+        });
+
+        positions.removeIf(pd -> pd.time < now - delay);
+    }
+
+    private void handlePacketsRange() {
+        long time = getRangeTime();
+        if (time == -1L) {
+            clearPackets(true, true);
+            return;
+        }
+
+        packetQueue.removeIf(data -> {
+            if (data.time <= time) {
+                schedulePacketProcess(data.packet);
+                return true;
+            }
+            return false;
+        });
+
+        positions.removeIf(pd -> pd.time < time);
+    }
+
+    private long getRangeTime() {
+        if (this.target == null) return 0L;
+
+        long time = 0L;
+        boolean found = false;
+        for (PosData data : positions) {
+            time = data.time;
+
+            AxisAlignedBB box = this.target.getEntityBoundingBox().offset(
+                    data.pos.xCoord - this.target.posX,
+                    data.pos.yCoord - this.target.posY,
+                    data.pos.zCoord - this.target.posZ
+            );
+
+            double dist = RotationUtil.clampVecToBox(box, mc.thePlayer.getPositionEyes(1.0f));
+            if (inDistanceRange(dist)) {
+                found = true;
+                break;
+            }
+        }
+
+        return found ? time : -1L;
+    }
+
+    private void clearPackets(boolean handlePackets, boolean stopRendering) {
+        packetQueue.removeIf(data -> {
+            if (handlePackets) {
+                schedulePacketProcess(data.packet);
+            }
+            return true;
+        });
+        positions.clear();
+
+        if (stopRendering) {
+            this.shouldRender = false;
+            this.ignoreWholeTick = true;
         }
     }
 
-    private void handlePacket(Packet<?> packet) {
-        if (!this.isEnabled() || mc.thePlayer == null) return;
+    private void schedulePacketProcess(Packet<?> packet) {
+        synchronized (queueLock) {
+            queuedPackets.add(packet);
+        }
+    }
+
+    private void processQueuedPackets() {
+        synchronized (queueLock) {
+            while (!queuedPackets.isEmpty()) {
+                Packet<?> packet = queuedPackets.poll();
+                if (packet != null) {
+                    processPacket(packet);
+                }
+            }
+        }
+    }
+
+    private void processPacket(Packet<?> packet) {
         if (mc.getNetHandler() != null) {
             try {
                 ((Packet<INetHandlerPlayClient>) packet).processPacket(mc.getNetHandler());
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Throwable ignored) {
             }
         }
     }
 
-    private static class TimedPacket {
-        private final Packet<?> packet;
-        private final TimerUtil timer;
+    private void updateTruePosition(S14PacketEntity packet) {
+        int id = PacketFieldCache.getS14EntityId(packet);
+        if (id == -1) {
+            return;
+        }
+        Vec3 pos = this.truePositions.getOrDefault(id, new Vec3(0, 0, 0));
+        Vec3 next = pos.addVector(packet.func_149062_c() / 32.0, packet.func_149061_d() / 32.0, packet.func_149064_e() / 32.0);
+        this.truePositions.put(id, next);
+    }
 
-        public TimedPacket(Packet<?> packet) {
+    private void updateTruePosition(S18PacketEntityTeleport packet) {
+        int id = PacketFieldCache.getS18EntityId(packet);
+        if (id == -1) {
+            return;
+        }
+        this.truePositions.put(id, new Vec3(packet.getX() / 32.0, packet.getY() / 32.0, packet.getZ() / 32.0));
+    }
+
+    private void addBacktrackData(UUID id, double x, double y, double z, long time) {
+        LinkedList<BacktrackData> list = this.backtrackedPlayer.get(id);
+        if (list == null) {
+            list = new LinkedList<>();
+            this.backtrackedPlayer.put(id, list);
+        }
+        if (list.size() >= this.maximumCachedPositions.getValue()) {
+            list.removeFirst();
+        }
+        list.add(new BacktrackData(x, y, z, time));
+    }
+
+    public void loopThroughBacktrackData(Entity entity, Runnable action) {
+        if (!this.isEnabled() || !isLegacy()) return;
+        if (!(entity instanceof EntityPlayer)) return;
+
+        LinkedList<BacktrackData> list = this.backtrackedPlayer.get(entity.getUniqueID());
+        if (list == null) return;
+
+        double currX = entity.posX;
+        double currY = entity.posY;
+        double currZ = entity.posZ;
+        double prevX = entity.prevPosX;
+        double prevY = entity.prevPosY;
+        double prevZ = entity.prevPosZ;
+
+        ListIterator<BacktrackData> it = list.listIterator(list.size());
+        while (it.hasPrevious()) {
+            BacktrackData d = it.previous();
+            entity.setPosition(d.x, d.y, d.z);
+            entity.prevPosX = d.x;
+            entity.prevPosY = d.y;
+            entity.prevPosZ = d.z;
+            action.run();
+        }
+
+        entity.setPosition(currX, currY, currZ);
+        entity.prevPosX = prevX;
+        entity.prevPosY = prevY;
+        entity.prevPosZ = prevZ;
+    }
+
+    public <T> T runWithNearestTrackedDistance(Entity entity, java.util.concurrent.Callable<T> f) {
+        if (!this.isEnabled() || !isLegacy() || !(entity instanceof EntityPlayer)) {
+            try {
+                return f.call();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        LinkedList<BacktrackData> list = this.backtrackedPlayer.get(entity.getUniqueID());
+        if (list == null || list.isEmpty()) {
+            try {
+                return f.call();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        BacktrackData best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (BacktrackData d : list) {
+            double oldX = entity.posX, oldY = entity.posY, oldZ = entity.posZ;
+            double oldPX = entity.prevPosX, oldPY = entity.prevPosY, oldPZ = entity.prevPosZ;
+
+            entity.setPosition(d.x, d.y, d.z);
+            entity.prevPosX = d.x;
+            entity.prevPosY = d.y;
+            entity.prevPosZ = d.z;
+
+            double dist = RotationUtil.distanceToEntity(entity);
+
+            entity.setPosition(oldX, oldY, oldZ);
+            entity.prevPosX = oldPX;
+            entity.prevPosY = oldPY;
+            entity.prevPosZ = oldPZ;
+
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = d;
+            }
+        }
+
+        if (best == null) {
+            try {
+                return f.call();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        double currX = entity.posX;
+        double currY = entity.posY;
+        double currZ = entity.posZ;
+        double prevX = entity.prevPosX;
+        double prevY = entity.prevPosY;
+        double prevZ = entity.prevPosZ;
+
+        entity.setPosition(best.x, best.y, best.z);
+        entity.prevPosX = best.x;
+        entity.prevPosY = best.y;
+        entity.prevPosZ = best.z;
+
+        try {
+            return f.call();
+        } catch (Exception e) {
+            return null;
+        } finally {
+            entity.setPosition(currX, currY, currZ);
+            entity.prevPosX = prevX;
+            entity.prevPosY = prevY;
+            entity.prevPosZ = prevZ;
+        }
+    }
+
+    private boolean shouldBacktrack() {
+        if (mc.thePlayer == null || mc.theWorld == null) return false;
+        if (this.target == null) return false;
+        if (mc.thePlayer.getHealth() <= 0.0f) return false;
+        if (!(this.target.getHealth() > 0.0f) && !Float.isNaN(this.target.getHealth())) return false;
+        if (mc.playerController != null && mc.playerController.getCurrentGameType() == net.minecraft.world.WorldSettings.GameType.SPECTATOR)
+            return false;
+        if (System.currentTimeMillis() < this.delayForNextBacktrack) return false;
+        if (mc.thePlayer.ticksExisted <= 20) return false;
+        return !this.ignoreWholeTick;
+    }
+
+    private void reset() {
+        this.target = null;
+        this.globalTimer.reset();
+        this.delayForNextBacktrack = 0L;
+        this.modernDelay = new ModernDelay((int) unfair.util.RandomUtil.nextLong(this.minDelay.getValue(), this.maxDelay.getValue()), false);
+    }
+
+    private void clear() {
+        this.clearPackets(true, true);
+        this.globalTimer.reset();
+    }
+
+    @Override
+    public String[] getSuffix() {
+        return new String[]{supposedDelay() + " ms"};
+    }
+
+    private static final class PacketFieldCache {
+        private static Field s14EntityId;
+        private static Field s18EntityId;
+        private static Field s19EntityId;
+
+        private static int getS14EntityId(S14PacketEntity packet) {
+            try {
+                if (s14EntityId == null) {
+                    s14EntityId = S14PacketEntity.class.getDeclaredField("entityId");
+                    s14EntityId.setAccessible(true);
+                }
+                return (int) s14EntityId.get(packet);
+            } catch (Throwable t) {
+                return -1;
+            }
+        }
+
+        private static int getS18EntityId(S18PacketEntityTeleport packet) {
+            try {
+                if (s18EntityId == null) {
+                    s18EntityId = S18PacketEntityTeleport.class.getDeclaredField("entityId");
+                    s18EntityId.setAccessible(true);
+                }
+                return (int) s18EntityId.get(packet);
+            } catch (Throwable t) {
+                return -1;
+            }
+        }
+
+        private static int getS19EntityId(S19PacketEntityStatus packet) {
+            try {
+                if (s19EntityId == null) {
+                    s19EntityId = S19PacketEntityStatus.class.getDeclaredField("entityId");
+                    s19EntityId.setAccessible(true);
+                }
+                return (int) s19EntityId.get(packet);
+            } catch (Throwable t) {
+                return -1;
+            }
+        }
+    }
+
+    private static final class QueueData {
+        private final Packet<?> packet;
+        private final long time;
+
+        private QueueData(Packet<?> packet, long time) {
             this.packet = packet;
-            this.timer = new TimerUtil();
-            this.timer.reset();
+            this.time = time;
+        }
+    }
+
+    private static final class PosData {
+        private final Vec3 pos;
+        private final long time;
+
+        private PosData(Vec3 pos, long time) {
+            this.pos = pos;
+            this.time = time;
+        }
+    }
+
+    private static final class BacktrackData {
+        private final double x;
+        private final double y;
+        private final double z;
+        private final long time;
+
+        private BacktrackData(double x, double y, double z, long time) {
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.time = time;
+        }
+    }
+
+    private static final class ModernDelay {
+        private final int delay;
+        private final boolean changed;
+
+        private ModernDelay(int delay, boolean changed) {
+            this.delay = delay;
+            this.changed = changed;
         }
     }
 }
