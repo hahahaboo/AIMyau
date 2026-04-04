@@ -10,5 +10,4 @@ public class AttackEvent implements Event {
     private final Entity target;
     @Setter
     private boolean cancelled;
-    }
 }
