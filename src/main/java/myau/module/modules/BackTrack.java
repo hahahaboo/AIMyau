@@ -809,7 +809,7 @@ public class BackTrack extends Module {
             return false;
         if (System.currentTimeMillis() < this.delayForNextBacktrack) return false;
         if (mc.thePlayer.ticksExisted <= 20) return false;
-        return !this.ignoreWholeTick;
+        return true;
     }
 
     private void reset() {
