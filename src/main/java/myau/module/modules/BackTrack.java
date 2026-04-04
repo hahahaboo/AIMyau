@@ -802,7 +802,6 @@ public class BackTrack extends Module {
 
     private boolean shouldBacktrack() {
         if (mc.thePlayer == null || mc.theWorld == null) return false;
-        if (this.target == null) return false;
         if (mc.thePlayer.getHealth() <= 0.0f) return false;
         if (!(this.target.getHealth() > 0.0f) && !Float.isNaN(this.target.getHealth())) return false;
         if (mc.playerController != null && mc.playerController.getCurrentGameType() == net.minecraft.world.WorldSettings.GameType.SPECTATOR)
