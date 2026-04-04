@@ -121,6 +121,7 @@ public class BackTrack extends Module {
     private EntityLivingBase target = null;
     private boolean shouldRender = true;
     private boolean ignoreWholeTick = false;
+    private boolean attackTriggered = false;
     private long delayForNextBacktrack = 0L;
     private ModernDelay modernDelay = new ModernDelay(80, false);
     private Object lastWorld = null;
@@ -235,14 +236,33 @@ public class BackTrack extends Module {
     @EventTarget
     public void onAttack(AttackEvent event) {
         if (!this.isEnabled()) return;
+
+        // ✅ 必須是活體（player / mob）
         if (!(event.getTarget() instanceof EntityLivingBase)) return;
 
         EntityLivingBase newTarget = (EntityLivingBase) event.getTarget();
+
+        // ✅ 過濾死亡 / 無效 entity（避免假 hit）
+        if (newTarget.getHealth() <= 0.0f && !Float.isNaN(newTarget.getHealth())) return;
+
+        // ✅ 距離過遠不觸發（避免空揮）
+        if (mc.thePlayer.getDistanceToEntity(newTarget) > 6.0f) return;
+
+        // 🔥 切換目標時重置
         if (this.target != newTarget) {
             this.clearPackets(true, true);
             this.reset();
         }
+
         this.target = newTarget;
+
+        // 🔥 關鍵：只在命中那一刻觸發
+        this.attackTriggered = true;
+
+        // 🔥 繞過 delay / cooldown
+        this.delayForNextBacktrack = 0L;
+        this.ignoreWholeTick = false;
+        this.globalTimer.reset();
     }
 
     @EventTarget
@@ -509,6 +529,9 @@ public class BackTrack extends Module {
         }
 
         this.ignoreWholeTick = false;
+
+        // 🔥 只作用一個 tick
+        this.attackTriggered = false;
 
         processQueuedPackets();
     }
@@ -801,16 +824,23 @@ public class BackTrack extends Module {
     }
 
     private boolean shouldBacktrack() {
-        if (mc.thePlayer == null || mc.theWorld == null) return false;
-        if (this.target == null) return false;
-        if (mc.thePlayer.getHealth() <= 0.0f) return false;
-        if (!(this.target.getHealth() >= 0.0f) && !Float.isNaN(this.target.getHealth())) return false;
-        if (mc.playerController != null && mc.playerController.getCurrentGameType() == net.minecraft.world.WorldSettings.GameType.SPECTATOR)
-            return false;
-        if (System.currentTimeMillis() < this.delayForNextBacktrack) return false;
-        if (mc.thePlayer.ticksExisted <= 20) return false;
-        return !this.ignoreWholeTick;
-    }
+    // 🔥 只在攻擊命中那一 tick
+    if (!this.attackTriggered) return false;
+
+    if (mc.thePlayer == null || mc.theWorld == null) return false;
+    if (this.target == null) return false;
+    if (mc.thePlayer.getHealth() <= 0.0f) return false;
+
+    if (!(this.target.getHealth() >= 0.0f) && !Float.isNaN(this.target.getHealth()))
+        return false;
+
+    if (mc.playerController != null &&
+        mc.playerController.getCurrentGameType() ==
+        net.minecraft.world.WorldSettings.GameType.SPECTATOR)
+        return false;
+
+    return true;
+}
 
     private void reset() {
         this.target = null;
