@@ -15,4 +15,11 @@ public class PacketEvent extends EventCancellable {
         this.packet = packet;
     }
 
+    public EventType getType() {
+        return this.type;
+    }
+
+    public Packet<?> getPacket() {
+        return this.packet;
+    }
 }
