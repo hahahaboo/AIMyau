@@ -115,7 +115,7 @@ public class Wtap extends Module {
         double cd = ThreadLocalRandom.current().nextDouble(waitMin.getValue(), waitMax.getValue() + 0.01);
         if (dynamic.getValue()) {
             double dist = mc.thePlayer.getDistanceToEntity(target);
-            if (dist < 3) {  // 原舊版有明顯 typo，已修正為正確邏輯
+            if (dist < 3) {
                 cd += (3 - dist) * tapMultiplier.getValue() * 10;
             }
         }
@@ -130,7 +130,12 @@ public class Wtap extends Module {
         }
         state = WtapState.NONE;
         hits = 0;
-        int rangeHits = (int) (hitPerMax.getValue() - hitPerMin.getValue() + 1);
-        rhit = ThreadLocalRandom.current().nextInt(rangeHits) + (int) hitPerMin.getValue();
+
+        // === 唯一修改的地方（修正 build 錯誤）===
+        int minHits = hitPerMin.getValue().intValue();
+        int maxHits = hitPerMax.getValue().intValue();
+        int rangeHits = (maxHits - minHits + 1);
+        if (rangeHits < 1) rangeHits = 1; // 防止邊界錯誤
+        rhit = ThreadLocalRandom.current().nextInt(rangeHits) + minHits;
     }
 }
