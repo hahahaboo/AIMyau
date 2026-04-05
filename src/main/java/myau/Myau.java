@@ -19,7 +19,7 @@ import java.util.ArrayList;
 
 public class Myau {
     public static final NotificationRenderer notificationRenderer = new NotificationRenderer();
-    public static String clientName = "§l§6[§5AIMyau§6]§r ";
+    public static String clientName = "§l§5[§6AIMyau§5]§r ";
     public static String clientVersion = "beta";
     public static BlinkManager blinkManager;
     public static CommandManager commandManager;
