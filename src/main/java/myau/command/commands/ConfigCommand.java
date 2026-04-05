@@ -51,12 +51,20 @@ public class ConfigCommand extends Command {
                         );
                         return;
                     }
+                    if (args.get(2).equalsIgnoreCase("hide")) {
+                        ChatUtil.sendFormatted(String.format("%sHide connot load as a config&r", Myau.clientName));
+                        return;
+                    }
                     new Config(args.get(2), false).load();
                     return;
                 case "s":
                 case "save":
                     if (args.size() < 3) {
                         new Config("default", true).save();
+                        return;
+                    }
+                    if (args.size() >= 3 && args.get(2).equalsIgnoreCase("hide")) {
+                        ChatUtil.sendFormatted(String.format("%sHide cannot save as a config&r", Myau.clientName));
                         return;
                     }
                     new Config(args.get(2), true).save();
@@ -73,6 +81,9 @@ public class ConfigCommand extends Command {
                         Arrays.sort(configs, LastModifiedFileComparator.LASTMODIFIED_REVERSE);
                         ChatUtil.sendFormatted(String.format("%sConfigs:&r", Myau.clientName));
                         for (File file : configs) {
+                            if (FilenameUtils.removeExtension(file.getName()).equalsIgnoreCase("hide")) {
+                                continue;
+                            }
                             String formatted = ChatColors.formatColor(String.format("&7»&r &o%s&r", file.getName()));
                             String config = String.format(".config load %s", FilenameUtils.removeExtension(file.getName()));
                             ChatUtil.send(
