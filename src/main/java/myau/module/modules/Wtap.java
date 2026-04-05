@@ -9,6 +9,7 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
+import myau.property.properties.PercentProperty;
 import myau.util.TimerUtil;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
@@ -32,7 +33,7 @@ public class Wtap extends Module {
     public final IntProperty hitPerMin = new IntProperty("Once every min hits", 1, 1, 10);
     public final IntProperty hitPerMax = new IntProperty("Once every max hits", 1, 1, 10);
 
-    public final FloatProperty chance = new FloatProperty("Chance %", 100f, 0f, 100f);
+    public final PercentProperty chance = new PercentProperty("Chance %", 100, 0, 100);
     public final FloatProperty range = new FloatProperty("Range", 3f, 1f, 6f);
 
     public final BooleanProperty dynamic = new BooleanProperty("Dynamic tap time", false);
@@ -52,6 +53,7 @@ public class Wtap extends Module {
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
+        tapMultiplier.setVisible(() -> dynamic.getValue());
     }
 
     @EventTarget
@@ -88,7 +90,7 @@ public class Wtap extends Module {
     private void wTap() {
         if (state != WtapState.NONE) return;
 
-        if (!(Math.random() <= chance.getValue() / 100)) {
+        if (!(Math.random() <= chance.getValue() / 100.0)) {
             hits++;
         }
 
