@@ -7,6 +7,7 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
+import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.TimerUtil;
 import net.minecraft.client.settings.KeyBinding;
@@ -24,12 +25,12 @@ public class Wtap extends Module {
     public final BooleanProperty onlyPlayers = new BooleanProperty("Only combo players", true);
     public final BooleanProperty onlySword = new BooleanProperty("Only sword", false);
 
-    public final FloatProperty waitMin = new FloatProperty("Release w min ms", 30f, 1f, 300f);
-    public final FloatProperty waitMax = new FloatProperty("Release w max ms", 40f, 1f, 300f);
-    public final FloatProperty actionMin = new FloatProperty("WTap after min ms", 20f, 1f, 300f);
-    public final FloatProperty actionMax = new FloatProperty("WTap after max ms", 30f, 1f, 300f);
-    public final FloatProperty hitPerMin = new FloatProperty("Once every min hits", 1f, 1f, 10f);
-    public final FloatProperty hitPerMax = new FloatProperty("Once every max hits", 1f, 1f, 10f);
+    public final IntProperty waitMin = new IntProperty("Release w min ms", 30, 1, 300);
+    public final IntProperty waitMax = new IntProperty("Release w max ms", 40, 1, 300);
+    public final IntProperty actionMin = new IntProperty("WTap after min ms", 20, 1, 300);
+    public final IntProperty actionMax = new IntProperty("WTap after max ms", 30, 1, 300);
+    public final IntProperty hitPerMin = new IntProperty("Once every min hits", 1, 1, 10);
+    public final IntProperty hitPerMax = new IntProperty("Once every max hits", 1, 1, 10);
 
     public final FloatProperty chance = new FloatProperty("Chance %", 100f, 0f, 100f);
     public final FloatProperty range = new FloatProperty("Range", 3f, 1f, 6f);
@@ -103,7 +104,7 @@ public class Wtap extends Module {
 
     private void trystartCombo() {
         state = WtapState.WAITINGTOTAP;
-        double action = ThreadLocalRandom.current().nextDouble(actionMin.getValue(), actionMax.getValue() + 0.01);
+        double action = ThreadLocalRandom.current().nextDouble((double) actionMin.getValue(), (double) actionMax.getValue() + 0.01);
         currentCooldownMs = (long) action;
         timer.reset();
     }
@@ -112,7 +113,7 @@ public class Wtap extends Module {
         state = WtapState.TAPPING;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
 
-        double cd = ThreadLocalRandom.current().nextDouble(waitMin.getValue(), waitMax.getValue() + 0.01);
+        double cd = ThreadLocalRandom.current().nextDouble((double) waitMin.getValue(), (double) waitMax.getValue() + 0.01);
         if (dynamic.getValue()) {
             double dist = mc.thePlayer.getDistanceToEntity(target);
             if (dist < 3) {
@@ -131,11 +132,10 @@ public class Wtap extends Module {
         state = WtapState.NONE;
         hits = 0;
 
-        // === 唯一修改的地方（修正 build 錯誤）===
         int minHits = hitPerMin.getValue().intValue();
         int maxHits = hitPerMax.getValue().intValue();
         int rangeHits = (maxHits - minHits + 1);
-        if (rangeHits < 1) rangeHits = 1; // 防止邊界錯誤
+        if (rangeHits < 1) rangeHits = 1;
         rhit = ThreadLocalRandom.current().nextInt(rangeHits) + minHits;
     }
 }
