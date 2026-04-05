@@ -33,11 +33,12 @@ public class Wtap extends Module {
     public final IntProperty hitPerMin = new IntProperty("Once every min hits", 1, 1, 10);
     public final IntProperty hitPerMax = new IntProperty("Once every max hits", 1, 1, 10);
 
-    public final PercentProperty chance = new PercentProperty("Chance %", 100, 0, 100);
+    public final PercentProperty chance = new PercentProperty("Chance %", 100);
+
     public final FloatProperty range = new FloatProperty("Range", 3f, 1f, 6f);
 
     public final BooleanProperty dynamic = new BooleanProperty("Dynamic tap time", false);
-    public final FloatProperty tapMultiplier = new FloatProperty("wait time sensitivity", 1f, 0f, 5f);
+    public final FloatProperty tapMultiplier = new FloatProperty("wait time sensitivity", 1f, 0f, 5f, () -> dynamic.getValue());
 
     private enum WtapState {
         NONE, WAITINGTOTAP, TAPPING
@@ -53,7 +54,6 @@ public class Wtap extends Module {
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
-        tapMultiplier.setVisible(() -> dynamic.getValue());
     }
 
     @EventTarget
