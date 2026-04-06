@@ -22,23 +22,23 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class Wtap extends Module {
 
-    public final ModeProperty eventType = new ModeProperty("Event", 0, new String[]{"Attack", "Hurt"});
-    public final BooleanProperty onlyPlayers = new BooleanProperty("Only combo players", true);
+    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Attack", "Hurt"});
+    public final BooleanProperty onlyCombo = new BooleanProperty("Only combo", true);
     public final BooleanProperty onlySword = new BooleanProperty("Only sword", false);
 
-    public final IntProperty waitMin = new IntProperty("Release w min ms", 30, 1, 300);
-    public final IntProperty waitMax = new IntProperty("Release w max ms", 40, 1, 300);
-    public final IntProperty actionMin = new IntProperty("WTap after min ms", 20, 1, 300);
-    public final IntProperty actionMax = new IntProperty("WTap after max ms", 30, 1, 300);
-    public final IntProperty hitPerMin = new IntProperty("Once every min hits", 1, 1, 10);
-    public final IntProperty hitPerMax = new IntProperty("Once every max hits", 1, 1, 10);
+    public final IntProperty durationMin = new IntProperty("Duration min", 30, 1, 300);
+    public final IntProperty durationMax = new IntProperty("Duration max", 40, 1, 300);
+    public final IntProperty delayMin = new IntProperty("Delay min", 20, 1, 300);
+    public final IntProperty delayMax = new IntProperty("Delay max", 30, 1, 300);
+    public final IntProperty hitMin = new IntProperty("Hit min", 1, 1, 10);
+    public final IntProperty hitMax = new IntProperty("Hit max", 1, 1, 10);
 
-    public final PercentProperty chance = new PercentProperty("Chance %", 100);
+    public final PercentProperty chance = new PercentProperty("Chance", 100);
 
     public final FloatProperty range = new FloatProperty("Range", 3f, 1f, 6f);
 
-    public final BooleanProperty dynamic = new BooleanProperty("Dynamic tap time", false);
-    public final FloatProperty tapMultiplier = new FloatProperty("wait time sensitivity", 1f, 0f, 5f, () -> dynamic.getValue());
+    public final BooleanProperty dynamic = new BooleanProperty("Dynamic", false);
+    public final FloatProperty sensitivity = new FloatProperty("Sensitivity", 1f, 0f, 5f, () -> dynamic.getValue());
 
     private enum WtapState {
         NONE, WAITINGTOTAP, TAPPING
@@ -59,7 +59,7 @@ public class Wtap extends Module {
     @EventTarget
     public void onAttack(AttackEvent event) {
         target = event.getTarget();
-        if (eventType.getModeString().equals("Attack")) {
+        if (mode.getModeString().equals("Attack")) {
             wTap();
         }
     }
@@ -67,7 +67,7 @@ public class Wtap extends Module {
     @EventTarget
     public void onRender2D(Render2DEvent event) {
         // Hurt 模式偵測（Render2D 每幀檢查）
-        if (eventType.getModeString().equals("Hurt") && target instanceof EntityLivingBase) {
+        if (mode.getModeString().equals("Hurt") && target instanceof EntityLivingBase) {
             EntityLivingBase living = (EntityLivingBase) target;
             if (living.hurtTime > 0 && living.hurtTime == living.maxHurtTime && !hurtTriggered) {
                 hurtTriggered = true;
@@ -95,7 +95,7 @@ public class Wtap extends Module {
         }
 
         if (mc.thePlayer.getDistanceToEntity(target) > range.getValue()
-                || (onlyPlayers.getValue() && !(target instanceof EntityPlayer))
+                || (onlyCombo.getValue() && !(target instanceof EntityPlayer))
                 || (onlySword.getValue() && !(mc.thePlayer.getCurrentEquippedItem() != null && mc.thePlayer.getCurrentEquippedItem().getItem() instanceof ItemSword))
                 || !(rhit >= hits)) {
             return;
@@ -106,7 +106,7 @@ public class Wtap extends Module {
 
     private void trystartCombo() {
         state = WtapState.WAITINGTOTAP;
-        double action = ThreadLocalRandom.current().nextDouble((double) actionMin.getValue(), (double) actionMax.getValue() + 0.01);
+        double action = ThreadLocalRandom.current().nextDouble((double) delayMin.getValue(), (double) delayMax.getValue() + 0.01);
         currentCooldownMs = (long) action;
         timer.reset();
     }
@@ -115,11 +115,11 @@ public class Wtap extends Module {
         state = WtapState.TAPPING;
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
 
-        double cd = ThreadLocalRandom.current().nextDouble((double) waitMin.getValue(), (double) waitMax.getValue() + 0.01);
+        double cd = ThreadLocalRandom.current().nextDouble((double) durationMin.getValue(), (double) durationMax.getValue() + 0.01);
         if (dynamic.getValue()) {
             double dist = mc.thePlayer.getDistanceToEntity(target);
             if (dist < 3) {
-                cd += (3 - dist) * tapMultiplier.getValue() * 10;
+                cd += (3 - dist) * sensitivity.getValue() * 10;
             }
         }
 
@@ -134,8 +134,8 @@ public class Wtap extends Module {
         state = WtapState.NONE;
         hits = 0;
 
-        int minHits = hitPerMin.getValue().intValue();
-        int maxHits = hitPerMax.getValue().intValue();
+        int minHits = hitMin.getValue().intValue();
+        int maxHits = hitMax.getValue().intValue();
         int rangeHits = (maxHits - minHits + 1);
         if (rangeHits < 1) rangeHits = 1;
         rhit = ThreadLocalRandom.current().nextInt(rangeHits) + minHits;
