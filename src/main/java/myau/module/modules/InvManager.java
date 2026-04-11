@@ -246,6 +246,7 @@ public class InvManager extends Module {
 
                     boolean isBlock      = ItemUtil.isBlock(stack);
                     boolean isProjectile = ItemUtil.isProjectile(stack);
+                    boolean isArrow      = ItemUtil.isArrow(stack);
 
                     boolean shouldDrop;
                     if (isBlock) {
