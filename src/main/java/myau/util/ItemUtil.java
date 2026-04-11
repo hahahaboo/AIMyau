@@ -57,6 +57,14 @@ public class ItemUtil {
         return false;
     }
 
+    public static boolean isArrow(ItemStack itemStack) {
+        if (itemStack == null || itemStack.stackSize < 1) {
+            return false;
+        }
+        Item item = itemStack.getItem();
+        return item == Items.arrow;
+    }
+
     public static boolean isContainerBlock(ItemBlock itemBlock) {
         Block block = itemBlock.getBlock();
         if (BlockUtil.isInteractable(block)) return false;
