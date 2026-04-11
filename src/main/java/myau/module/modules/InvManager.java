@@ -228,6 +228,7 @@ public class InvManager extends Module {
 
                 int totalBlocks     = this.getStackSize(inventoryBlocksSlot);
                 int totalProjectiles = this.getStackSize(inventoryProjectileSlot);
+                int totalArrows     = 0;
 
                 for (int i = 0; i < 36; i++) {
                     if (keepSlots.contains(i)) continue;
@@ -235,6 +236,7 @@ public class InvManager extends Module {
                     if (stack == null) continue;
                     if (ItemUtil.isBlock(stack))      totalBlocks      += stack.stackSize;
                     if (ItemUtil.isProjectile(stack)) totalProjectiles += stack.stackSize;
+                    if (ItemUtil.isArrow(stack))      totalArrows      += stack.stackSize;
                 }
 
                 for (int i = 0; i < 36; i++) {
@@ -251,6 +253,8 @@ public class InvManager extends Module {
                         if (shouldDrop) totalBlocks -= stack.stackSize;
                     } else if (isProjectile) {
                         shouldDrop = totalProjectiles > this.projectiles.getValue();
+                    } else if (isArrow) {   // ← 新增這個 else if
+                        shouldDrop = totalArrows > this.arrow.getValue();
                         if (shouldDrop) totalProjectiles -= stack.stackSize;
                     } else {
                         shouldDrop = ItemUtil.isNotSpecialItem(stack);
