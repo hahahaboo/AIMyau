@@ -24,7 +24,8 @@ public class AutoClicker extends Module {
     public final IntProperty minCPS = new IntProperty("min-cps", 8, 1, 20);
     public final IntProperty maxCPS = new IntProperty("max-cps", 12, 1, 20);
     public final BooleanProperty blockHit = new BooleanProperty("block-hit", false);
-    public final FloatProperty blockHitTicks = new FloatProperty("block-hit-ticks", 1.5F, 1.0F, 20.0F, this.blockHit::getValue);
+    public final FloatProperty blockHitMinTicks = new FloatProperty("block-min-ticks", 1.0F, 1.0F, 20.0F, this.blockHit::getValue);
+    public final FloatProperty blockHitMaxTicks = new FloatProperty("block-max-ticks", 2.0F, 1.0F, 20.0F, this.blockHit::getValue);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
@@ -42,7 +43,7 @@ public class AutoClicker extends Module {
     }
 
     private long getBlockHitDelay() {
-        return (long) (50.0F * this.blockHitTicks.getValue());
+        return (long) (50.0F * RandomUtil.nextFloat(this.blockHitMinTicks.getValue(), this.blockHitMaxTicks.getValue()));
     }
 
     private boolean isBreakingBlock() {
