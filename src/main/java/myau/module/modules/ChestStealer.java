@@ -204,18 +204,20 @@ public class ChestStealer extends Module {
             }
             if (this.keepThrowables.getValue()) {
                 if (item instanceof ItemSnowball ||
-                        item instanceof ItemEgg ||
-                        item instanceof ItemEnderPearl ||
-                        item instanceof ItemFireball ||
-                        item == Items.fire_charge) {
-                    return true;
+                    item instanceof ItemEgg ||
+                    item instanceof ItemEnderPearl ||
+                    item instanceof ItemFireball ||
+                    item == Items.fire_charge) {
+                return true;
                 }
             }
-            return !ItemUtil.isNotSpecialItem(stack);
+            if (ItemUtil.isBlock(stack)) {
+                return true;
         }
-        return true;
+        return !ItemUtil.isNotSpecialItem(stack);
     }
-
+    return true;
+}
     @Override
     public void verifyValue(String mode) {
         switch (mode) {
