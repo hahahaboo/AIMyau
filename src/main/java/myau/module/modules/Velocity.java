@@ -180,9 +180,6 @@ public class Velocity extends Module {
                     if (this.delayChanceCounter >= 100) {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
-                        if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted("delay start");
-                        }
                         event.setCancelled(true);
                         this.reverseFlag = true;
                         if (this.debugLog.getValue()) {
