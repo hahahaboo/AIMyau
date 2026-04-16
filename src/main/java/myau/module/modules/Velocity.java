@@ -117,14 +117,18 @@ public class Velocity extends Module {
                 this.isInLiquidOrWeb() ||
                 Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
             )) {
-            if (this.debugLog.getValue() && this.mode.getValue() == 2) {
-                ChatUtil.sendFormatted(String.format("delay %d ticks", Myau.delayManager.getDelay()));
+            if (this.debugLog.getValue()) {
+                ChatUtil.sendFormatted(
+                    String.format("%sVelocity: delay ends (tick: %d)",
+                    Myau.clientName,
+                    mc.thePlayer.ticksExisted
+                    )
+                );
             }
+        }
             Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
             this.reverseFlag = false;
-            if (this.debugLog.getValue() && this.mode.getValue() == 2) {
-            ChatUtil.sendFormatted("delay ends");
-            }
+            
         }
             if (this.delayActive) {
                 MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
@@ -168,7 +172,12 @@ public class Velocity extends Module {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
                         if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted("delay start");
+                            ChatUtil.sendFormatted(
+                                String.format("%sVelocity: delay start (tick: %d)",
+                                Myau.clientName,
+                                mc.thePlayer.ticksExisted
+                                )
+                            );
                         }
                         event.setCancelled(true);
                         this.reverseFlag = true;
