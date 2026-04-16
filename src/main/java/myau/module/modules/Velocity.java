@@ -112,17 +112,20 @@ public class Velocity extends Module {
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
-            // REVERSE 模式處理
             if (this.reverseFlag && (
-                    this.canDelay() ||
-                            this.isInLiquidOrWeb() ||
-                            Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
+                this.canDelay() ||
+                this.isInLiquidOrWeb() ||
+                Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
             )) {
-                Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
-                this.reverseFlag = false;
+            if (this.debugLog.getValue() && this.mode.getValue() == 2) {
+                ChatUtil.sendFormatted(String.format("delay %d ticks", Myau.delayManager.getDelay()));
             }
-
-            // DELAY 模式處理
+            Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
+            this.reverseFlag = false;
+            if (this.debugLog.getValue() && this.mode.getValue() == 2) {
+            ChatUtil.sendFormatted("delay ends");
+            }
+        }
             if (this.delayActive) {
                 MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
                 this.delayActive = false;
@@ -164,6 +167,9 @@ public class Velocity extends Module {
                     if (this.delayChanceCounter >= 100) {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
+                        if (this.debugLog.getValue()) {
+                            ChatUtil.sendFormatted("delay start");
+                        }
                         event.setCancelled(true);
                         this.reverseFlag = true;
                         return;
