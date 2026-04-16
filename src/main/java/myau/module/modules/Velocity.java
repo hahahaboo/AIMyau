@@ -112,17 +112,33 @@ public class Velocity extends Module {
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
-            // REVERSE 模式處理
             if (this.reverseFlag && (
                     this.canDelay() ||
-                            this.isInLiquidOrWeb() ||
-                            Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
+                    this.isInLiquidOrWeb() ||
+                    Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
             )) {
+                if (this.debugLog.getValue()) {
+                    ChatUtil.sendFormatted(
+                        String.format("%sVelocity: delay %d ticks (tick: %d)",
+                        Myau.clientName,
+                        Myau.delayManager.getDelay(),
+                        mc.thePlayer.ticksExisted
+                        )
+                    );
+                }
+
                 Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
                 this.reverseFlag = false;
-            }
 
-            // DELAY 模式處理
+                if (this.debugLog.getValue()) {
+                    ChatUtil.sendFormatted(
+                        String.format("%sVelocity: delay ends (tick: %d)",
+                        Myau.clientName,
+                        mc.thePlayer.ticksExisted
+                        )
+                    );
+                }
+            }
             if (this.delayActive) {
                 MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
                 this.delayActive = false;
@@ -166,6 +182,14 @@ public class Velocity extends Module {
                         Myau.delayManager.delayedPacket.offer(packet);
                         event.setCancelled(true);
                         this.reverseFlag = true;
+                        if (this.debugLog.getValue()) {
+                            ChatUtil.sendFormatted(
+                                String.format("%sVelocity: delay start (tick: %d)",
+                                Myau.clientName,
+                                mc.thePlayer.ticksExisted
+                            )
+                        );
+                    }
                         return;
                     }
                 }
