@@ -113,23 +113,32 @@ public class Velocity extends Module {
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.reverseFlag && (
-                this.canDelay() ||
-                this.isInLiquidOrWeb() ||
-                Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
+                    this.canDelay() ||
+                    this.isInLiquidOrWeb() ||
+                    Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
             )) {
-            if (this.debugLog.getValue()) {
-                ChatUtil.sendFormatted(
-                    String.format("%sVelocity: delay ends (tick: %d)",
-                    Myau.clientName,
-                    mc.thePlayer.ticksExisted
-                    )
-                );
+                if (this.debugLog.getValue()) {
+                    ChatUtil.sendFormatted(
+                        String.format("%sVelocity: delay %d ticks (tick: %d)",
+                        Myau.clientName,
+                        Myau.delayManager.getDelay(),
+                        mc.thePlayer.ticksExisted
+                        )
+                    );
+                }
+
+                Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
+                this.reverseFlag = false;
+
+                if (this.debugLog.getValue()) {
+                    ChatUtil.sendFormatted(
+                        String.format("%sVelocity: delay ends (tick: %d)",
+                        Myau.clientName,
+                        mc.thePlayer.ticksExisted
+                        )
+                    );
+                }
             }
-        }
-            Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
-            this.reverseFlag = false;
-            
-        }
             if (this.delayActive) {
                 MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
                 this.delayActive = false;
@@ -172,15 +181,18 @@ public class Velocity extends Module {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
                         if (this.debugLog.getValue()) {
+                            ChatUtil.sendFormatted("delay start");
+                        }
+                        event.setCancelled(true);
+                        this.reverseFlag = true;
+                        if (this.debugLog.getValue()) {
                             ChatUtil.sendFormatted(
                                 String.format("%sVelocity: delay start (tick: %d)",
                                 Myau.clientName,
                                 mc.thePlayer.ticksExisted
-                                )
-                            );
-                        }
-                        event.setCancelled(true);
-                        this.reverseFlag = true;
+                            )
+                        );
+                    }
                         return;
                     }
                 }
