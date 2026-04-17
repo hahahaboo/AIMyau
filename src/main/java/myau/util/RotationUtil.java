@@ -150,12 +150,19 @@ public class RotationUtil {
         return f * f * f * 1.2F;
     }
 
-    public static float[] complyGCD(float yaw, float pitch) {
+    public static float[] complyGCD(float targetYaw, float targetPitch, float currentYaw, float currentPitch) {
+        float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
+        float deltaPitch = MathHelper.clamp_float(targetPitch - currentPitch, -90.0F, 90.0F);
+
         float gcd = getGCD();
-        float clampedYaw = MathHelper.wrapAngleTo180_float(yaw) % gcd;
-        float clampedPitch = MathHelper.wrapAngleTo180_float(pitch) % gcd;
-        yaw = MathHelper.wrapAngleTo180_float(clampedYaw);
-        pitch = MathHelper.wrapAngleTo180_float(clampedPitch);
-        return new float[]{yaw, pitch};
+        if (gcd != 0.0F) {
+            deltaYaw = (float) Math.round(deltaYaw / gcd) * gcd;
+            deltaPitch = (float) Math.round(deltaPitch / gcd) * gcd;
+        }
+
+        float compliedYaw = currentYaw + deltaYaw;
+        float compliedPitch = currentPitch + deltaPitch;
+
+        return new float[]{compliedYaw, compliedPitch};
     }
 }
