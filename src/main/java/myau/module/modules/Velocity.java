@@ -28,13 +28,12 @@ public class Velocity extends Module {
     private int delayChanceCounter = 0;
     private boolean pendingExplosion = false;
     private boolean allowNext = true;
-    private boolean jumpFlag = false;
     private boolean reverseFlag = false;
     private boolean delayActive = false;
 
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "JUMP", "DELAY", "REVERSE"});
-    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 2);
-    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 2);
+    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "REVERSE"});
+    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
+    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1);
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
@@ -102,8 +101,7 @@ public class Velocity extends Module {
                     }
                 } else {
                     // 其他模式專用標記
-                    this.jumpFlag = (this.mode.getValue() == 1) && event.getY() > 0.0;
-                    this.delayActive = this.mode.getValue() == 3;
+                    this.delayActive = this.mode.getValue() == 2;
                 }
             }
         }
@@ -147,16 +145,6 @@ public class Velocity extends Module {
     }
 
     @EventTarget
-    public void onLivingUpdate(LivingUpdateEvent event) {
-        if (this.jumpFlag) {
-            this.jumpFlag = false;
-            if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() && !mc.thePlayer.isPotionActive(Potion.jump) && !this.isInLiquidOrWeb()) {
-                mc.thePlayer.movementInput.jump = true;
-            }
-        }
-    }
-
-    @EventTarget
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) {
             return;
@@ -168,7 +156,7 @@ public class Velocity extends Module {
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
                 // DELAY 模式
-                if (this.mode.getValue() == 2
+                if (this.mode.getValue() == 1
                         && !this.reverseFlag
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
