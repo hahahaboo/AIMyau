@@ -144,4 +144,25 @@ public class RotationUtil {
         Vec3 targetPos = eyePos.addVector(lookVec.xCoord * distance, lookVec.yCoord * distance, lookVec.zCoord * distance);
         return boundingBox.calculateIntercept(eyePos, targetPos);
     }
+
+    private static float getGCD() {
+        float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
+        return f * f * f * 1.2F;
+    }
+
+    public static float[] complyGCD(float targetYaw, float targetPitch, float currentYaw, float currentPitch) {
+        float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
+        float deltaPitch = MathHelper.clamp_float(targetPitch - currentPitch, -90.0F, 90.0F);
+
+        float gcd = getGCD();
+        if (gcd != 0.0F) {
+            deltaYaw = (float) Math.round(deltaYaw / gcd) * gcd;
+            deltaPitch = (float) Math.round(deltaPitch / gcd) * gcd;
+        }
+
+        float compliedYaw = currentYaw + deltaYaw;
+        float compliedPitch = currentPitch + deltaPitch;
+
+        return new float[]{compliedYaw, compliedPitch};
+    }
 }
