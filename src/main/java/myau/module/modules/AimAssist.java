@@ -47,11 +47,6 @@ public class AimAssist extends Module {
     public AimAssist() {
         super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
     }
-    
-    private float getGCD() {
-        float f = mc.gameSettings.mouseSensitivity * 0.6F + 0.2F;
-        return f * f * f * 1.2F;
-    }
 
     private boolean isValidTarget(EntityPlayer entityPlayer) {
         if (entityPlayer != mc.thePlayer && entityPlayer != mc.thePlayer.ridingEntity) {
@@ -158,17 +153,14 @@ public class AimAssist extends Module {
 
                                     // 【新增】comply GCD 邏輯
                                     if (this.complyGCD.getValue()) {
-                                        float deltaYaw = MathHelper.wrapAngleTo180_float(interpYaw - mc.thePlayer.rotationYaw);
-                                        float deltaPitch = MathHelper.clamp_float(interpPitch - mc.thePlayer.rotationPitch, -90.0F, 90.0F);
-
-                                        float gcd = this.getGCD();
-                                        if (gcd != 0.0F) {
-                                            deltaYaw = (float) Math.round(deltaYaw / gcd) * gcd;
-                                            deltaPitch = (float) Math.round(deltaPitch / gcd) * gcd;
-                                        }
-
-                                        interpYaw = mc.thePlayer.rotationYaw + deltaYaw;
-                                        interpPitch = mc.thePlayer.rotationPitch + deltaPitch;
+                                        float[] complied = RotationUtil.complyGCD(
+                                                interpYaw,
+                                                interpPitch,
+                                                mc.thePlayer.rotationYaw,
+                                                mc.thePlayer.rotationPitch
+                                        );
+                                        interpYaw = complied[0];
+                                        interpPitch = complied[1];
                                     }
 
                                     Myau.rotationManager
