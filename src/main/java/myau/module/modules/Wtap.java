@@ -23,15 +23,15 @@ import java.util.concurrent.ThreadLocalRandom;
 public class Wtap extends Module {
 
     public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Attack", "Hurt"});
-    public final BooleanProperty onlyCombo = new BooleanProperty("Only combo", true);
-    public final BooleanProperty onlySword = new BooleanProperty("Only sword", false);
+    public final BooleanProperty onlyCombo = new BooleanProperty("Only-combo", true);
+    public final BooleanProperty onlySword = new BooleanProperty("Only-sword", false);
 
-    public final IntProperty durationMin = new IntProperty("Duration min", 30, 1, 300);
-    public final IntProperty durationMax = new IntProperty("Duration max", 40, 1, 300);
-    public final IntProperty delayMin = new IntProperty("Delay min", 20, 1, 300);
-    public final IntProperty delayMax = new IntProperty("Delay max", 30, 1, 300);
-    public final IntProperty hitMin = new IntProperty("Hit min", 1, 1, 10);
-    public final IntProperty hitMax = new IntProperty("Hit max", 1, 1, 10);
+    public final IntProperty durationMin = new IntProperty("min-duration", 30, 1, 500);
+    public final IntProperty durationMax = new IntProperty("max-duration", 40, 1, 500);
+    public final IntProperty delayMin = new IntProperty("min-delay", 20, 1, 500);
+    public final IntProperty delayMax = new IntProperty("max-delay", 30, 1, 500);
+    public final IntProperty hitMin = new IntProperty("min-hit", 1, 1, 10);
+    public final IntProperty hitMax = new IntProperty("max-hit", 1, 1, 10);
 
     public final PercentProperty chance = new PercentProperty("Chance", 100);
 
@@ -58,14 +58,26 @@ public class Wtap extends Module {
 
     @EventTarget
     public void onAttack(AttackEvent event) {
+        if (!isEnabled()) return;
         target = event.getTarget();
         if (mode.getModeString().equals("Attack")) {
             wTap();
         }
     }
 
+    @Override
+    public void onDisabled() {
+        state = WtapState.NONE;
+        target = null;
+        hits = 0;
+        rhit = 0;
+        hurtTriggered = false;
+        timer.reset();
+    }
+
     @EventTarget
     public void onRender2D(Render2DEvent event) {
+        if (!isEnabled()) return;
         // Hurt 模式偵測（Render2D 每幀檢查）
         if (mode.getModeString().equals("Hurt") && target instanceof EntityLivingBase) {
             EntityLivingBase living = (EntityLivingBase) target;
