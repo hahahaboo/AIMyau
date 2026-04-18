@@ -56,9 +56,15 @@ public class Eagle extends Module {
 
     private boolean isDiagonalBridging() {
         if (mc.thePlayer == null) return false;
-            float yaw = mc.thePlayer.rotationYaw % 360F;
+
+        if (!this.shouldSneak()) {
+            return false;
+        }
+
+        float yaw = mc.thePlayer.rotationYaw % 360F;
         if (yaw < 0) yaw += 360F;
-            float mod90 = yaw % 90F;
+        float mod90 = yaw % 90F;
+        // 符合您示意圖中的斜向搭橋（紅色斜箭頭所示的45度角）
         return mod90 >= 22.5F && mod90 <= 67.5F;
     }
 
@@ -78,7 +84,7 @@ public class Eagle extends Module {
         }
     }
 
-    @EventTarget(Priority.LOWEST)
+@EventTarget(Priority.LOWEST)
     public void onMoveInput(MoveInputEvent event) {
         if (this.isEnabled() && mc.currentScreen == null) {
 
