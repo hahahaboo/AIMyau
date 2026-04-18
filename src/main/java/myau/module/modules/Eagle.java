@@ -3,6 +3,7 @@ package myau.module.modules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
+import myau.events.PacketEvent;
 import myau.events.MoveInputEvent;
 import myau.events.TickEvent;
 import myau.module.Module;
@@ -13,6 +14,7 @@ import myau.util.PlayerUtil;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import org.apache.commons.lang3.RandomUtils;
 import org.lwjgl.input.Keyboard;
 
@@ -28,6 +30,10 @@ public class Eagle extends Module {
     public final BooleanProperty pitchCheck = new BooleanProperty("pitch-check", true);
     public final BooleanProperty blocksOnly = new BooleanProperty("blocks-only", true);
     public final BooleanProperty sneakOnly = new BooleanProperty("sneaking-only", false);
+    public final BooleanProperty sneakFix = new BooleanProperty("sneak-fix", false);
+
+    private boolean sneakFixActive = false;
+    private int sneakFixPlaceCount = 0;
 
     private boolean canMoveSafely() {
         double[] offset = MoveUtil.predictMovement();
@@ -46,6 +52,14 @@ public class Eagle extends Module {
         } else {
             return (!this.blocksOnly.getValue() || ItemUtil.isHoldingBlock()) && mc.thePlayer.onGround;
         }
+    }
+
+    private boolean isDiagonalBridging() {
+        if (mc.thePlayer == null) return false;
+            float yaw = mc.thePlayer.rotationYaw % 360F;
+        if (yaw < 0) yaw += 360F;
+            float mod90 = yaw % 90F;
+        return mod90 >= 22.5F && mod90 <= 67.5F;
     }
 
     public Eagle() {
@@ -74,19 +88,44 @@ public class Eagle extends Module {
                 mc.thePlayer.movementInput.moveStrafe /= 0.3F;
             }
 
-            if (!mc.thePlayer.movementInput.sneak) {
-                if (this.shouldSneak() && (this.sneakDelay > 0 || this.canMoveSafely())) {
-                    mc.thePlayer.movementInput.sneak = true;
-                    mc.thePlayer.movementInput.moveStrafe *= 0.3F;
-                    mc.thePlayer.movementInput.moveForward *= 0.3F;
+            boolean normalShouldSneak = this.shouldSneak() && (this.sneakDelay > 0 || this.canMoveSafely());
+
+            if (sneakFix.getValue() && normalShouldSneak && isDiagonalBridging()) {
+                if (!sneakFixActive) {
+                    sneakFixActive = true;
+                    sneakFixPlaceCount = 0;
                 }
+            }
+
+            boolean doSneak = normalShouldSneak || (sneakFix.getValue() && sneakFixActive && isDiagonalBridging());
+
+            if (!mc.thePlayer.movementInput.sneak && doSneak) {
+                mc.thePlayer.movementInput.sneak = true;
+                mc.thePlayer.movementInput.moveStrafe *= 0.3F;
+                mc.thePlayer.movementInput.moveForward *= 0.3F;
             }
         }
     }
 
+    @EventTarget(Priority.LOWEST)
+    public void onPacket(PacketEvent event) {
+        if (!this.isEnabled() || event.getType() != EventType.PRE || !sneakFix.getValue()) {
+            return;
+        }
+        if (event.getPacket() instanceof C08PacketPlayerBlockPlacement && sneakFixActive && isDiagonalBridging()) {
+            sneakFixPlaceCount++;
+            if (sneakFixPlaceCount >= 2) {
+                sneakFixActive = false;
+                sneakFixPlaceCount = 0;
+            }
+        }
+    }
+    
     @Override
     public void onDisabled() {
         this.sneakDelay = 0;
+        this.sneakFixActive = false;
+        this.sneakFixPlaceCount = 0;
     }
 
     @Override
