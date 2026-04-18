@@ -22,6 +22,8 @@ public class AutoWeapon extends Module {
 
     @EventTarget
     public void onRender2D(Render2DEvent event) {
+        if (!isEnabled()) return;   // ←←← 新增這一行（修復 bug 的關鍵）
+
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null)
             return;
 
