@@ -10,8 +10,8 @@ import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Mouse;
 
 public class AutoWeapon extends Module {
-    public final BooleanProperty onlyWhenHoldingDown = new BooleanProperty("Only when holding lmb", true);
-    public final BooleanProperty goBackToPrevSlot = new BooleanProperty("Revert to old slot", true);
+    public final BooleanProperty onlyClick = new BooleanProperty("Only-Click", true);
+    public final BooleanProperty switchBack = new BooleanProperty("Switch-back", true);
 
     private boolean onWeapon;
     private int prevSlot;
@@ -28,15 +28,15 @@ public class AutoWeapon extends Module {
             return;
 
         if (mc.objectMouseOver == null || mc.objectMouseOver.entityHit == null
-                || (onlyWhenHoldingDown.getValue() && !Mouse.isButtonDown(0))) {
+                || (onlyClick.getValue() && !Mouse.isButtonDown(0))) {
             if (onWeapon) {
                 onWeapon = false;
-                if (goBackToPrevSlot.getValue()) {
+                if (switchBack.getValue()) {
                     mc.thePlayer.inventory.currentItem = prevSlot;
                 }
             }
         } else {
-            if (onlyWhenHoldingDown.getValue()) {
+            if (onlyClick.getValue()) {
                 if (!Mouse.isButtonDown(0))
                     return;
             }
