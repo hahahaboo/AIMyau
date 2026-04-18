@@ -70,6 +70,7 @@ public class Myau {
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
+        moduleManager.modules.put(AutoWeapon.class, new AutoWeapon());
         moduleManager.modules.put(BackTrack.class, new BackTrack());
         moduleManager.modules.put(BedESP.class, new BedESP());
         moduleManager.modules.put(BedNuker.class, new BedNuker());
