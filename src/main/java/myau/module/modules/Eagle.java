@@ -34,6 +34,7 @@ public class Eagle extends Module {
 
     private boolean sneakFixActive = false;
     private int sneakFixPlaceCount = 0;
+    private boolean justFinishedSneakFix = false;
 
     private boolean canMoveSafely() {
         double[] offset = MoveUtil.predictMovement();
@@ -84,7 +85,7 @@ public class Eagle extends Module {
         }
     }
 
-@EventTarget(Priority.LOWEST)
+    @EventTarget(Priority.LOWEST)
     public void onMoveInput(MoveInputEvent event) {
         if (this.isEnabled() && mc.currentScreen == null) {
 
@@ -103,12 +104,26 @@ public class Eagle extends Module {
                 }
             }
 
-            boolean doSneak = normalShouldSneak || (sneakFix.getValue() && sneakFixActive && isDiagonalBridging());
+            boolean fixActiveNow = sneakFix.getValue() && sneakFixActive && isDiagonalBridging();
+            boolean doSneak = normalShouldSneak || fixActiveNow;
 
-            if (!mc.thePlayer.movementInput.sneak && doSneak) {
-                mc.thePlayer.movementInput.sneak = true;
-                mc.thePlayer.movementInput.moveStrafe *= 0.3F;
-                mc.thePlayer.movementInput.moveForward *= 0.3F;
+            // === 本次修正重點：剛完成 2 個方塊放置時，強制 unsneak（解決原本不會鬆開的問題）===
+            if (justFinishedSneakFix) {
+                doSneak = false;
+                justFinishedSneakFix = false;
+            }
+
+            if (!mc.thePlayer.movementInput.sneak) {
+                if (doSneak) {
+                    mc.thePlayer.movementInput.sneak = true;
+                    mc.thePlayer.movementInput.moveStrafe *= 0.3F;
+                    mc.thePlayer.movementInput.moveForward *= 0.3F;
+                }
+            } else if (!doSneak) {
+                // 當剛完成 sneak-fix 時，強制鬆開並還原移動速度（與 sneakOnly 的 unsneak 行為一致）
+                mc.thePlayer.movementInput.sneak = false;
+                mc.thePlayer.movementInput.moveStrafe /= 0.3F;
+                mc.thePlayer.movementInput.moveForward /= 0.3F;
             }
         }
     }
@@ -123,6 +138,7 @@ public class Eagle extends Module {
             if (sneakFixPlaceCount >= 2) {
                 sneakFixActive = false;
                 sneakFixPlaceCount = 0;
+                justFinishedSneakFix = true;   // === 新增：觸發強制 unsneak ===
             }
         }
     }
@@ -132,6 +148,7 @@ public class Eagle extends Module {
         this.sneakDelay = 0;
         this.sneakFixActive = false;
         this.sneakFixPlaceCount = 0;
+        this.justFinishedSneakFix = false;
     }
 
     @Override
