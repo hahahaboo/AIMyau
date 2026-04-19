@@ -1,5 +1,6 @@
 package myau.module.modules;
 
+import myau.Myau;
 import myau.event.EventTarget;
 import myau.events.AttackEvent;
 import myau.events.Render2DEvent;
@@ -11,6 +12,7 @@ import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.TimerUtil;
+import myau.util.ChatUtil;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -39,6 +41,8 @@ public class Wtap extends Module {
 
     public final BooleanProperty dynamic = new BooleanProperty("Dynamic", false);
     public final FloatProperty sensitivity = new FloatProperty("Sensitivity", 1f, 0f, 5f, () -> dynamic.getValue());
+    
+    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private enum WtapState {
         NONE, WAITINGTOTAP, TAPPING
@@ -125,6 +129,16 @@ public class Wtap extends Module {
 
     private void startCombo() {
         state = WtapState.TAPPING;
+        
+        if (this.debugLog.getValue()) {
+            ChatUtil.sendFormatted(
+                String.format("%sWTap: success (tick: %d)",
+                Myau.clientName,
+                mc.thePlayer.ticksExisted
+                )
+            );
+        }
+        
         KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
 
         double cd = ThreadLocalRandom.current().nextDouble((double) durationMin.getValue(), (double) durationMax.getValue() + 0.01);
