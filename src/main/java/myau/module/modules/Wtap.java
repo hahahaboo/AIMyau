@@ -26,7 +26,7 @@ public class Wtap extends Module {
     public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
     public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
     public final BooleanProperty dynamic = new BooleanProperty("dynamic", false);
-    public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100);
+    public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100, () -> this.dynamic.getValue());
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
     private boolean stopForward = false;
@@ -88,7 +88,7 @@ public class Wtap extends Module {
                     this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
 
                     if (this.dynamic.getValue()) {
-                        Entity target = mc.theWorld.getEntityByID(c02.getEntityId());
+                        Entity target = mc.theWorld.getEntityByID(c02.getEntityID());
                         if (target != null) {
                             double distance = mc.thePlayer.getDistanceToEntity(target);
                             int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
