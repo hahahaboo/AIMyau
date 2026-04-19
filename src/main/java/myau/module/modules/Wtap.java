@@ -7,7 +7,8 @@ import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
 import myau.module.Category;
 import myau.module.Module;
-import myau.property.properties.FloatProperty;
+import myau.property.properties.IntProperty;
+import myau.util.RandomUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.play.client.C02PacketUseEntity;
@@ -16,13 +17,18 @@ import net.minecraft.potion.Potion;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final FloatProperty delay = new FloatProperty("delay", 5.5F, 0.0F, 10.0F);
-    public final FloatProperty duration = new FloatProperty("duration", 1.5F, 1.0F, 5.0F);
+    public final IntProperty minDelay = new IntProperty("min-delay", 25, 0, 250);
+    public final IntProperty maxDelay = new IntProperty("max-delay", 50, 0, 250);
+    public final IntProperty minDuration = new IntProperty("min-duration", 75, 0, 250);
+    public final IntProperty maxDuration = new IntProperty("max-duration", 125, 0, 250);
+    public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
+    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
     private boolean stopForward = false;
     private long delayTicks = 0L;
     private long durationTicks = 0L;
+    private long nextCooldown = 0L;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -67,13 +73,14 @@ public class Wtap extends Module {
             if (event.getPacket() instanceof C02PacketUseEntity
                     && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK
                     && !this.active
-                    && this.timer.hasTimeElapsed(500L)
+                    && this.timer.hasTimeElapsed(this.nextCooldown)
                     && mc.thePlayer.isSprinting()) {
                 this.timer.reset();
                 this.active = true;
                 this.stopForward = false;
-                this.delayTicks = this.delayTicks + (long) (50.0F * this.delay.getValue());
-                this.durationTicks = this.durationTicks + (long) (50.0F * this.duration.getValue());
+                this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
+                this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
+                this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
             }
         }
     }
