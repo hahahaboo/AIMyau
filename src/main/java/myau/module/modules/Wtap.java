@@ -88,7 +88,7 @@ public class Wtap extends Module {
                     this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
 
                     if (this.dynamic.getValue()) {
-                        Entity target = mc.theWorld.getEntityByID(c02.getEntityID());
+                        Entity target = mc.theWorld.getEntityByID(c02.getEntityId());
                         if (target != null) {
                             double distance = mc.thePlayer.getDistanceToEntity(target);
                             int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
