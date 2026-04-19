@@ -7,6 +7,7 @@ import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
 import myau.module.Category;
 import myau.module.Module;
+import myau.mixin.IAccessorC02PacketUseEntity;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.RandomUtil;
@@ -88,7 +89,7 @@ public class Wtap extends Module {
                     this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
 
                     if (this.dynamic.getValue()) {
-                        Entity target = mc.theWorld.getEntityByID(c02.getEntityId());
+                        Entity target = mc.theWorld.getEntityByID(((IAccessorC02PacketUseEntity) c02).getEntityId());
                         if (target != null) {
                             double distance = mc.thePlayer.getDistanceToEntity(target);
                             int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
