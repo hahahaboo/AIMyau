@@ -7,10 +7,12 @@ import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.RandomUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C02PacketUseEntity.Action;
 import net.minecraft.potion.Potion;
@@ -23,6 +25,8 @@ public class Wtap extends Module {
     public final IntProperty maxDuration = new IntProperty("max-duration", 125, 0, 250);
     public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
     public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
+    public final BooleanProperty dynamic = new BooleanProperty("dynamic", false);
+    public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100);
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
     private boolean stopForward = false;
@@ -70,17 +74,28 @@ public class Wtap extends Module {
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
-            if (event.getPacket() instanceof C02PacketUseEntity
-                    && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK
-                    && !this.active
-                    && this.timer.hasTimeElapsed(this.nextCooldown)
-                    && mc.thePlayer.isSprinting()) {
-                this.timer.reset();
-                this.active = true;
-                this.stopForward = false;
-                this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
-                this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
-                this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
+            if (event.getPacket() instanceof C02PacketUseEntity) {
+                C02PacketUseEntity c02 = (C02PacketUseEntity) event.getPacket();
+                if (c02.getAction() == Action.ATTACK
+                        && !this.active
+                        && this.timer.hasTimeElapsed(this.nextCooldown)
+                        && mc.thePlayer.isSprinting()) {
+                    this.timer.reset();
+                    this.active = true;
+                    this.stopForward = false;
+                    this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
+                    this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
+                    this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
+
+                    if (this.dynamic.getValue()) {
+                        Entity target = mc.theWorld.getEntityByID(c02.getEntityId());
+                        if (target != null) {
+                            double distance = mc.thePlayer.getDistanceToEntity(target);
+                            int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
+                            this.durationTicks += added;
+                        }
+                    }
+                }
             }
         }
     }
