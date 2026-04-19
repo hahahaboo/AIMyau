@@ -1,143 +1,80 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
-import myau.events.AttackEvent;
-import myau.events.Render2DEvent;
+import myau.event.types.EventType;
+import myau.event.types.Priority;
+import myau.events.MoveInputEvent;
+import myau.events.PacketEvent;
 import myau.module.Category;
 import myau.module.Module;
-import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
-import myau.property.properties.IntProperty;
-import myau.property.properties.ModeProperty;
-import myau.property.properties.PercentProperty;
 import myau.util.TimerUtil;
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemSword;
-import org.lwjgl.input.Keyboard;
-
-import java.util.concurrent.ThreadLocalRandom;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.play.client.C02PacketUseEntity;
+import net.minecraft.network.play.client.C02PacketUseEntity.Action;
+import net.minecraft.potion.Potion;
 
 public class Wtap extends Module {
-
-    public final ModeProperty mode = new ModeProperty("Mode", 0, new String[]{"Attack", "Hurt"});
-    public final BooleanProperty onlyCombo = new BooleanProperty("Only combo", true);
-    public final BooleanProperty onlySword = new BooleanProperty("Only sword", false);
-
-    public final IntProperty durationMin = new IntProperty("Duration min", 30, 1, 300);
-    public final IntProperty durationMax = new IntProperty("Duration max", 40, 1, 300);
-    public final IntProperty delayMin = new IntProperty("Delay min", 20, 1, 300);
-    public final IntProperty delayMax = new IntProperty("Delay max", 30, 1, 300);
-    public final IntProperty hitMin = new IntProperty("Hit min", 1, 1, 10);
-    public final IntProperty hitMax = new IntProperty("Hit max", 1, 1, 10);
-
-    public final PercentProperty chance = new PercentProperty("Chance", 100);
-
-    public final FloatProperty range = new FloatProperty("Range", 3f, 1f, 6f);
-
-    public final BooleanProperty dynamic = new BooleanProperty("Dynamic", false);
-    public final FloatProperty sensitivity = new FloatProperty("Sensitivity", 1f, 0f, 5f, () -> dynamic.getValue());
-
-    private enum WtapState {
-        NONE, WAITINGTOTAP, TAPPING
-    }
-
-    private WtapState state = WtapState.NONE;
+    private static final Minecraft mc = Minecraft.getMinecraft();
+    public final FloatProperty delay = new FloatProperty("delay", 5.5F, 0.0F, 10.0F);
+    public final FloatProperty duration = new FloatProperty("duration", 1.5F, 1.0F, 5.0F);
     private final TimerUtil timer = new TimerUtil();
-    private long currentCooldownMs = 0L;
-    private Entity target;
-    private int hits = 0;
-    private int rhit = 0;
-    private boolean hurtTriggered = false;
+    private boolean active = false;
+    private boolean stopForward = false;
+    private long delayTicks = 0L;
+    private long durationTicks = 0L;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
     }
 
-    @EventTarget
-    public void onAttack(AttackEvent event) {
-        target = event.getTarget();
-        if (mode.getModeString().equals("Attack")) {
-            wTap();
-        }
+    private boolean canTrigger() {
+        return !(mc.thePlayer.movementInput.moveForward < 0.8F)
+                && !mc.thePlayer.isCollidedHorizontally
+                && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F) || mc.thePlayer.capabilities.allowFlying) && (mc.thePlayer.isSprinting()
+                || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
     }
 
-    @EventTarget
-    public void onRender2D(Render2DEvent event) {
-        // Hurt 模式偵測（Render2D 每幀檢查）
-        if (mode.getModeString().equals("Hurt") && target instanceof EntityLivingBase) {
-            EntityLivingBase living = (EntityLivingBase) target;
-            if (living.hurtTime > 0 && living.hurtTime == living.maxHurtTime && !hurtTriggered) {
-                hurtTriggered = true;
-                wTap();
-            }
-        } else if (target == null || !(target instanceof EntityLivingBase) || ((EntityLivingBase) target).hurtTime == 0) {
-            hurtTriggered = false;
-        }
-
-        // 狀態機（與舊版完全一致）
-        if (state == WtapState.NONE) return;
-
-        if (state == WtapState.WAITINGTOTAP && timer.hasTimeElapsed(currentCooldownMs)) {
-            startCombo();
-        } else if (state == WtapState.TAPPING && timer.hasTimeElapsed(currentCooldownMs)) {
-            finishCombo();
-        }
-    }
-
-    private void wTap() {
-        if (state != WtapState.NONE) return;
-
-        if (!(Math.random() <= chance.getValue() / 100.0)) {
-            hits++;
-        }
-
-        if (mc.thePlayer.getDistanceToEntity(target) > range.getValue()
-                || (onlyCombo.getValue() && !(target instanceof EntityPlayer))
-                || (onlySword.getValue() && !(mc.thePlayer.getCurrentEquippedItem() != null && mc.thePlayer.getCurrentEquippedItem().getItem() instanceof ItemSword))
-                || !(rhit >= hits)) {
-            return;
-        }
-
-        trystartCombo();
-    }
-
-    private void trystartCombo() {
-        state = WtapState.WAITINGTOTAP;
-        double action = ThreadLocalRandom.current().nextDouble((double) delayMin.getValue(), (double) delayMax.getValue() + 0.01);
-        currentCooldownMs = (long) action;
-        timer.reset();
-    }
-
-    private void startCombo() {
-        state = WtapState.TAPPING;
-        KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
-
-        double cd = ThreadLocalRandom.current().nextDouble((double) durationMin.getValue(), (double) durationMax.getValue() + 0.01);
-        if (dynamic.getValue()) {
-            double dist = mc.thePlayer.getDistanceToEntity(target);
-            if (dist < 3) {
-                cd += (3 - dist) * sensitivity.getValue() * 10;
+    @EventTarget(Priority.LOWEST)
+    public void onMoveInput(MoveInputEvent event) {
+        if (this.active) {
+            if (!this.stopForward && !this.canTrigger()) {
+                this.active = false;
+                while (this.delayTicks > 0L) {
+                    this.delayTicks -= 50L;
+                }
+                while (this.durationTicks > 0L) {
+                    this.durationTicks -= 50L;
+                }
+            } else if (this.delayTicks > 0L) {
+                this.delayTicks -= 50L;
+            } else {
+                if (this.durationTicks > 0L) {
+                    this.durationTicks -= 50L;
+                    this.stopForward = true;
+                    mc.thePlayer.movementInput.moveForward = 0.0F;
+                }
+                if (this.durationTicks <= 0L) {
+                    this.active = false;
+                }
             }
         }
-
-        currentCooldownMs = (long) cd;
-        timer.reset();
     }
 
-    private void finishCombo() {
-        if (Keyboard.isKeyDown(mc.gameSettings.keyBindForward.getKeyCode())) {
-            KeyBinding.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), true);
+    @EventTarget
+    public void onPacket(PacketEvent event) {
+        if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
+            if (event.getPacket() instanceof C02PacketUseEntity
+                    && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK
+                    && !this.active
+                    && this.timer.hasTimeElapsed(500L)
+                    && mc.thePlayer.isSprinting()) {
+                this.timer.reset();
+                this.active = true;
+                this.stopForward = false;
+                this.delayTicks = this.delayTicks + (long) (50.0F * this.delay.getValue());
+                this.durationTicks = this.durationTicks + (long) (50.0F * this.duration.getValue());
+            }
         }
-        state = WtapState.NONE;
-        hits = 0;
-
-        int minHits = hitMin.getValue().intValue();
-        int maxHits = hitMax.getValue().intValue();
-        int rangeHits = (maxHits - minHits + 1);
-        if (rangeHits < 1) rangeHits = 1;
-        rhit = ThreadLocalRandom.current().nextInt(rangeHits) + minHits;
     }
 }
