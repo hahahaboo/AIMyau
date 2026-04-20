@@ -54,7 +54,17 @@ public class Wtap extends Module {
     public void onMoveInput(MoveInputEvent event) {
         if (this.active) {
             if (!this.stopForward && !this.canTrigger()) {
+                if (this.debugLog.getValue() && this.actualDurationMs > 0L) {
+                    ChatUtil.sendFormatted(
+                            String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                    Myau.clientName,
+                                    this.actualDurationMs,
+                                    mc.thePlayer.ticksExisted
+                            )
+                    );
+                }
                 this.active = false;
+                this.actualDurationMs = 0L;
                 while (this.delayTicks > 0L) {
                     this.delayTicks -= 50L;
                 }
