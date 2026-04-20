@@ -22,12 +22,12 @@ import net.minecraft.potion.Potion;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final IntProperty minDelay = new IntProperty("min-delay", 25, 0, 250);
-    public final IntProperty maxDelay = new IntProperty("max-delay", 50, 0, 250);
-    public final IntProperty minDuration = new IntProperty("min-duration", 75, 0, 250);
-    public final IntProperty maxDuration = new IntProperty("max-duration", 125, 0, 250);
-    public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
-    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
+    public final IntProperty minDelay = new IntProperty("min-delay", 0, 0, 250);
+    public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
+    public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
+    public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
+    public final IntProperty minCooldown = new IntProperty("min-cooldown", 250, 0, 500);
+    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 250, 0, 500);
     public final BooleanProperty dynamic = new BooleanProperty("dynamic", false);
     public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100, () -> this.dynamic.getValue());
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
@@ -37,7 +37,6 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long nextCooldown = 0L;
-    private long actualDurationMs = 0L;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -54,17 +53,7 @@ public class Wtap extends Module {
     public void onMoveInput(MoveInputEvent event) {
         if (this.active) {
             if (!this.stopForward && !this.canTrigger()) {
-                if (this.debugLog.getValue() && this.actualDurationMs > 0L) {
-                    ChatUtil.sendFormatted(
-                            String.format("%sWTap: stopped movement for %d ms (tick: %d)",
-                                    Myau.clientName,
-                                    this.actualDurationMs,
-                                    mc.thePlayer.ticksExisted
-                            )
-                    );
-                }
                 this.active = false;
-                this.actualDurationMs = 0L;
                 while (this.delayTicks > 0L) {
                     this.delayTicks -= 50L;
                 }
@@ -80,17 +69,7 @@ public class Wtap extends Module {
                     mc.thePlayer.movementInput.moveForward = 0.0F;
                 }
                 if (this.durationTicks <= 0L) {
-                    if (this.debugLog.getValue() && this.actualDurationMs > 0L) {
-                        ChatUtil.sendFormatted(
-                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
-                                        Myau.clientName,
-                                        this.actualDurationMs,
-                                        mc.thePlayer.ticksExisted
-                                )
-                        );
-                    }
                     this.active = false;
-                    this.actualDurationMs = 0L;
                 }
             }
         }
@@ -122,7 +101,16 @@ public class Wtap extends Module {
                             }
                         }
                     }
-                    this.actualDurationMs = this.durationTicks;
+
+                    if (this.debugLog.getValue()) {
+                        ChatUtil.sendFormatted(
+                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                        Myau.clientName,
+                                        this.durationTicks,
+                                        mc.thePlayer.ticksExisted
+                                )
+                        );
+                    }
                 }
             }
         }
