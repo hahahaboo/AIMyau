@@ -1,5 +1,6 @@
 package myau.module.modules;
 
+import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
@@ -10,6 +11,7 @@ import myau.module.Module;
 import myau.mixin.IAccessorC02PacketUseEntity;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.util.ChatUtil;
 import myau.util.RandomUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
@@ -28,12 +30,14 @@ public class Wtap extends Module {
     public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
     public final BooleanProperty dynamic = new BooleanProperty("dynamic", false);
     public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100, () -> this.dynamic.getValue());
+    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
     private boolean stopForward = false;
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long nextCooldown = 0L;
+    private long actualDurationMs = 0L;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -66,7 +70,17 @@ public class Wtap extends Module {
                     mc.thePlayer.movementInput.moveForward = 0.0F;
                 }
                 if (this.durationTicks <= 0L) {
+                    if (this.debugLog.getValue() && this.actualDurationMs > 0L) {
+                        ChatUtil.sendFormatted(
+                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                        Myau.clientName,
+                                        this.actualDurationMs,
+                                        mc.thePlayer.ticksExisted
+                                )
+                        );
+                    }
                     this.active = false;
+                    this.actualDurationMs = 0L;
                 }
             }
         }
@@ -92,10 +106,13 @@ public class Wtap extends Module {
                         Entity target = mc.theWorld.getEntityByID(((IAccessorC02PacketUseEntity) c02).getEntityId());
                         if (target != null) {
                             double distance = mc.thePlayer.getDistanceToEntity(target);
-                            int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
-                            this.durationTicks += added;
+                            if (distance < 3.0) {
+                                int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
+                                this.durationTicks += added;
+                            }
                         }
                     }
+                    this.actualDurationMs = this.durationTicks;
                 }
             }
         }
