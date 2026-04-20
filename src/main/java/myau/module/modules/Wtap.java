@@ -8,28 +8,24 @@ import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
 import myau.module.Category;
 import myau.module.Module;
-import myau.mixin.IAccessorC02PacketUseEntity;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.RandomUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 import net.minecraft.network.play.client.C02PacketUseEntity;
 import net.minecraft.network.play.client.C02PacketUseEntity.Action;
 import net.minecraft.potion.Potion;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final IntProperty minDelay = new IntProperty("min-delay", 0, 0, 250);
-    public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
-    public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
-    public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
-    public final IntProperty minCooldown = new IntProperty("min-cooldown", 250, 0, 500);
-    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 250, 0, 500);
-    public final BooleanProperty dynamic = new BooleanProperty("dynamic", false);
-    public final IntProperty sensitivity = new IntProperty("sensitivity", 10, 0, 100, () -> this.dynamic.getValue());
+    public final IntProperty minDelay = new IntProperty("min-delay", 25, 0, 250);
+    public final IntProperty maxDelay = new IntProperty("max-delay", 50, 0, 250);
+    public final IntProperty minDuration = new IntProperty("min-duration", 75, 0, 250);
+    public final IntProperty maxDuration = new IntProperty("max-duration", 125, 0, 250);
+    public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
+    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
@@ -37,6 +33,7 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long nextCooldown = 0L;
+    private long initialDurationMs = 0L;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -69,7 +66,17 @@ public class Wtap extends Module {
                     mc.thePlayer.movementInput.moveForward = 0.0F;
                 }
                 if (this.durationTicks <= 0L) {
+                    if (this.debugLog.getValue() && this.initialDurationMs > 0L) {
+                        ChatUtil.sendFormatted(
+                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                        Myau.clientName,
+                                        this.initialDurationMs,
+                                        mc.thePlayer.ticksExisted
+                                )
+                        );
+                    }
                     this.active = false;
+                    this.initialDurationMs = 0L;
                 }
             }
         }
@@ -90,27 +97,7 @@ public class Wtap extends Module {
                     this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
                     this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
                     this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
-
-                    if (this.dynamic.getValue()) {
-                        Entity target = mc.theWorld.getEntityByID(((IAccessorC02PacketUseEntity) c02).getEntityId());
-                        if (target != null) {
-                            double distance = mc.thePlayer.getDistanceToEntity(target);
-                            if (distance < 3.0) {
-                                int added = (int) ((3.0 - distance) * this.sensitivity.getValue());
-                                this.durationTicks += added;
-                            }
-                        }
-                    }
-
-                    if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(
-                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
-                                        Myau.clientName,
-                                        this.durationTicks,
-                                        mc.thePlayer.ticksExisted
-                                )
-                        );
-                    }
+                    this.initialDurationMs = this.durationTicks;
                 }
             }
         }
