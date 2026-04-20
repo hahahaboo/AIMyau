@@ -20,12 +20,12 @@ import net.minecraft.potion.Potion;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final IntProperty minDelay = new IntProperty("min-delay", 25, 0, 250);
-    public final IntProperty maxDelay = new IntProperty("max-delay", 50, 0, 250);
-    public final IntProperty minDuration = new IntProperty("min-duration", 75, 0, 250);
-    public final IntProperty maxDuration = new IntProperty("max-duration", 125, 0, 250);
-    public final IntProperty minCooldown = new IntProperty("min-cooldown", 450, 0, 500);
-    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 500, 0, 500);
+    public final IntProperty minDelay = new IntProperty("min-delay", 0, 0, 250);
+    public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
+    public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
+    public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
+    public final IntProperty minCooldown = new IntProperty("min-cooldown", 250, 0, 500);
+    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 275, 0, 500);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
     private final TimerUtil timer = new TimerUtil();
     private boolean active = false;
