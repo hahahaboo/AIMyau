@@ -7,6 +7,12 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.util.ItemUtil;
 import net.minecraft.item.ItemStack;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemSword;
+import net.minecraft.item.ItemTool;
 import org.lwjgl.input.Mouse;
 
 public class AutoWeapon extends Module {
@@ -60,7 +66,7 @@ public class AutoWeapon extends Module {
 
         for (int slot = 0; slot <= 8; slot++) {
             ItemStack itemInSlot = mc.thePlayer.inventory.getStackInSlot(slot);
-            if (itemInSlot == null)
+            if (itemInSlot == null || !isValidWeapon(itemInSlot))
                 continue;
 
             double d = ItemUtil.getAttackBonus(itemInSlot);
@@ -77,5 +83,19 @@ public class AutoWeapon extends Module {
         if (itemInSlot == null)
             return -1.0;
         return ItemUtil.getAttackBonus(itemInSlot);
+    }
+
+    private boolean isValidWeapon(ItemStack stack) {
+        if (stack == null) {
+            return false;
+        }
+        Item item = stack.getItem();
+        if (item instanceof ItemSword || item instanceof ItemTool) {
+            return true;
+        }
+        if (item == Items.stick) {
+            return EnchantmentHelper.getEnchantmentLevel(Enchantment.knockback.effectId, stack) > 0;
+        }
+        return false;
     }
 }
