@@ -53,7 +53,9 @@ public class AutoWeapon extends Module {
 
                 int maxDamageSlot = getMaxDamageSlot();
 
-                if (maxDamageSlot >= 0 && getSlotDamage(maxDamageSlot) > getSlotDamage(mc.thePlayer.inventory.currentItem)) {
+                ItemStack currentStack = mc.thePlayer.inventory.getStackInSlot(mc.thePlayer.inventory.currentItem);
+                if (isKnockbackStick(currentStack)) {
+                } else if (maxDamageSlot >= 0 && getSlotDamage(maxDamageSlot) > getSlotDamage(mc.thePlayer.inventory.currentItem)) {
                     mc.thePlayer.inventory.currentItem = maxDamageSlot;
                 }
             }
@@ -97,5 +99,16 @@ public class AutoWeapon extends Module {
             return EnchantmentHelper.getEnchantmentLevel(Enchantment.knockback.effectId, stack) > 0;
         }
         return false;
+    }
+
+    private boolean isKnockbackStick(ItemStack stack) {
+        if (stack == null) {
+            return false;
+        }
+        Item item = stack.getItem();
+        if (item != Items.stick) {
+            return false;
+        }
+        return EnchantmentHelper.getEnchantmentLevel(Enchantment.knockback.effectId, stack) > 0;
     }
 }
