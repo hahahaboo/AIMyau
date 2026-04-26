@@ -78,7 +78,7 @@ public class Wtap extends Module {
             this.initialDurationMs = this.durationTicks;
 
             if (this.debugLog.getValue()) {
-                ChatUtil.sendFormatted(String.format("%sWTap triggered hurtTime=10 Target=%s (delay=%d)",
+                ChatUtil.sendFormatted(String.format("%sWTap: triggered Target: %s (delay=%d)",
                         Myau.clientName, entity.getName(), this.delayTicks));
             }
         }
@@ -106,10 +106,9 @@ public class Wtap extends Module {
                 if (this.durationTicks <= 0L) {
                     if (this.debugLog.getValue() && this.initialDurationMs > 0L) {
                         ChatUtil.sendFormatted(
-                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                String.format("%sWTap: stopped movement for %d ms",
                                         Myau.clientName,
                                         this.initialDurationMs,
-                                        mc.thePlayer.ticksExisted
                                 )
                         );
                     }
