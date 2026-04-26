@@ -14,6 +14,7 @@ import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
 
@@ -30,7 +31,7 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long initialDurationMs = 0L;
-    private EntityLivingBase target;   // 新增：用來儲存 AttackEvent 的目標，與 MoreKB 相同
+    private EntityLivingBase target;   // 與 MoreKB 相同的 target 儲存方式
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -43,7 +44,7 @@ public class Wtap extends Module {
                 || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
     }
 
-    // 新增：與 MoreKB 完全相同的 AttackEvent 處理
+    // 與 MoreKB 完全相同的 AttackEvent 處理
     @EventTarget
     public void onAttack(AttackEvent event) {
         if (!this.isEnabled()) {
@@ -94,7 +95,7 @@ public class Wtap extends Module {
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
-            // 新的觸發條件：當目標 hurtTime == 10 時觸發（與 MoreKB 完全相同）
+            // 觸發條件：目標 hurtTime == 10 時觸發（與 MoreKB 完全相同）
             if (this.target != null && this.target.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
                 this.active = true;
                 this.stopForward = false;
