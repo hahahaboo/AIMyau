@@ -60,11 +60,6 @@ public class Wtap extends Module {
         }
 
         if (entity.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
-            if (this.debugLog.getValue()) {
-                ChatUtil.sendFormatted(String.format("%sWTap Debug: hurtTime==10 detected! Target=%s (tick=%d)",
-                        Myau.clientName, entity.getName(), mc.thePlayer.ticksExisted));
-            }
-
             this.active = true;
             this.stopForward = false;
             this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
@@ -72,8 +67,8 @@ public class Wtap extends Module {
             this.initialDurationMs = this.durationTicks;
 
             if (this.debugLog.getValue()) {
-                ChatUtil.sendFormatted(String.format("%sWTap triggered by hurtTime=10 (delay=%d, duration=%d)",
-                        Myau.clientName, this.delayTicks, this.durationTicks));
+                ChatUtil.sendFormatted(String.format("%sWTap triggered hurtTime=10 Target=%s (delay=%d)",
+                        Myau.clientName, entity.getName(), this.delayTicks));
             }
         }
     }
