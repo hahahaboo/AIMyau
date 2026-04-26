@@ -3,7 +3,6 @@ package myau.module.modules;
 import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.Priority;
-import myau.events.AttackEvent;
 import myau.events.MoveInputEvent;
 import myau.events.TickEvent;
 import myau.module.Category;
@@ -13,9 +12,9 @@ import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
+import net.minecraft.util.MovingObjectPosition;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -30,7 +29,6 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long initialDurationMs = 0L;
-    private EntityLivingBase target;   // 與 MoreKB 完全相同的 target 儲存
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -43,29 +41,28 @@ public class Wtap extends Module {
                 || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
     }
 
-    // 與 MoreKB 完全相同的 AttackEvent 處理
+    // 完全模仿 MoreKB 的 onTick 偵測方式（使用 objectMouseOver + hurtTime == 10）
     @EventTarget
-    public void onAttack(AttackEvent event) {
+    public void onTick(TickEvent event) {
         if (!this.isEnabled()) {
             return;
         }
-        Entity targetEntity = event.getTarget();
-        if (targetEntity instanceof EntityLivingBase) {
-            this.target = (EntityLivingBase) targetEntity;
-        }
-    }
 
-    // 新增：使用 TickEvent 檢查 hurtTime == 10（與 MoreKB 完全一致的時機）
-    @EventTarget
-    public void onTick(TickEvent event) {
-        if (!this.isEnabled() || this.target == null) {
+        EntityLivingBase entity = null;
+        if (mc.objectMouseOver != null 
+                && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY 
+                && mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
+            entity = (EntityLivingBase) mc.objectMouseOver.entityHit;
+        }
+
+        if (entity == null) {
             return;
         }
 
-        if (this.target.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
+        if (entity.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
             if (this.debugLog.getValue()) {
                 ChatUtil.sendFormatted(String.format("%sWTap Debug: hurtTime==10 detected! Target=%s (tick=%d)",
-                        Myau.clientName, this.target.getName(), mc.thePlayer.ticksExisted));
+                        Myau.clientName, entity.getName(), mc.thePlayer.ticksExisted));
             }
 
             this.active = true;
@@ -73,7 +70,6 @@ public class Wtap extends Module {
             this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
             this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
             this.initialDurationMs = this.durationTicks;
-            this.target = null;   // 避免重複觸發
 
             if (this.debugLog.getValue()) {
                 ChatUtil.sendFormatted(String.format("%sWTap triggered by hurtTime=10 (delay=%d, duration=%d)",
