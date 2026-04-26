@@ -108,7 +108,7 @@ public class Wtap extends Module {
                         ChatUtil.sendFormatted(
                                 String.format("%sWTap: stopped movement for %d ms",
                                         Myau.clientName,
-                                        this.initialDurationMs,
+                                        this.initialDurationMs
                                 )
                         );
                     }
