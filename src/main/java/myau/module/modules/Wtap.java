@@ -14,6 +14,7 @@ import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
 
 public class Wtap extends Module {
@@ -22,6 +23,7 @@ public class Wtap extends Module {
     public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
     public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
     public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
+    public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean active = false;
@@ -59,6 +61,15 @@ public class Wtap extends Module {
             return;
         }
 
+        double x = mc.thePlayer.posX - entity.posX;
+        double z = mc.thePlayer.posZ - entity.posZ;
+        float calcYaw = (float) (Math.atan2(z, x) * 180.0 / Math.PI - 90.0);
+        float diffY = Math.abs(MathHelper.wrapAngleTo180_float(calcYaw - entity.rotationYawHead));
+
+        if (this.intelligent.getValue() && diffY > 120.0F) {
+            return;
+        }
+        
         if (entity.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
             this.active = true;
             this.stopForward = false;
