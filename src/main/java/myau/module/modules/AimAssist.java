@@ -35,7 +35,6 @@ public class AimAssist extends Module {
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
-    public final BooleanProperty complyGCD = new BooleanProperty("comply-gcd", false);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
     public final BooleanProperty team = new BooleanProperty("teams", true);
     private final TimerUtil timer = new TimerUtil();
@@ -151,26 +150,23 @@ public class AimAssist extends Module {
                                     float interpYaw = mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw;
                                     float interpPitch = mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch;
 
-                                    // 【新增】comply GCD 邏輯
-                                    if (this.complyGCD.getValue()) {
-                                        float[] complied = RotationUtil.complyGCD(
+                                    float[] complied = RotationUtil.GCDfix(
+                                            interpYaw,
+                                            interpPitch,
+                                            mc.thePlayer.rotationYaw,
+                                            mc.thePlayer.rotationPitch
+                                    )
+                                    interpYaw = complied[0];
+                                    interpPitch = complied[1];
+                                }
+
+                                Myau.rotationManager
+                                        .setRotation(
                                                 interpYaw,
                                                 interpPitch,
-                                                mc.thePlayer.rotationYaw,
-                                                mc.thePlayer.rotationPitch
-                                        );
-                                        interpYaw = complied[0];
-                                        interpPitch = complied[1];
-                                    }
-
-                                    Myau.rotationManager
-                                            .setRotation(
-                                                    interpYaw,
-                                                    interpPitch,
-                                                    0,
-                                                    false
-                                            );
-                                }
+                                                0,
+                                                false
+                                );
                             }
                         }
                     }
