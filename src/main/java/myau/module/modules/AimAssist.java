@@ -158,7 +158,6 @@ public class AimAssist extends Module {
                                     )
                                     interpYaw = complied[0];
                                     interpPitch = complied[1];
-                                }
 
                                 Myau.rotationManager
                                         .setRotation(
@@ -174,7 +173,7 @@ public class AimAssist extends Module {
             }
         }
     }
-
+}
     @EventTarget
     public void onPress(KeyEvent event) {
         if (event.getKey() == mc.gameSettings.keyBindAttack.getKeyCode() && !Myau.moduleManager.modules.get(AutoClicker.class).isEnabled()) {
