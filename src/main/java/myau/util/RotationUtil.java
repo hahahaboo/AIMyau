@@ -150,7 +150,7 @@ public class RotationUtil {
         return f * f * f * 1.2F;
     }
 
-    public static float[] complyGCD(float targetYaw, float targetPitch, float currentYaw, float currentPitch) {
+    public static float[] GCDfix(float targetYaw, float targetPitch, float currentYaw, float currentPitch) {
         float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
         float deltaPitch = MathHelper.clamp_float(targetPitch - currentPitch, -90.0F, 90.0F);
 
