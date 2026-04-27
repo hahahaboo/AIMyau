@@ -2,21 +2,20 @@ package myau.module.modules;
 
 import myau.Myau;
 import myau.event.EventTarget;
-import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.MoveInputEvent;
-import myau.events.PacketEvent;
+import myau.events.TickEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.RandomUtil;
-import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.play.client.C02PacketUseEntity;
-import net.minecraft.network.play.client.C02PacketUseEntity.Action;
+import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
+import net.minecraft.util.MathHelper;
+import net.minecraft.util.MovingObjectPosition;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -24,15 +23,13 @@ public class Wtap extends Module {
     public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
     public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
     public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
-    public final IntProperty minCooldown = new IntProperty("min-cooldown", 250, 0, 500);
-    public final IntProperty maxCooldown = new IntProperty("max-cooldown", 275, 0, 500);
+    public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
-    private final TimerUtil timer = new TimerUtil();
+
     private boolean active = false;
     private boolean stopForward = false;
     private long delayTicks = 0L;
     private long durationTicks = 0L;
-    private long nextCooldown = 0L;
     private long initialDurationMs = 0L;
 
     public Wtap() {
@@ -44,6 +41,47 @@ public class Wtap extends Module {
                 && !mc.thePlayer.isCollidedHorizontally
                 && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F) || mc.thePlayer.capabilities.allowFlying) && (mc.thePlayer.isSprinting()
                 || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
+    }
+
+    // 完全模仿 MoreKB 的 onTick 偵測方式（使用 objectMouseOver + hurtTime == 10）
+    @EventTarget
+    public void onTick(TickEvent event) {
+        if (!this.isEnabled()) {
+            return;
+        }
+
+        EntityLivingBase entity = null;
+        if (mc.objectMouseOver != null 
+                && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY 
+                && mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
+            entity = (EntityLivingBase) mc.objectMouseOver.entityHit;
+        }
+
+        if (entity == null) {
+            return;
+        }
+
+        double x = mc.thePlayer.posX - entity.posX;
+        double z = mc.thePlayer.posZ - entity.posZ;
+        float calcYaw = (float) (Math.atan2(z, x) * 180.0 / Math.PI - 90.0);
+        float diffY = Math.abs(MathHelper.wrapAngleTo180_float(calcYaw - entity.rotationYawHead));
+
+        if (this.intelligent.getValue() && diffY > 120.0F) {
+            return;
+        }
+        
+        if (entity.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
+            this.active = true;
+            this.stopForward = false;
+            this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
+            this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
+            this.initialDurationMs = this.durationTicks;
+
+            if (this.debugLog.getValue()) {
+                ChatUtil.sendFormatted(String.format("%sWTap: triggered Target: %s (delay=%d)",
+                        Myau.clientName, entity.getName(), this.delayTicks));
+            }
+        }
     }
 
     @EventTarget(Priority.LOWEST)
@@ -68,36 +106,14 @@ public class Wtap extends Module {
                 if (this.durationTicks <= 0L) {
                     if (this.debugLog.getValue() && this.initialDurationMs > 0L) {
                         ChatUtil.sendFormatted(
-                                String.format("%sWTap: stopped movement for %d ms (tick: %d)",
+                                String.format("%sWTap: stopped movement for %d ms",
                                         Myau.clientName,
-                                        this.initialDurationMs,
-                                        mc.thePlayer.ticksExisted
+                                        this.initialDurationMs
                                 )
                         );
                     }
                     this.active = false;
                     this.initialDurationMs = 0L;
-                }
-            }
-        }
-    }
-
-    @EventTarget
-    public void onPacket(PacketEvent event) {
-        if (this.isEnabled() && !event.isCancelled() && event.getType() == EventType.SEND) {
-            if (event.getPacket() instanceof C02PacketUseEntity) {
-                C02PacketUseEntity c02 = (C02PacketUseEntity) event.getPacket();
-                if (c02.getAction() == Action.ATTACK
-                        && !this.active
-                        && this.timer.hasTimeElapsed(this.nextCooldown)
-                        && mc.thePlayer.isSprinting()) {
-                    this.timer.reset();
-                    this.active = true;
-                    this.stopForward = false;
-                    this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
-                    this.durationTicks = RandomUtil.nextInt(this.minDuration.getValue(), this.maxDuration.getValue());
-                    this.nextCooldown = RandomUtil.nextInt(this.minCooldown.getValue(), this.maxCooldown.getValue());
-                    this.initialDurationMs = this.durationTicks;
                 }
             }
         }
