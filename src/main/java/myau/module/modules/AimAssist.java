@@ -150,22 +150,23 @@ public class AimAssist extends Module {
                                     float interpYaw = mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw;
                                     float interpPitch = mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch;
 
-                                    float[] complied = RotationUtil.GCDfix(
-                                            interpYaw,
-                                            interpPitch,
-                                            mc.thePlayer.rotationYaw,
-                                            mc.thePlayer.rotationPitch
-                                    )
-                                    interpYaw = complied[0];
-                                    interpPitch = complied[1];
-
-                                Myau.rotationManager
-                                        .setRotation(
+                                        float[] complied = RotationUtil.GCDfix(
                                                 interpYaw,
                                                 interpPitch,
-                                                0,
-                                                false
-                                );
+                                                mc.thePlayer.rotationYaw,
+                                                mc.thePlayer.rotationPitch
+                                        );
+                                        interpYaw = complied[0];
+                                        interpPitch = complied[1];
+
+                                    Myau.rotationManager
+                                            .setRotation(
+                                                    interpYaw,
+                                                    interpPitch,
+                                                    0,
+                                                    false
+                                            );
+                                }
                             }
                         }
                     }
@@ -173,7 +174,7 @@ public class AimAssist extends Module {
             }
         }
     }
-}
+
     @EventTarget
     public void onPress(KeyEvent event) {
         if (event.getKey() == mc.gameSettings.keyBindAttack.getKeyCode() && !Myau.moduleManager.modules.get(AutoClicker.class).isEnabled()) {
