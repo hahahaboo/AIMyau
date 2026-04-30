@@ -24,12 +24,10 @@ public class FreeLook extends Module {
     }
     
 
-    @Override
     public boolean handleSetCommand(String[] parts) {
         return false;
     }
     
-    @Override
     public List<String> getSettings() {
         return Arrays.asList("No configurable settings.");
     }
@@ -37,7 +35,7 @@ public class FreeLook extends Module {
    public boolean isHoldModule() {
 return true;
 }   
-   @Override
+
     public void onEnable() {
         if (mc.thePlayer == null) return;
 
@@ -64,7 +62,6 @@ return true;
         }
     }
 
-    @Override
     public void onDisable() {
         if (mc.thePlayer == null) return;
 
