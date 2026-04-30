@@ -123,6 +123,16 @@ public abstract class MixinEntityRenderer {
         EventManager.call(new Render3DEvent(float2));
     }
 
+    @Inject(method = "updateCameraAndRender", at = @At(value = "INVOKE", target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V", shift = At.Shift.BEFORE), cancellable = true)
+private void onMouseUpdate(float partialTicks, long nanoTime, CallbackInfo ci) {
+    if (Freelook.overrideMouse(mc)) {
+        // 正常執行
+    } else {
+        // Freelook 接管滑鼠，取消原版滑鼠更新對玩家的影響
+        ci.cancel();
+        }
+    }
+
     @ModifyConstant(
             method = {"hurtCameraEffect"},
             constant = {@Constant(
