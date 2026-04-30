@@ -9,7 +9,6 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.util.KeyBindUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 import net.minecraftforge.client.event.GuiOpenEvent;
 import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -48,7 +47,8 @@ public class Freelook extends Module {
 
     @EventTarget
     public void onTick(TickEvent e) {
-        if (!Myau.nullCheck() || mc.currentScreen != null) return;  // Myau 沒有 nullCheck，暫時這樣處理
+        // AIMyau 中標準的空檢查方式
+        if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
 
         boolean down = KeyBindUtil.isKeyDown(this.getKey());
         if (down != prevKeyState) {
