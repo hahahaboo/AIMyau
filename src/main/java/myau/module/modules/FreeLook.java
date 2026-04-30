@@ -23,7 +23,6 @@ public class FreeLook extends Module {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
     }
 
-    @Override
     public List<String> getSettings() {
         return Arrays.asList("No configurable settings.");
     }
@@ -32,7 +31,6 @@ public class FreeLook extends Module {
         return true;
     }
 
-    @Override
     public void onEnabled() {
         if (mc.thePlayer == null) return;
 
@@ -56,7 +54,6 @@ public class FreeLook extends Module {
         // 暫時不做取消，交由 mixin 處理玩家模型
     }
 
-    @Override
     public void onDisabled() {
         if (mc.thePlayer == null) return;
         mc.gameSettings.thirdPersonView = previousPerspective;
