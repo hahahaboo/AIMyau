@@ -5,6 +5,7 @@ import myau.module.Module;
 import myau.event.EventTarget;
 import myau.events.RenderLivingEvent;
 import myau.events.TickEvent;
+import myau.event.types.EventType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.EntityLivingBase;
 
@@ -37,7 +38,7 @@ public class FreeLook extends Module {
         if (mc.thePlayer == null) return;
 
         previousPerspective = mc.gameSettings.thirdPersonView;
-        mc.gameSettings.thirdPersonView = 1;
+        mc.gameSettings.thirdPersonView = 1;   // 強制切到第三人稱
 
         freeYaw = prevFreeYaw = mc.thePlayer.rotationYaw;
         freePitch = prevFreePitch = mc.thePlayer.rotationPitch;
@@ -45,7 +46,7 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (mc.thePlayer == null || event.getType() != TickEvent.Type.CLIENT || !isEnabled()) return;
+        if (mc.thePlayer == null || event.getType() != EventType.PRE || !isEnabled()) return;
         
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
@@ -54,7 +55,8 @@ public class FreeLook extends Module {
     @EventTarget
     public void onRenderLiving(RenderLivingEvent event) {
         if (isEnabled() && event.getEntity() == mc.thePlayer) {
-            event.setCanceled(true);  // 注意：AIMyau的RenderLivingEvent可能需要調整取消方式，後續可能需mixin輔助
+            // 目前 RenderLivingEvent 無法直接 cancel，後續會透過 Mixin 處理玩家模型不渲染
+            // 此處保留作為標記
         }
     }
 
@@ -64,6 +66,9 @@ public class FreeLook extends Module {
         mc.gameSettings.thirdPersonView = previousPerspective;
     }
 
+    /**
+     * 供 Mixin 呼叫，處理滑鼠移動時的自由視角
+     */
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
         this.freeYaw += deltaYaw * 0.15F;
         this.freePitch -= deltaPitch * 0.15F;
