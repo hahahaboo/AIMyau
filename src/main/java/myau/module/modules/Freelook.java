@@ -40,17 +40,14 @@ public class Freelook extends Module {
 
     @Override
     public void onDisabled() {
-        if (perspectiveToggled) {
-            resetPerspective();
-        }
+        if (perspectiveToggled) resetPerspective();
     }
 
     @EventTarget
     public void onTick(TickEvent e) {
-        // AIMyau 中標準的空檢查方式
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null) return;
 
-        boolean down = KeyBindUtil.isKeyDown(this.getKey());
+        boolean down = KeyBindUtil.isKeyDown(getKey());
         if (down != prevKeyState) {
             onKeyStateChanged(down);
             prevKeyState = down;
@@ -59,15 +56,12 @@ public class Freelook extends Module {
 
     private void onKeyStateChanged(boolean state) {
         if (state) {
-            cameraYaw = mc.thePlayer.rotationYaw;
-            cameraPitch = mc.thePlayer.rotationPitch;
-
-            if (perspectiveToggled) {
-                resetPerspective();
-            } else {
+            if (!perspectiveToggled) {
                 enterPerspective();
+            } else if (!hold.getValue()) {
+                resetPerspective();
             }
-        } else if (hold.getValue()) {
+        } else if (hold.getValue() && perspectiveToggled) {
             resetPerspective();
         }
     }
@@ -77,6 +71,8 @@ public class Freelook extends Module {
         previousPerspective = mc.gameSettings.thirdPersonView;
         applyThirdPersonView(1);
         lastFov = mc.gameSettings.fovSetting;
+        cameraYaw = mc.thePlayer.rotationYaw;
+        cameraPitch = mc.thePlayer.rotationPitch;
     }
 
     public void resetPerspective() {
@@ -97,11 +93,7 @@ public class Freelook extends Module {
         mc.gameSettings.thirdPersonView = view;
 
         if (mc.entityRenderer != null) {
-            if (view == 0) {
-                mc.entityRenderer.loadEntityShader(mc.getRenderViewEntity());
-            } else {
-                mc.entityRenderer.loadEntityShader(null);
-            }
+            mc.entityRenderer.loadEntityShader(view == 0 ? mc.getRenderViewEntity() : null);
         }
 
         if (mc.renderGlobal != null) {
@@ -123,13 +115,11 @@ public class Freelook extends Module {
         int dx = ((myau.mixin.IAccessorMouseHelper) mc.mouseHelper).getDeltaX();
         int dy = ((myau.mixin.IAccessorMouseHelper) mc.mouseHelper).getDeltaY();
 
-        float fdx = dx * mult;
-        float fdy = dy * mult;
+        cameraYaw += dx * mult * 0.15f;
+        float fdy = dy * mult * 0.15f;
 
-        cameraYaw += fdx * 0.15f;
         if (fl.invertPitch.getValue()) fdy = -fdy;
-
-        cameraPitch += fdy * 0.15f;
+        cameraPitch += fdy;
 
         if (fl.lockPitch.getValue()) {
             cameraPitch = Math.max(-90f, Math.min(90f, cameraPitch));
@@ -139,7 +129,7 @@ public class Freelook extends Module {
             mc.gameSettings.fovSetting = fl.fov.getValue();
         }
 
-        return false;
+        return false;   // 返回 false = 取消原版滑鼠對玩家旋轉的影響
     }
 
     @SubscribeEvent
