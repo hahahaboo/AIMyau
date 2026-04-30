@@ -7,6 +7,7 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
+import myau.util.KeyBindUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraftforge.client.event.GuiOpenEvent;
@@ -19,7 +20,7 @@ public class Freelook extends Module {
     public final BooleanProperty invertPitch = new BooleanProperty("Invert Pitch", false);
     public final BooleanProperty lockPitch = new BooleanProperty("Lock Pitch", true);
     public final BooleanProperty customFov = new BooleanProperty("Custom FOV", false);
-    public final FloatProperty fov = new FloatProperty("FOV", 90f, 10f, 150f, 1f);
+    public final FloatProperty fov = new FloatProperty("FOV", 90f, 10f, 150f);
 
     public static boolean perspectiveToggled = false;
     public static float cameraYaw = 0f;
@@ -30,7 +31,7 @@ public class Freelook extends Module {
     private float lastFov = 70f;
 
     public Freelook() {
-        super("Freelook", "自由視角（不影響玩家移動方向）", Category.RENDER, 56); // 預設 Alt 鍵
+        super("Freelook", "自由視角（不影響玩家移動方向）", Category.RENDER, 56, false, false);
     }
 
     @Override
@@ -40,22 +41,20 @@ public class Freelook extends Module {
 
     @Override
     public void onDisabled() {
-        if (perspectiveToggled) resetPerspective();
+        if (perspectiveToggled) {
+            resetPerspective();
+        }
     }
 
     @EventTarget
     public void onTick(TickEvent e) {
-        if (e.getType() != TickEvent.Type.PRE || mc.currentScreen != null || !Myau.nullCheck()) return;
+        if (!Myau.nullCheck() || mc.currentScreen != null) return;  // Myau 沒有 nullCheck，暫時這樣處理
 
-        boolean down = this.isKeyPressed();
+        boolean down = KeyBindUtil.isKeyDown(this.getKey());
         if (down != prevKeyState) {
             onKeyStateChanged(down);
             prevKeyState = down;
         }
-    }
-
-    private boolean isKeyPressed() {
-        return this.getKey() != 0 && net.minecraft.client.settings.KeyBinding.isKeyDown(this.getKey());
     }
 
     private void onKeyStateChanged(boolean state) {
@@ -110,7 +109,6 @@ public class Freelook extends Module {
         }
     }
 
-    // 供 Mixin 呼叫的核心靜態方法
     public static boolean overrideMouse(Minecraft mc) {
         if (!mc.inGameHasFocus || !perspectiveToggled) return true;
 
@@ -129,8 +127,8 @@ public class Freelook extends Module {
         float fdy = dy * mult;
 
         cameraYaw += fdx * 0.15f;
-
         if (fl.invertPitch.getValue()) fdy = -fdy;
+
         cameraPitch += fdy * 0.15f;
 
         if (fl.lockPitch.getValue()) {
@@ -138,7 +136,7 @@ public class Freelook extends Module {
         }
 
         if (fl.customFov.getValue()) {
-            mc.gameSettings.fovSetting = (float) fl.fov.getValue();
+            mc.gameSettings.fovSetting = fl.fov.getValue();
         }
 
         return false;
@@ -154,9 +152,5 @@ public class Freelook extends Module {
     @SubscribeEvent
     public void onWorldLoad(WorldEvent.Load e) {
         if (perspectiveToggled) resetPerspective();
-    }
-
-    public boolean isFreelookActive() {
-        return perspectiveToggled;
     }
 }
