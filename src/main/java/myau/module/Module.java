@@ -62,6 +62,7 @@ public abstract class Module {
     }
 
     public void setEnabled(boolean enabled) {
+        if (this.enabled == enabled) return;
         if (this.enabled != enabled) {
             this.enabled = enabled;
             if (enabled) {
@@ -125,7 +126,7 @@ public abstract class Module {
         } else {
             // 一般模組：只在按下瞬間 (pressed == true) 才 toggle
             // 避免按下與放開都觸發
-            if (event.isPressed(true)) {
+            if (event.isPressed()) {
                 toggle();
             }
         }
