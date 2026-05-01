@@ -132,6 +132,6 @@ public abstract class Module {
         }
 
         // 更新上一次狀態
-        lastKeyState = currentlyPressed;
+        lastKeyState = true;
     }
 }
