@@ -19,7 +19,6 @@ public class MixinMouse {
         if (freeLook != null && freeLook.isEnabled()) {
             Minecraft mc = Minecraft.getMinecraft();
 
-            // 取得原始滑鼠移動量
             float deltaYaw = (float) mc.mouseHelper.deltaX;
             float deltaPitch = (float) mc.mouseHelper.deltaY;
 
@@ -27,11 +26,11 @@ public class MixinMouse {
                 freeLook.handleMouseInput(deltaYaw, deltaPitch);
             }
 
-            // 重要：清空 delta，防止原版 setAngles 使用
+            // 清空 delta 防止原版處理
             mc.mouseHelper.deltaX = 0;
             mc.mouseHelper.deltaY = 0;
 
-            ci.cancel();   // 取消原版處理
+            ci.cancel();
         }
     }
 }
