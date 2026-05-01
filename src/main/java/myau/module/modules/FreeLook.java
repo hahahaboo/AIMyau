@@ -1,12 +1,14 @@
 package myau.module.modules;
 
+import myau.event.EventTarget;
+import myau.events.TickEvent;
 import myau.module.Category;
 import myau.module.Module;
 import net.minecraft.client.Minecraft;
 
 public class FreeLook extends Module {
 
-    private static final Minecraft mc = Minecraft.getMinecraft();
+    protected static final Minecraft mc = Minecraft.getMinecraft(); // 與其他模組一致
 
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
@@ -26,7 +28,7 @@ public class FreeLook extends Module {
         if (mc.thePlayer == null) return;
 
         previousPerspective = mc.gameSettings.thirdPersonView;
-        mc.gameSettings.thirdPersonView = 1;  // 強制切到第三人稱
+        mc.gameSettings.thirdPersonView = 1;
 
         freeYaw = prevFreeYaw = mc.thePlayer.rotationYaw;
         freePitch = prevFreePitch = mc.thePlayer.rotationPitch;
@@ -38,9 +40,6 @@ public class FreeLook extends Module {
         mc.gameSettings.thirdPersonView = previousPerspective;
     }
 
-    /**
-     * 由 Mixin 呼叫，處理滑鼠移動 delta
-     */
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
         this.freeYaw += deltaYaw * 0.15F;
         this.freePitch -= deltaPitch * 0.15F;
@@ -48,11 +47,11 @@ public class FreeLook extends Module {
         this.freePitch = Math.max(-90.0F, Math.min(90.0F, this.freePitch));
     }
 
-    /**
-     * 每 Tick 更新 prev 值（用於平滑渲染）
-     */
-    public void onTick() {
-        if (mc.thePlayer == null || !isEnabled()) return;
+    @EventTarget
+    public void onTick(TickEvent event) {
+        if (event.getType() != TickEvent.Type.CLIENT || !isEnabled() || mc.thePlayer == null) 
+            return;
+        
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
     }
