@@ -55,4 +55,19 @@ public class FreeLook extends Module {
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
     }
+
+    @EventTarget
+    public void onKey(KeyEvent event) {
+        if (event.getKey() == this.getKey() && isHoldModule()) {
+            if (event.isPressed()) {
+                if (!isEnabled()) {
+                setEnabled(true);     // 按下時開啟
+                }
+            } else {
+                if (isEnabled()) {
+                    setEnabled(false);    // 放開時關閉
+            }
+        }
+    }
+}
 }
