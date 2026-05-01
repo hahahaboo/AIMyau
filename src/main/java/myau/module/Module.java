@@ -91,4 +91,8 @@ public abstract class Module {
 
     public void verifyValue(String string) {
     }
+
+    public boolean isHoldModule() {
+        return false;
+    }
 }
