@@ -3,7 +3,7 @@ package myau.module.modules;
 import myau.event.EventTarget;
 import myau.events.KeyEvent;
 import myau.events.TickEvent;
-import myau.event.types.EventType;        // ← 新增這一行
+import myau.event.types.EventType;   // 保留 import 以使用 EventType.POST
 import myau.module.Category;
 import myau.module.Module;
 import net.minecraft.client.Minecraft;
@@ -51,7 +51,8 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.CLIENT || !isEnabled() || mc.thePlayer == null) 
+        // 使用 EventType.POST，這是 AIMyau 中常見的 Client Tick 處理時機
+        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null) 
             return;
         
         prevFreeYaw = freeYaw;
