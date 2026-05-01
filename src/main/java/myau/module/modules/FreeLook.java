@@ -42,13 +42,6 @@ public class FreeLook extends Module {
         mc.gameSettings.thirdPersonView = previousPerspective;
     }
 
-    public void handleMouseInput(float deltaYaw, float deltaPitch) {
-        this.freeYaw += deltaYaw * 0.25F;   // 增加靈敏度
-        this.freePitch -= deltaPitch * 0.25F;
-
-        this.freePitch = Math.max(-90.0F, Math.min(90.0F, this.freePitch));
-    }
-
     @EventTarget
     public void onTick(TickEvent event) {
         if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null) 
@@ -56,5 +49,13 @@ public class FreeLook extends Module {
         
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
+    }
+
+    public void handleMouseInput(float deltaYaw, float deltaPitch) {
+        this.freeYaw += deltaYaw * 0.15F;   // 增加靈敏度
+        this.freePitch -= deltaPitch * 0.15F;
+
+        if (this.freePitch > 90.0F) this.freePitch = 90.0F;
+        if (this.freePitch < -90.0F) this.freePitch = -90.0F;
     }
 }
