@@ -3,7 +3,7 @@ package myau.module.modules;
 import myau.event.EventTarget;
 import myau.events.KeyEvent;
 import myau.events.TickEvent;
-import myau.event.types.EventType;   // 保留 import 以使用 EventType.POST
+import myau.event.types.EventType;
 import myau.module.Category;
 import myau.module.Module;
 import net.minecraft.client.Minecraft;
@@ -43,15 +43,14 @@ public class FreeLook extends Module {
     }
 
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
-        this.freeYaw += deltaYaw * 0.15F;
-        this.freePitch -= deltaPitch * 0.15F;
+        this.freeYaw += deltaYaw * 0.25F;   // 增加靈敏度
+        this.freePitch -= deltaPitch * 0.25F;
 
         this.freePitch = Math.max(-90.0F, Math.min(90.0F, this.freePitch));
     }
 
     @EventTarget
     public void onTick(TickEvent event) {
-        // 使用 EventType.POST，這是 AIMyau 中常見的 Client Tick 處理時機
         if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null) 
             return;
         
