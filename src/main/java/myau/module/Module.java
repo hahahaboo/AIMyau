@@ -101,21 +101,18 @@ public abstract class Module {
     public boolean isHoldModule() {
         return false;
     }
-        // 在 class 內新增一個欄位（放在其他欄位旁，例如 hidden 後面）
-    private boolean lastKeyState = false;   // 上一次按鍵狀態，用來防止重複觸發
-
-    /**
-     * 統一處理 KeyEvent - 最終穩定版
+   /**
+     * 統一處理 KeyEvent
+     * - 一般模組：只在按鍵「剛剛按下」的瞬間 toggle（防止重複觸發）
+     * - Hold 模組：按下開啟，放開關閉
      */
     @EventTarget
     public void onKey(KeyEvent event) {
         if (event.getKey() != this.getKey()) return;
 
-        boolean currentlyPressed = event.isPressed();
-
         if (isHoldModule()) {
-            // Hold 模式 (FreeLook)
-            if (currentlyPressed) {
+            // === Hold 模式 (FreeLook) ===
+            if (event.isPressed()) {
                 if (!isEnabled()) {
                     setEnabled(true);
                 }
@@ -125,13 +122,11 @@ public abstract class Module {
                 }
             }
         } else {
-            // 一般模組：只在「從未按下 → 剛剛按下」的瞬間才 toggle
-            if (currentlyPressed && !lastKeyState) {
+            // === 一般模組：只在「剛剛按下」的瞬間觸發 toggle ===
+            // 使用 isPressed() 並且確保只在 pressed 時執行
+            if (event.isPressed()) {
                 toggle();
             }
         }
-
-        // 更新上一次狀態
-        lastKeyState = true;
     }
 }
