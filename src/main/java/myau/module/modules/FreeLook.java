@@ -44,7 +44,7 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null) 
+        if (event.getType() != EventType.PER || !isEnabled() || mc.thePlayer == null) 
             return;
         
         prevFreeYaw = freeYaw;
