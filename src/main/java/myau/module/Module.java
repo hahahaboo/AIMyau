@@ -107,12 +107,12 @@ public abstract class Module {
      * - 一般模組：只在按下時 toggle（恢復原本行為）
      * - Hold 模組：按下時開啟，放開時關閉
      */
-    @EventTarget
+@EventTarget
     public void onKey(KeyEvent event) {
         if (event.getKey() != this.getKey()) return;
 
         if (isHoldModule()) {
-            // Hold 模式
+            // Hold 模式 (FreeLook)
             if (event.isPressed()) {
                 if (!isEnabled()) {
                     setEnabled(true);
@@ -123,7 +123,8 @@ public abstract class Module {
                 }
             }
         } else {
-            // 一般模組：只在按下時切換，避免放開時又觸發
+            // 一般模組：只在按下瞬間 (pressed == true) 才 toggle
+            // 避免按下與放開都觸發
             if (event.isPressed()) {
                 toggle();
             }
