@@ -129,38 +129,40 @@ public abstract class MixinEntityRenderer {
     }
 
     @Inject(method = "orientCamera(F)V", at = @At("HEAD"))
-    private void preOrientCamera(float partialTicks, CallbackInfo ci) {
-        FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
-        if (freeLook != null && freeLook.isEnabled()) {
-            Entity entity = mc.getRenderViewEntity();
-            if (entity != null) {
+        private void preOrientCamera(float partialTicks, CallbackInfo ci) {
+            FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
+
+            if (freeLook != null && freeLook.isEnabled() && mc.getRenderViewEntity() != null) {
+                Entity entity = mc.getRenderViewEntity();
+
                 atl$originalYaw = entity.rotationYaw;
                 atl$originalPitch = entity.rotationPitch;
                 atl$originalPrevYaw = entity.prevRotationYaw;
                 atl$originalPrevPitch = entity.prevRotationPitch;
 
+                // 套用 FreeLook 的自由視角
                 entity.prevRotationYaw = freeLook.prevFreeYaw;
                 entity.rotationYaw = freeLook.freeYaw;
                 entity.prevRotationPitch = freeLook.prevFreePitch;
                 entity.rotationPitch = freeLook.freePitch;
             }
         }
-    }
 
     @Inject(method = "orientCamera(F)V", at = @At("RETURN"))
     private void postOrientCamera(float partialTicks, CallbackInfo ci) {
         FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
-        if (freeLook != null && freeLook.isEnabled()) {
+
+        if (freeLook != null && freeLook.isEnabled() && mc.getRenderViewEntity() != null) {
             Entity entity = mc.getRenderViewEntity();
-            if (entity != null) {
-                entity.rotationYaw = atl$originalYaw;
-                entity.rotationPitch = atl$originalPitch;
-                entity.prevRotationYaw = atl$originalPrevYaw;
-                entity.prevRotationPitch = atl$originalPrevPitch;
-            }
+
+            // 還原原始玩家 rotation，防止影響移動方向
+            entity.rotationYaw = atl$originalYaw;
+            entity.rotationPitch = atl$originalPitch;
+            entity.prevRotationYaw = atl$originalPrevYaw;
+            entity.prevRotationPitch = atl$originalPrevPitch;
         }
     }
-
+    
     @ModifyConstant(
             method = {"hurtCameraEffect"},
             constant = {@Constant(
