@@ -6,14 +6,15 @@ import net.minecraft.client.Minecraft;
 
 public class FreeLook extends Module {
 
-    private final Minecraft mc = Minecraft.getMinecraft();
+    private static final Minecraft mc = Minecraft.getMinecraft();
 
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
 
     public FreeLook() {
-        super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
+        super("FreeLook", "Look around freely in third person without changing movement direction", 
+              Category.RENDER, 0, false, false);
     }
 
     public boolean isHoldModule() {
@@ -25,7 +26,7 @@ public class FreeLook extends Module {
         if (mc.thePlayer == null) return;
 
         previousPerspective = mc.gameSettings.thirdPersonView;
-        mc.gameSettings.thirdPersonView = 1;
+        mc.gameSettings.thirdPersonView = 1;  // 強制切到第三人稱
 
         freeYaw = prevFreeYaw = mc.thePlayer.rotationYaw;
         freePitch = prevFreePitch = mc.thePlayer.rotationPitch;
@@ -37,15 +38,19 @@ public class FreeLook extends Module {
         mc.gameSettings.thirdPersonView = previousPerspective;
     }
 
+    /**
+     * 由 Mixin 呼叫，處理滑鼠移動 delta
+     */
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
         this.freeYaw += deltaYaw * 0.15F;
         this.freePitch -= deltaPitch * 0.15F;
 
-        if (this.freePitch > 90.0F) this.freePitch = 90.0F;
-        if (this.freePitch < -90.0F) this.freePitch = -90.0F;
+        this.freePitch = Math.max(-90.0F, Math.min(90.0F, this.freePitch));
     }
 
-    // Tick 更新 prev 值（如果你有 TickEvent 可註冊，這裡先保留方法）
+    /**
+     * 每 Tick 更新 prev 值（用於平滑渲染）
+     */
     public void onTick() {
         if (mc.thePlayer == null || !isEnabled()) return;
         prevFreeYaw = freeYaw;
