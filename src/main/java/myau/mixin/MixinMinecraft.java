@@ -140,11 +140,14 @@ public abstract class MixinMinecraft {
     )
     private void setKeyBindState(int integer, boolean boolean2) {
         KeyBinding.setKeyBindState(integer, boolean2);
-        if (boolean2 && this.currentScreen == null) {
-            EventManager.call(new KeyEvent(integer));
+
+        // 只在沒有開啟 GUI 畫面時才發送 KeyEvent（與原本邏輯一致）
+        if (this.currentScreen == null) {
+            // boolean2 = true → 按下, false → 放開
+            EventManager.call(new KeyEvent(integer, boolean2));
         }
     }
-
+    
     @Redirect(
             method = {"runTick"},
             at = @At(
