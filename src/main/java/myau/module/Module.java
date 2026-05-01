@@ -95,4 +95,27 @@ public abstract class Module {
     public boolean isHoldModule() {
         return false;
     }
+
+    @EventTarget
+    public void onKey(KeyEvent event) {
+        if (event.getKey() != this.getKey()) return;
+
+        if (isHoldModule()) {
+            // Hold 模式
+            if (event.isPressed()) {
+                if (!isEnabled()) {
+                    setEnabled(true);
+                }
+            } else {
+                if (isEnabled()) {
+                    setEnabled(false);
+                }
+            }
+        } else {
+            // 一般 Toggle 模式：只在按下時切換（避免放開時又觸發）
+            if (event.isPressed()) {
+                toggle();
+            }
+        }
+    }
 }
