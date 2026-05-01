@@ -74,19 +74,16 @@ public abstract class MixinEntity {
             cancellable = true
     )
     private void setAngles(CallbackInfo callbackInfo) {
-        if ((Entity) ((Object) this) instanceof EntityPlayerSP) {
-            // 原 RotationManager 邏輯
-            if (Myau.rotationManager != null && Myau.rotationManager.isRotated()) {
-                callbackInfo.cancel();
-                return;
-            }
+        if (!((Entity) ((Object) this) instanceof EntityPlayerSP)) return;
 
-            // 新增 FreeLook 支援
-            FreeLook freeLook = (FreeLook) Myau.moduleManager.getModule(FreeLook.class);
-            if (freeLook != null && freeLook.isEnabled()) {
-                freeLook.handleMouseInput(0, 0); // 這裡實際 delta 由 Mouse 事件或 EntityRenderer 處理，視實作調整
-                callbackInfo.cancel();
-            }
+        FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
+        if (freeLook != null && freeLook.isEnabled()) {
+            callbackInfo.cancel();
+            return;
+        }
+
+        if (Myau.rotationManager != null && Myau.rotationManager.isRotated()) {
+            callbackInfo.cancel();
         }
     }
 
