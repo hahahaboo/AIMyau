@@ -3,6 +3,8 @@ package myau.module;
 import lombok.Getter;
 import lombok.Setter;
 import myau.Myau;
+import myau.event.EventTarget;           // ← 新增
+import myau.events.KeyEvent;             // ← 新增
 import myau.module.modules.HUD;
 import myau.util.KeyBindUtil;
 import net.minecraft.client.Minecraft;
@@ -92,10 +94,19 @@ public abstract class Module {
     public void verifyValue(String string) {
     }
 
+    /**
+     * 是否為 Hold 模式模組（預設 false）
+     * FreeLook 等少數模組需 override 回傳 true
+     */
     public boolean isHoldModule() {
         return false;
     }
 
+    /**
+     * 統一處理 KeyEvent
+     * - 一般模組：只在按下時 toggle（恢復原本行為）
+     * - Hold 模組：按下時開啟，放開時關閉
+     */
     @EventTarget
     public void onKey(KeyEvent event) {
         if (event.getKey() != this.getKey()) return;
@@ -112,7 +123,7 @@ public abstract class Module {
                 }
             }
         } else {
-            // 一般 Toggle 模式：只在按下時切換（避免放開時又觸發）
+            // 一般模組：只在按下時切換，避免放開時又觸發
             if (event.isPressed()) {
                 toggle();
             }
