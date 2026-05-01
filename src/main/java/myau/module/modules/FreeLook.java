@@ -1,9 +1,7 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
-import myau.events.KeyEvent;
 import myau.events.TickEvent;
-import myau.event.types.EventType;
 import myau.module.Category;
 import myau.module.Module;
 import net.minecraft.client.Minecraft;
@@ -44,7 +42,7 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.PRE || !isEnabled() || mc.thePlayer == null) 
+        if (!isEnabled() || mc.thePlayer == null) 
             return;
         
         prevFreeYaw = freeYaw;
