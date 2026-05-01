@@ -61,15 +61,24 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onKey(KeyEvent event) {
-        if (event.getKey() == this.getKey() && isHoldModule()) {
+        if (event.getKey() != this.getKey()) return;
+
+        if (isHoldModule()) {
+            // Hold 模式：按下開啟，放開關閉
             if (event.isPressed()) {
                 if (!isEnabled()) {
-                    setEnabled(true);     // 按下時開啟
+                    setEnabled(true);
                 }
             } else {
                 if (isEnabled()) {
-                    setEnabled(false);    // 放開時關閉
+                    setEnabled(false);
                 }
+            }
+        } 
+        else {
+            // 一般模組：只在按下時 toggle（避免放開時又觸發）
+            if (event.isPressed()) {
+                toggle();
             }
         }
     }
