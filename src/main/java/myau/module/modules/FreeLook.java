@@ -3,13 +3,14 @@ package myau.module.modules;
 import myau.event.EventTarget;
 import myau.events.KeyEvent;
 import myau.events.TickEvent;
+import myau.event.types.EventType;        // ← 新增這一行
 import myau.module.Category;
 import myau.module.Module;
 import net.minecraft.client.Minecraft;
 
 public class FreeLook extends Module {
 
-    protected static final Minecraft mc = Minecraft.getMinecraft(); // 與其他模組一致
+    protected static final Minecraft mc = Minecraft.getMinecraft();
 
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
@@ -50,7 +51,7 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != TickEvent.Type.CLIENT || !isEnabled() || mc.thePlayer == null) 
+        if (event.getType() != EventType.CLIENT || !isEnabled() || mc.thePlayer == null) 
             return;
         
         prevFreeYaw = freeYaw;
@@ -62,13 +63,13 @@ public class FreeLook extends Module {
         if (event.getKey() == this.getKey() && isHoldModule()) {
             if (event.isPressed()) {
                 if (!isEnabled()) {
-                setEnabled(true);     // 按下時開啟
+                    setEnabled(true);     // 按下時開啟
                 }
             } else {
                 if (isEnabled()) {
                     setEnabled(false);    // 放開時關閉
+                }
             }
         }
     }
-}
 }
