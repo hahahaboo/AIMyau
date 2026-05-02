@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.event.EventManager;
 import myau.events.KnockbackEvent;
 import myau.events.SafeWalkEvent;
+import myau.module.modules.FreeLook;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
