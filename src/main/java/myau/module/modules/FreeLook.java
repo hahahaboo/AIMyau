@@ -6,6 +6,8 @@ import myau.events.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.IntProperty;
+import myau.util.KeyBindUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 
@@ -13,16 +15,15 @@ public class FreeLook extends Module {
 
     private final Minecraft mc = Minecraft.getMinecraft();
 
+    // === Hold Key 設定（公開 final field，會被自動註冊）===
+    public final IntProperty holdKey = new IntProperty("Hold Key", 0, 0, 255);
+
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
-    }
-
-    public boolean isHoldModule() {
-        return true;
     }
 
     @Override
@@ -38,17 +39,23 @@ public class FreeLook extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (mc.thePlayer == null || event.getType() != EventType.PRE || !isEnabled()) return;
-        
+        if (mc.thePlayer == null || event.getType() != EventType.PRE) return;
+
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
+
+        // Hold Key 邏輯：只有持續按住指定鍵時才啟用 FreeLook
+        boolean shouldHold = holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
+        
+        if (isEnabled() != shouldHold) {
+            setEnabled(shouldHold);
+        }
     }
 
     @EventTarget
     public void onRenderLiving(RenderLivingEvent event) {
         if (isEnabled() && event.getEntity() == mc.thePlayer) {
-            // 取消渲染玩家模型（對應原 Forge RenderLivingEvent.Specials.Pre）
-            // 若需要更精確取消可調整 Event 或 Mixin
+            // 可在此處理渲染取消
         }
     }
 
@@ -64,5 +71,11 @@ public class FreeLook extends Module {
 
         if (this.freePitch > 90.0F) this.freePitch = 90.0F;
         if (this.freePitch < -90.0F) this.freePitch = -90.0F;
+    }
+
+    @Override
+    public String[] getSuffix() {
+        int key = holdKey.getValue();
+        return new String[]{key == 0 ? "None" : KeyBindUtil.getKeyName(key)};
     }
 }
