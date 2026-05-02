@@ -37,6 +37,10 @@ public abstract class MixinEntityRenderer {
     private Box<ItemStack> using = null;
     @Unique
     private Box<Integer> useCount = null;
+    @Unique
+    private float atl$originalYaw, atl$originalPitch;
+    @Unique
+    private float atl$originalPrevYaw, atl$originalPrevPitch;
     @Shadow
     private Minecraft mc;
     @Shadow
@@ -276,5 +280,38 @@ public abstract class MixinEntityRenderer {
             }
         }
         return ((IAccessorEntityLivingBase) entityPlayerSP).getActivePotionsMap().containsKey(potion.id);
+    }
+
+    @Inject(method = "orientCamera(F)V", at = @At("HEAD"))
+    private void preOrientCamera(float partialTicks, CallbackInfo ci) {
+        FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
+
+        if (freeLook != null && freeLook.isEnabled() && Minecraft.getMinecraft().getRenderViewEntity() != null) {
+            Entity entity = Minecraft.getMinecraft().getRenderViewEntity();
+            if (entity != null) {
+                atl$originalYaw = entity.rotationYaw;
+                atl$originalPitch = entity.rotationPitch;
+                atl$originalPrevYaw = entity.prevRotationYaw;
+                atl$originalPrevPitch = entity.prevRotationPitch;
+
+                entity.prevRotationYaw = freeLook.prevFreeYaw;
+                entity.rotationYaw = freeLook.freeYaw;
+                entity.prevRotationPitch = freeLook.prevFreePitch;
+                entity.rotationPitch = freeLook.freePitch;
+            }
+        }
+    }
+
+    @Inject(method = "orientCamera(F)V", at = @At("RETURN"))
+    private void postOrientCamera(float partialTicks, CallbackInfo ci) {
+        FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
+        Entity entity = Minecraft.getMinecraft().getRenderViewEntity();
+    
+        if (freeLook != null && freeLook.isEnabled() && entity != null) {
+            entity.rotationYaw = atl$originalYaw;
+            entity.rotationPitch = atl$originalPitch;
+            entity.prevRotationYaw = atl$originalPrevYaw;
+            entity.prevRotationPitch = atl$originalPrevPitch;
+        }
     }
 }
