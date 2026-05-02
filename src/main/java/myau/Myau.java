@@ -83,6 +83,7 @@ public class Myau {
         moduleManager.modules.put(ESP.class, new ESP());
         moduleManager.modules.put(FastPlace.class, new FastPlace());
         moduleManager.modules.put(Fly.class, new Fly());
+        moduleManager.modules.put(FreeLook.class, new FreeLook());
         moduleManager.modules.put(FullBright.class, new FullBright());
         moduleManager.modules.put(GhostHand.class, new GhostHand());
         moduleManager.modules.put(HUD.class, new HUD());
