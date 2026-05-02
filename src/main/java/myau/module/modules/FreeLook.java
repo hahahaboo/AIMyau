@@ -16,7 +16,7 @@ public class FreeLook extends Module {
     private final Minecraft mc = Minecraft.getMinecraft();
 
     // === Hold Key 設定（公開 final field，會被自動註冊）===
-    public final IntProperty holdKey = new IntProperty("Hold-Key", 0, 0, 255);
+    public final IntProperty holdKey = new IntProperty("Hold-Key", 0, 0, 223);
 
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
