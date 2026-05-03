@@ -23,7 +23,12 @@ public class Parkour extends Module {
     @EventTarget
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
-       
+        
+        // 【重要修正】加入模組啟用檢查，解決「關閉後仍運作」的問題
+        if (!this.isEnabled()) {
+            return;
+        }
+
         if (mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
@@ -66,5 +71,12 @@ public class Parkour extends Module {
     public void onEnabled() {
         super.onEnabled();
         cd.reset();
+    }
+
+    @Override
+    public void onDisabled() {
+        super.onDisabled();
+        // 可選：模組關閉時釋放 Jump 按鍵
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
     }
 }
