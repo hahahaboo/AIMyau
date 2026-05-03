@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.event.EventManager;
 import myau.events.KnockbackEvent;
 import myau.events.SafeWalkEvent;
+import myau.module.modules.FreeLook;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.World;
@@ -72,8 +73,17 @@ public abstract class MixinEntity {
             at = {@At("HEAD")},
             cancellable = true
     )
-    private void setAngles(CallbackInfo callbackInfo) {
+    private void setAngles(float yaw, float pitch, CallbackInfo callbackInfo) {
+        // 原有 RotationManager 邏輯
         if ((Entity) ((Object) this) instanceof EntityPlayerSP && Myau.rotationManager != null && Myau.rotationManager.isRotated()) {
+            callbackInfo.cancel();
+            return;
+        }
+
+        // === FreeLook 新增邏輯 ===
+        FreeLook freeLook = (FreeLook) Myau.moduleManager.modules.get(FreeLook.class);
+        if (freeLook != null && freeLook.isEnabled()) {
+            freeLook.handleMouseInput(yaw, pitch);
             callbackInfo.cancel();
         }
     }
