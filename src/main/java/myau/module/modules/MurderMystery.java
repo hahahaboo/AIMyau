@@ -1,5 +1,6 @@
 package myau.module.modules;
 
+import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.TickEvent;
@@ -41,10 +42,18 @@ public class MurderMystery extends Module {
             ItemStack heldItem = player.getHeldItem();
             if (heldItem != null && heldItem.getItem() instanceof ItemSword) {
                 String swordName = heldItem.getDisplayName() != null && !heldItem.getDisplayName().isEmpty() 
-                        ? heldItem.getDisplayName() 
+                        ? heldItem.getDisplayName().replace("§r", "") 
                         : "sword";
 
-                ChatUtil.sendFormatted(String.format("&c%s is Murder (%s)&r", name, swordName));
+                // 參考 Velocity debug log 的前綴格式
+                ChatUtil.sendFormatted(String.format(
+                    "%s%s: &c%s is Murder (%s)&r", 
+                    Myau.clientName, 
+                    this.getName(), 
+                    name, 
+                    swordName
+                ));
+
                 detectedMurders.add(name);
             }
         }
@@ -53,7 +62,7 @@ public class MurderMystery extends Module {
     @Override
     public void onEnabled() {
         super.onEnabled();
-        detectedMurders.clear(); // 每次開啟模組重置偵測紀錄
+        detectedMurders.clear();
     }
 
     @Override
