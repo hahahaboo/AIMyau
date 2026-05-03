@@ -5,13 +5,14 @@ import myau.events.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.BooleanProperty;
 import myau.util.KeyBindUtil;
 import myau.util.PlayerUtil;
 import myau.util.TimerUtil;
-import net.minecraft.client.settings.KeyBinding;
-import org.lwjgl.input.Keyboard;
 
 public class Parkour extends Module {
+
+    public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
 
     private final TimerUtil cd = new TimerUtil();
 
@@ -22,8 +23,13 @@ public class Parkour extends Module {
     @EventTarget
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
-        
+       
         if (mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+
+        // 蹲下時不觸發 Parkour
+        if (notOnSneaking.getValue() && PlayerUtil.isSneaking()) {
             return;
         }
 
@@ -31,25 +37,17 @@ public class Parkour extends Module {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
-        if (mc.thePlayer.onGround 
-                && isPlayerOverAir() 
+        if (mc.thePlayer.onGround
+                && isPlayerOverAir()
                 && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
-            
+           
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
             cd.reset();
         }
     }
 
-    private boolean hasFinishedCooldown() {
-        return cd.hasTimeElapsed(10);  // 原 CoolDown(10)
-    }
-
-    private void resetCooldown() {
-        // TimerUtil 已經在 reset 時更新時間
-    }
-
-    /** 
-     * 對應原 Utils.Player.playerOverAir() 
+    /**
+     * 對應原 Utils.Player.playerOverAir()
      * 檢查玩家腳下是否為空氣
      */
     private boolean isPlayerOverAir() {
@@ -57,8 +55,8 @@ public class Parkour extends Module {
         double y = mc.thePlayer.posY - 1.0D;
         double z = mc.thePlayer.posZ;
         net.minecraft.util.BlockPos p = new net.minecraft.util.BlockPos(
-                net.minecraft.util.MathHelper.floor_double(x), 
-                net.minecraft.util.MathHelper.floor_double(y), 
+                net.minecraft.util.MathHelper.floor_double(x),
+                net.minecraft.util.MathHelper.floor_double(y),
                 net.minecraft.util.MathHelper.floor_double(z)
         );
         return mc.theWorld.isAirBlock(p);
