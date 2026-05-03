@@ -47,7 +47,7 @@ public class MurderMystery extends Module {
 
                 // 參考 Velocity debug log 的前綴格式
                 ChatUtil.sendFormatted(String.format(
-                    "%s%s: &c%s is Murder (%s)&r", 
+                    "%s%s: %s&r is &cMurder&r (%s)&r", 
                     Myau.clientName, 
                     this.getName(), 
                     name, 
