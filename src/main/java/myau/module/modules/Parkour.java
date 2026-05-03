@@ -23,23 +23,20 @@ public class Parkour extends Module {
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
         
-        if (!PlayerUtil.isPlayerInGame()) {  // 使用 AIMyau 的檢查（雖然 PlayerUtil 沒有直接 isPlayerInGame，但我會用 mc 判斷）
+        if (mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
 
-        // 模擬 original 的 firstFinish + release jump key
-        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && hasFinishedCooldown()) {
+        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
-            resetCooldown(); // 避免重複
         }
 
-        // 偵測需要跳躍的情況：站在地面、前面是空氣、且有水平移動
         if (mc.thePlayer.onGround 
                 && isPlayerOverAir() 
                 && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
             
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
-            cd.reset();  // 開始 10 tick cooldown
+            cd.reset();
         }
     }
 
