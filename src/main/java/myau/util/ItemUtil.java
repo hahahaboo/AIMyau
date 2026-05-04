@@ -9,11 +9,6 @@ import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
 import net.minecraft.init.Items;
 import net.minecraft.item.*;
-import net.minecraft.item.ItemAxe;
-import net.minecraft.item.ItemHoe;
-import net.minecraft.item.ItemPickaxe;
-import net.minecraft.item.ItemSpade;
-import net.minecraft.item.ItemSword;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.potion.PotionEffect;
@@ -403,11 +398,13 @@ public class ItemUtil {
         return itemStack.getItem() instanceof ItemFireball;
     }
 
-        public static boolean isMurderWeapon(ItemStack itemStack) {
+    public static boolean isMurderWeapon(ItemStack itemStack) {
         if (itemStack == null) {
             return false;
         }
         Item item = itemStack.getItem();
+        int id = Item.getIdFromItem(item);
+        int meta = itemStack.getItemDamage();
 
         // Swords (全部)
         if (item instanceof ItemSword) {
@@ -431,21 +428,17 @@ public class ItemUtil {
         if (item instanceof ItemPickaxe) {
             ItemPickaxe pick = (ItemPickaxe) item;
             Item.ToolMaterial material = pick.getToolMaterial();
-            return material == Item.ToolMaterial.GOLD || material == Item.ToolMaterial.EMERALD;  // <-- 修正為 EMERALD
+            return material == Item.ToolMaterial.GOLD || material == Item.ToolMaterial.EMERALD;
         }
 
         // Hoes (只有 golden 和 diamond)
         if (item instanceof ItemHoe) {
-            // ItemHoe 沒有 getToolMaterial()，改用以下方式
-            if (item == Items.golden_hoe || item == Items.diamond_hoe) {  // <-- 直接比對物品更可靠
-                return true;
-            }
-            return false;
+            return item == Items.golden_hoe || item == Items.diamond_hoe;
         }
 
-        // 特定物品列表（修正欄位名稱）
+        // 特定物品列表（使用 ID + Meta 精準判斷）
         return item == Items.stick ||
-               item == Items.dead_bush ||           // <-- 修正
+               id == 32 ||                                      // deadbush (#0032)
                item == Items.reeds ||
                item == Items.blaze_rod ||
                item == Items.quartz ||
@@ -458,7 +451,7 @@ public class ItemUtil {
                item == Items.carrot ||
                item == Items.golden_carrot ||
                item == Items.cookie ||
-               item == Items.double_plant ||        // <-- 修正
+               (id == 175 && meta == 4) ||                      // double_plant (#0175/4)
                item == Items.prismarine_shard ||
                item == Items.cooked_beef ||
                item == Items.netherbrick ||
@@ -471,7 +464,7 @@ public class ItemUtil {
                item == Items.boat ||
                item == Items.speckled_melon ||
                item == Items.book ||
-               item == Items.sapling;               // <-- 修正
+               (id == 6 && meta == 3);                          // sapling (#0006/3)
     }
     
     static final class SpecialItems extends ArrayList<Integer> {
