@@ -398,7 +398,7 @@ public class ItemUtil {
         return itemStack.getItem() instanceof ItemFireball;
     }
 
-    public static boolean isMurderWeapon(ItemStack itemStack) {
+        public static boolean isMurderWeapon(ItemStack itemStack) {
         if (itemStack == null) {
             return false;
         }
@@ -445,7 +445,7 @@ public class ItemUtil {
                item == Items.pumpkin_pie ||
                item == Items.leather ||
                item == Items.name_tag ||
-               item == Items.coal ||
+               (id == 263 && meta == 1) ||                      // coal (#263/1)
                item == Items.flint ||
                item == Items.bone ||
                item == Items.carrot ||
@@ -457,9 +457,9 @@ public class ItemUtil {
                item == Items.netherbrick ||
                item == Items.cooked_chicken ||
                item == Items.record_blocks ||
-               item == Items.dye ||
+               (id == 351 && (meta == 1 || meta == 4)) ||      // dye (#351/1 和 #351/4)
                item == Items.shears ||
-               item == Items.fish ||
+               (id == 349 && meta == 1) ||                      // fish (#349/1)
                item == Items.bread ||
                item == Items.boat ||
                item == Items.speckled_melon ||
