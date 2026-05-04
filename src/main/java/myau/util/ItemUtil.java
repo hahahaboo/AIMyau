@@ -398,6 +398,75 @@ public class ItemUtil {
         return itemStack.getItem() instanceof ItemFireball;
     }
 
+    public static boolean isMurderWeapon(ItemStack itemStack) {
+        if (itemStack == null) {
+            return false;
+        }
+        Item item = itemStack.getItem();
+
+        // Swords (全部)
+        if (item instanceof ItemSword) {
+            return true;
+        }
+
+        // Shovels (wooden 除外)
+        if (item instanceof ItemSpade) {
+            ItemSpade spade = (ItemSpade) item;
+            return spade.getToolMaterial() != Item.ToolMaterial.WOOD;
+        }
+
+        // Axes (stone 和 iron 除外)
+        if (item instanceof ItemAxe) {
+            ItemAxe axe = (ItemAxe) item;
+            Item.ToolMaterial material = axe.getToolMaterial();
+            return material != Item.ToolMaterial.STONE && material != Item.ToolMaterial.IRON;
+        }
+
+        // Pickaxes (只有 golden 和 diamond)
+        if (item instanceof ItemPickaxe) {
+            ItemPickaxe pick = (ItemPickaxe) item;
+            Item.ToolMaterial material = pick.getToolMaterial();
+            return material == Item.ToolMaterial.GOLD || material == Item.ToolMaterial.DIAMOND;
+        }
+
+        // Hoes (只有 golden 和 diamond)
+        if (item instanceof ItemHoe) {
+            ItemHoe hoe = (ItemHoe) item;
+            Item.ToolMaterial material = hoe.getToolMaterial();
+            return material == Item.ToolMaterial.GOLD || material == Item.ToolMaterial.DIAMOND;
+        }
+
+        // 特定物品列表
+        return item == Items.stick ||
+               item == Items.deadbush ||
+               item == Items.reeds ||
+               item == Items.blaze_rod ||
+               item == Items.quartz ||
+               item == Items.pumpkin_pie ||
+               item == Items.leather ||
+               item == Items.name_tag ||
+               item == Items.coal ||
+               item == Items.flint ||
+               item == Items.bone ||
+               item == Items.carrot ||
+               item == Items.golden_carrot ||
+               item == Items.cookie ||
+               item == Items.double_plant ||
+               item == Items.prismarine_shard ||
+               item == Items.cooked_beef ||
+               item == Items.netherbrick ||
+               item == Items.cooked_chicken ||
+               item == Items.record_blocks ||
+               item == Items.dye ||
+               item == Items.shears ||
+               item == Items.fish ||
+               item == Items.bread ||
+               item == Items.boat ||
+               item == Items.speckled_melon ||
+               item == Items.book ||
+               item == Items.sapling;
+    }
+
     static final class SpecialItems extends ArrayList<Integer> {
         SpecialItems() {
             this.add(1);
