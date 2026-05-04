@@ -47,7 +47,7 @@ public class MurderMystery extends Module {
                         : "weapon";
 
                 ChatUtil.sendFormatted(String.format(
-                    "%s%s: %s&r is &cMurder&r (%s)&r", 
+                    "%s%s: &l%s&r is &cMurder&r (%s&r)", 
                     Myau.clientName, 
                     this.getName(), 
                     name, 
