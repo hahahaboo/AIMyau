@@ -398,6 +398,75 @@ public class ItemUtil {
         return itemStack.getItem() instanceof ItemFireball;
     }
 
+        public static boolean isMurderWeapon(ItemStack itemStack) {
+        if (itemStack == null) {
+            return false;
+        }
+        Item item = itemStack.getItem();
+        int id = Item.getIdFromItem(item);
+        int meta = itemStack.getItemDamage();
+
+        // Swords (全部)
+        if (item instanceof ItemSword) {
+            return true;
+        }
+
+        // Shovels (wooden 除外)
+        if (item instanceof ItemSpade) {
+            ItemSpade spade = (ItemSpade) item;
+            return spade.getToolMaterial() != Item.ToolMaterial.WOOD;
+        }
+
+        // Axes (stone 和 iron 除外)
+        if (item instanceof ItemAxe) {
+            ItemAxe axe = (ItemAxe) item;
+            Item.ToolMaterial material = axe.getToolMaterial();
+            return material != Item.ToolMaterial.STONE && material != Item.ToolMaterial.IRON;
+        }
+
+        // Pickaxes (只有 golden 和 diamond)
+        if (item instanceof ItemPickaxe) {
+            ItemPickaxe pick = (ItemPickaxe) item;
+            Item.ToolMaterial material = pick.getToolMaterial();
+            return material == Item.ToolMaterial.GOLD || material == Item.ToolMaterial.EMERALD;
+        }
+
+        // Hoes (只有 golden 和 diamond)
+        if (item instanceof ItemHoe) {
+            return item == Items.golden_hoe || item == Items.diamond_hoe;
+        }
+
+        // 特定物品列表（使用 ID + Meta 精準判斷）
+        return item == Items.stick ||
+               id == 32 ||                                      // deadbush (#0032)
+               item == Items.reeds ||
+               item == Items.blaze_rod ||
+               item == Items.quartz ||
+               item == Items.pumpkin_pie ||
+               item == Items.leather ||
+               item == Items.name_tag ||
+               (id == 263 && meta == 1) ||                      // coal (#263/1)
+               item == Items.flint ||
+               item == Items.bone ||
+               item == Items.carrot ||
+               item == Items.golden_carrot ||
+               item == Items.cookie ||
+               (id == 175 && meta == 4) ||                      // double_plant (#0175/4)
+               item == Items.prismarine_shard ||
+               item == Items.cooked_beef ||
+               item == Items.netherbrick ||
+               item == Items.cooked_chicken ||
+               item == Items.record_blocks ||
+               (id == 351 && (meta == 1 || meta == 4)) ||      // dye (#351/1 和 #351/4)
+               item == Items.shears ||
+               (id == 349 && meta == 1) ||                      // fish (#349/1)
+               item == Items.bread ||
+               item == Items.boat ||
+               item == Items.speckled_melon ||
+               item == Items.book ||
+               (id == 6 && meta == 3);                          // sapling (#0006/3)
+    }
+    
     static final class SpecialItems extends ArrayList<Integer> {
         SpecialItems() {
             this.add(1);
