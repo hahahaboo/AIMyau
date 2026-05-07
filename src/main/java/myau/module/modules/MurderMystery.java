@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.TickEvent;
+import myau.events.LoadWorldEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;   // ← 新增
@@ -79,7 +80,13 @@ public class MurderMystery extends Module {
             }
         }
     }
-
+    
+    @EventTarget
+    public void onLoadWorld(LoadWorldEvent event) {
+        detectedMurders.clear();
+        detectedBows.clear();
+    }
+    
     @Override
     public void onEnabled() {
         super.onEnabled();
