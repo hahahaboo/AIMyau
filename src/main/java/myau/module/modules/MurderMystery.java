@@ -23,11 +23,10 @@ public class MurderMystery extends Module {
     private final Set<String> detectedBows = new HashSet<>();     // ← 新增 bow 追蹤
 
     // 新增 Boolean 選項
-    public final BooleanProperty bowDetect = new BooleanProperty("bow-detect", false);
+    public final BooleanProperty bowDetect = new BooleanProperty("bow-detect", true);
 
     public MurderMystery() {
         super("MurderMystery", "Detect players holding murder weapons in Murder Mystery and announce them.", Category.MISC, 0, false, false);
-        // 無需 this.addProperty()，系統會自動掃描 public final Property 欄位
     }
 
     @EventTarget
@@ -69,7 +68,7 @@ public class MurderMystery extends Module {
                         : "bow";
 
                 ChatUtil.sendFormatted(String.format(
-                    "%s%s: %s&r has a bow (%s&r)",
+                    "%s%s: &l%s&r has a &bBow&r (%s&r)",
                     Myau.clientName,
                     this.getName(),
                     name,
