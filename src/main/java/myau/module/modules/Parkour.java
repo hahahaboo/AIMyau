@@ -14,8 +14,6 @@ import myau.util.TimerUtil;
 public class Parkour extends Module {
 
     public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
-    // 新增：更精準的邊緣偵測相關設定（可依需求調整）
-    public final BooleanProperty usePredictCheck = new BooleanProperty("use-predict-check", true);
 
     private final TimerUtil cd = new TimerUtil();
 
@@ -35,44 +33,26 @@ public class Parkour extends Module {
             return;
         }
 
-        // 釋放 Jump 鍵
+        // 釋放 Jump 鍵（避免卡住）
         if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
         if (mc.thePlayer.onGround && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
-            boolean shouldJump = false;
             
-            if (usePredictCheck.getValue()) {
-                // === 使用 Eagle 同樣的預測邏輯（推薦）===
-                double[] offset = MoveUtil.predictMovement();
-                // 檢查往前走一步是否會掉下去（或無法站立）
-                shouldJump = !PlayerUtil.canMove(offset[0] * 1.1, offset[1] * 1.1, -0.5); // 略微放大偏移 + 往下檢查
-            } else {
-                // 保留原本的簡單檢查（作為 fallback）
-                shouldJump = isPlayerOverAir();
-            }
+            // === 與 Eagle 完全相同的邊緣偵測方法 ===
+            double[] offset = MoveUtil.predictMovement();
+            // 檢查往前移動後是否還能安全站立（無法站立 = 要跳）
+            boolean shouldJump = !PlayerUtil.canMove(
+                mc.thePlayer.motionX + offset[0], 
+                mc.thePlayer.motionZ + offset[1]
+            );
 
             if (shouldJump) {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
                 cd.reset();
             }
         }
-    }
-
-    /**
-     * 原有簡單檢查（保留供切換使用）
-     */
-    private boolean isPlayerOverAir() {
-        double x = mc.thePlayer.posX;
-        double y = mc.thePlayer.posY - 1.0D;
-        double z = mc.thePlayer.posZ;
-        net.minecraft.util.BlockPos p = new net.minecraft.util.BlockPos(
-                net.minecraft.util.MathHelper.floor_double(x),
-                net.minecraft.util.MathHelper.floor_double(y),
-                net.minecraft.util.MathHelper.floor_double(z)
-        );
-        return mc.theWorld.isAirBlock(p);
     }
 
     @Override
