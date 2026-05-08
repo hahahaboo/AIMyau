@@ -33,24 +33,24 @@ public class Parkour extends Module {
             return;
         }
 
-        // 釋放 Jump 鍵（防止卡住）
-        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
+        // 釋放 Jump 鍵
+        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(50)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
-        if (mc.thePlayer.onGround && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
+        if (mc.thePlayer.onGround && MoveUtil.isMoving()) {
             
-            // === 與 Eagle 完全相同的邊緣偵測邏輯 ===
+            // === 與 Eagle 完全相同的預測方式，但改用更適合 Parkour 的檢查 ===
             double[] offset = MoveUtil.predictMovement();
             
-            // 檢查「往前移動後是否還能安全站立」
-            // 無法安全站立 = 即將掉落 → 應該跳
-            boolean canMoveSafely = PlayerUtil.canMove(
-                mc.thePlayer.motionX + offset[0], 
-                mc.thePlayer.motionZ + offset[1]
+            // 關鍵修正：往下檢查 -0.5 ~ -1.0 更準確判斷是否會掉落
+            boolean canLandSafely = PlayerUtil.canMove(
+                offset[0] * 1.05,   // 略微放大前進距離
+                offset[1] * 1.05, 
+                -0.6                // 往下檢查高度（最重要參數）
             );
-            
-            boolean shouldJump = !canMoveSafely;
+
+            boolean shouldJump = !canLandSafely;
 
             if (shouldJump) {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
