@@ -65,11 +65,11 @@ public class Scaffold extends Module {
     private boolean shouldKeepY = false;
     private boolean towering = false;
     private EnumFacing targetFacing = null;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 2, new String[]{"NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS", "GODBIRGDE", "SMOOTH"});
-    public final FloatProperty tellystartrotationminspeed = new FloatProperty("telly-start-rotation-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("telly-start-rotation-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("telly-normal-rotation-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("telly-normal-rotation-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS", "GODBIRGDE", "SMOOTH"});
+    public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("rotation-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("rotation-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -79,12 +79,12 @@ public class Scaffold extends Module {
     public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
     public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("no-keep-y-on-jump-potion", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty biggestStack = new BooleanProperty("Biggest Stack", true);
-    public final BooleanProperty multiplace = new BooleanProperty("multi-place", true);
-    public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", true);
+    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
+    public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
+    public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
-    public final BooleanProperty itemSpoof = new BooleanProperty("item-spoof", false);
+    public final BooleanProperty itemSpoof = new BooleanProperty("item-spoof", true);
     public final BooleanProperty blockCounter = new BooleanProperty("block-counter", true);
 
     private boolean shouldStopSprint() {
