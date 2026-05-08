@@ -7,12 +7,15 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.util.KeyBindUtil;
+import myau.util.MoveUtil;
 import myau.util.PlayerUtil;
 import myau.util.TimerUtil;
 
 public class Parkour extends Module {
 
     public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
+    // 新增：更精準的邊緣偵測相關設定（可依需求調整）
+    public final BooleanProperty usePredictCheck = new BooleanProperty("use-predict-check", true);
 
     private final TimerUtil cd = new TimerUtil();
 
@@ -24,36 +27,41 @@ public class Parkour extends Module {
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
         
-        // 【重要修正】加入模組啟用檢查，解決「關閉後仍運作」的問題
-        if (!this.isEnabled()) {
+        if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
 
-        if (mc.thePlayer == null || mc.theWorld == null) {
-            return;
-        }
-
-        // 蹲下時不觸發 Parkour
         if (notOnSneaking.getValue() && PlayerUtil.isSneaking()) {
             return;
         }
 
+        // 釋放 Jump 鍵
         if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
-        if (mc.thePlayer.onGround
-                && isPlayerOverAir()
-                && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
-           
-            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
-            cd.reset();
+        if (mc.thePlayer.onGround && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
+            boolean shouldJump = false;
+            
+            if (usePredictCheck.getValue()) {
+                // === 使用 Eagle 同樣的預測邏輯（推薦）===
+                double[] offset = MoveUtil.predictMovement();
+                // 檢查往前走一步是否會掉下去（或無法站立）
+                shouldJump = !PlayerUtil.canMove(offset[0] * 1.1, offset[1] * 1.1, -0.5); // 略微放大偏移 + 往下檢查
+            } else {
+                // 保留原本的簡單檢查（作為 fallback）
+                shouldJump = isPlayerOverAir();
+            }
+
+            if (shouldJump) {
+                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
+                cd.reset();
+            }
         }
     }
 
     /**
-     * 對應原 Utils.Player.playerOverAir()
-     * 檢查玩家腳下是否為空氣
+     * 原有簡單檢查（保留供切換使用）
      */
     private boolean isPlayerOverAir() {
         double x = mc.thePlayer.posX;
@@ -76,7 +84,6 @@ public class Parkour extends Module {
     @Override
     public void onDisabled() {
         super.onDisabled();
-        // 可選：模組關閉時釋放 Jump 按鍵
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
     }
 }
