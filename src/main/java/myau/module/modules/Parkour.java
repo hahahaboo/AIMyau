@@ -33,20 +33,24 @@ public class Parkour extends Module {
             return;
         }
 
-        // 釋放 Jump 鍵（避免卡住）
+        // 釋放 Jump 鍵（防止卡住）
         if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
         if (mc.thePlayer.onGround && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
             
-            // === 與 Eagle 完全相同的邊緣偵測方法 ===
+            // === 與 Eagle 完全相同的邊緣偵測邏輯 ===
             double[] offset = MoveUtil.predictMovement();
-            // 檢查往前移動後是否還能安全站立（無法站立 = 要跳）
-            boolean shouldJump = !PlayerUtil.canMove(
+            
+            // 檢查「往前移動後是否還能安全站立」
+            // 無法安全站立 = 即將掉落 → 應該跳
+            boolean canMoveSafely = PlayerUtil.canMove(
                 mc.thePlayer.motionX + offset[0], 
                 mc.thePlayer.motionZ + offset[1]
             );
+            
+            boolean shouldJump = !canMoveSafely;
 
             if (shouldJump) {
                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
