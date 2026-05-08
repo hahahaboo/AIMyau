@@ -6,12 +6,17 @@ import myau.event.types.EventType;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
+import myau.property.properties.FloatProperty;
 import myau.util.KeyBindUtil;
 import myau.util.PlayerUtil;
 import myau.util.TimerUtil;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.util.AxisAlignedBB;
 
 public class Parkour extends Module {
 
+    public final FloatProperty edgeDistance = new FloatProperty("Edge Distance", 0.05f, 0.01f, 0.2f);
+    public final BooleanProperty onlyMoving = new BooleanProperty("only-moving", true);
     public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
 
     private final TimerUtil cd = new TimerUtil();
@@ -24,47 +29,49 @@ public class Parkour extends Module {
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
         
-        // 【重要修正】加入模組啟用檢查，解決「關閉後仍運作」的問題
-        if (!this.isEnabled()) {
+        if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
 
-        if (mc.thePlayer == null || mc.theWorld == null) {
-            return;
-        }
-
-        // 蹲下時不觸發 Parkour
+        // 蹲下時不觸發
         if (notOnSneaking.getValue() && PlayerUtil.isSneaking()) {
             return;
         }
 
+        // 釋放跳躍鍵
         if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
-        if (mc.thePlayer.onGround
-                && isPlayerOverAir()
-                && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
-           
+        EntityPlayerSP player = mc.thePlayer;
+
+        if (player.onGround 
+                && (player.motionX != 0 || player.motionZ != 0 || !onlyMoving.getValue())
+                && isAtRealEdge(player)) {
+            
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
             cd.reset();
         }
     }
 
     /**
-     * 對應原 Utils.Player.playerOverAir()
-     * 檢查玩家腳下是否為空氣
+     * 更精準的邊緣偵測 - 讓玩家可以更靠近邊緣才跳
      */
-    private boolean isPlayerOverAir() {
-        double x = mc.thePlayer.posX;
-        double y = mc.thePlayer.posY - 1.0D;
-        double z = mc.thePlayer.posZ;
-        net.minecraft.util.BlockPos p = new net.minecraft.util.BlockPos(
-                net.minecraft.util.MathHelper.floor_double(x),
-                net.minecraft.util.MathHelper.floor_double(y),
-                net.minecraft.util.MathHelper.floor_double(z)
+    private boolean isAtRealEdge(EntityPlayerSP player) {
+        double x = player.posX;
+        double y = player.posY - 0.1;   // 稍微往下偵測腳下
+        double z = player.posZ;
+        
+        // 越小越靠近邊緣（關鍵參數）
+        double halfWidth = (player.width / 2.0) - edgeDistance.getValue();
+
+        AxisAlignedBB checkBox = new AxisAlignedBB(
+                x - halfWidth, y - 0.5, z - halfWidth,
+                x + halfWidth, y + 0.1, z + halfWidth
         );
-        return mc.theWorld.isAirBlock(p);
+
+        // 如果縮小後的碰撞箱下方沒有方塊碰撞 = 即將到邊緣
+        return mc.theWorld.getCollidingBoundingBoxes(player, checkBox).isEmpty();
     }
 
     @Override
@@ -76,7 +83,6 @@ public class Parkour extends Module {
     @Override
     public void onDisabled() {
         super.onDisabled();
-        // 可選：模組關閉時釋放 Jump 按鍵
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
     }
 }
