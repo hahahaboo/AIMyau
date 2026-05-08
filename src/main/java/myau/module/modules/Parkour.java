@@ -15,9 +15,9 @@ import net.minecraft.util.AxisAlignedBB;
 
 public class Parkour extends Module {
 
-    public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
     public final FloatProperty edgeDistance = new FloatProperty("Edge Distance", 0.08f, 0.01f, 0.4f);
-    public final BooleanProperty onlyMoving = new BooleanProperty("Only Moving", true);
+    public final BooleanProperty onlyMoving = new BooleanProperty("only-moving", true);
+    public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
 
     private final TimerUtil cd = new TimerUtil();
 
