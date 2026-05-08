@@ -25,38 +25,41 @@ public class Parkour extends Module {
     public void onTick(TickEvent e) {
         if (e.getType() != EventType.PRE) return;
         
-        if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
+        // 【重要修正】加入模組啟用檢查，解決「關閉後仍運作」的問題
+        if (!this.isEnabled()) {
             return;
         }
 
+        if (mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+
+        // 蹲下時不觸發 Parkour
         if (notOnSneaking.getValue() && PlayerUtil.isSneaking()) {
             return;
         }
 
-        // 釋放 Jump 鍵
-        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(50)) {
+        if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
 
-        if (mc.thePlayer.onGround && MoveUtil.isMoving()) {
-            
-            // === 與 Eagle 完全相同的預測方式，但改用更適合 Parkour 的檢查 ===
-            double[] offset = MoveUtil.predictMovement();
-            
-            // 關鍵修正：往下檢查 -0.5 ~ -1.0 更準確判斷是否會掉落
-            boolean canLandSafely = PlayerUtil.canMove(
-                offset[0] * 1.05,   // 略微放大前進距離
-                offset[1] * 1.05, 
-                -0.6                // 往下檢查高度（最重要參數）
-            );
-
-            boolean shouldJump = !canLandSafely;
-
-            if (shouldJump) {
-                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
-                cd.reset();
-            }
+        if (mc.thePlayer.onGround
+                && isAboutToFallOffEdge()
+                && (mc.thePlayer.motionX != 0 || mc.thePlayer.motionZ != 0)) {
+           
+            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
+            cd.reset();
         }
+    }
+
+    /**
+     * 使用與 Eagle 相同的 util 進行邊緣偵測
+     * 檢查往前移動是否會踏空（更貼近真實邊緣）
+     */
+    private boolean isAboutToFallOffEdge() {
+        double[] offset = MoveUtil.predictMovement();
+        // 檢查往前移動後是否還能安全站立（無碰撞 = 即將掉落）
+        return !PlayerUtil.canMove(offset[0] * 0.3, offset[1] * 0.3, -0.5); // 稍微往前 + 下方檢查
     }
 
     @Override
@@ -68,6 +71,7 @@ public class Parkour extends Module {
     @Override
     public void onDisabled() {
         super.onDisabled();
+        // 可選：模組關閉時釋放 Jump 按鍵
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
     }
 }
