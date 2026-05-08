@@ -12,20 +12,17 @@ import myau.util.PlayerUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.BlockPos;
-import net.minecraft.util.MathHelper;
 
 public class Parkour extends Module {
 
     public final BooleanProperty notOnSneaking = new BooleanProperty("not-on-sneaking", true);
-    private final FloatProperty edgeDistance = new FloatProperty("Edge Distance", 0.08f, 0.01f, 0.4f, 0.01f);
-    private final BooleanProperty onlyMoving = new BooleanProperty("Only Moving", true);
+    public final FloatProperty edgeDistance = new FloatProperty("Edge Distance", 0.08f, 0.01f, 0.4f);
+    public final BooleanProperty onlyMoving = new BooleanProperty("Only Moving", true);
 
     private final TimerUtil cd = new TimerUtil();
 
     public Parkour() {
         super("Parkour", "自動跳躍過空隙（Parkour Helper）", Category.PLAYER, 0, false, false);
-        addProperties(notOnSneaking, edgeDistance, onlyMoving);
     }
 
     @EventTarget
@@ -41,12 +38,12 @@ public class Parkour extends Module {
             return;
         }
 
-        EntityPlayerSP player = mc.thePlayer;
-
         // 釋放跳躍鍵
         if (!KeyBindUtil.isKeyDown(mc.gameSettings.keyBindJump.getKeyCode()) && cd.hasTimeElapsed(10)) {
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
         }
+
+        EntityPlayerSP player = mc.thePlayer;
 
         if (player.onGround 
                 && (player.motionX != 0 || player.motionZ != 0 || !onlyMoving.getValue())
@@ -62,10 +59,10 @@ public class Parkour extends Module {
      */
     private boolean isAtRealEdge(EntityPlayerSP player) {
         double x = player.posX;
-        double y = player.posY - 0.1;   // 稍微往下偵測
+        double y = player.posY - 0.1;   // 稍微往下偵測腳下
         double z = player.posZ;
         
-        // 縮小玩家碰撞箱範圍（越小越靠近邊緣）
+        // 越小越靠近邊緣（關鍵參數）
         double halfWidth = (player.width / 2.0) - edgeDistance.getValue();
 
         AxisAlignedBB checkBox = new AxisAlignedBB(
@@ -73,7 +70,7 @@ public class Parkour extends Module {
                 x + halfWidth, y + 0.1, z + halfWidth
         );
 
-        // 如果縮小後的碰撞箱在下方沒有碰撞方塊 = 即將到邊緣
+        // 如果縮小後的碰撞箱下方沒有方塊碰撞 = 即將到邊緣
         return mc.theWorld.getCollidingBoundingBoxes(player, checkBox).isEmpty();
     }
 
