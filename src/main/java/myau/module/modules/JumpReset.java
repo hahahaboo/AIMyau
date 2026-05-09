@@ -8,7 +8,9 @@ import myau.mixin.IAccessorEntity;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
+import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
+import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.potion.Potion;
 
@@ -16,6 +18,7 @@ public class JumpReset extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     public final BooleanProperty dbg = new BooleanProperty("debug", false);
+    public final PercentProperty chance = new PercentProperty("Chance", 100);  // 新增
 
     private boolean jumpFlag = false;
 
@@ -38,7 +41,8 @@ public class JumpReset extends Module {
     public void onLivingUpdate(LivingUpdateEvent event) {
         if (this.jumpFlag) {
             this.jumpFlag = false;
-            if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() && !mc.thePlayer.isPotionActive(Potion.jump) && !this.isInLiquidOrWeb()) {
+            if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() && !mc.thePlayer.isPotionActive(Potion.jump) && !this.isInLiquidOrWeb()
+                    && RandomUtil.getRandomInt(0, 100) < chance.getValue()) {
                 mc.thePlayer.movementInput.jump = true;
                 if (dbg.getValue()) {
                     ChatUtil.sendFormatted(Myau.clientName + "Jump");
