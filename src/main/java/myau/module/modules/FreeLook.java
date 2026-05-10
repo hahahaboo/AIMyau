@@ -21,7 +21,7 @@ public class FreeLook extends Module {
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
-    private boolean isHoldMode();
+    private boolean isHoldMode(false);
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
