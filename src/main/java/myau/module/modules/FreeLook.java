@@ -46,9 +46,16 @@ public class FreeLook extends Module {
 
         // Hold Key 邏輯：只有持續按住指定鍵時才啟用 FreeLook
         boolean shouldHold = holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
+        boolean isHoldMode = false
         
-        if (isEnabled() != shouldHold) {
-            setEnabled(shouldHold);
+        if (shouldHold = true) {
+            setEnabled(true);
+            isHoldMode(true);
+        }
+        
+        if (shouldHold = false && isHodeMode = true) {
+            setEnabled(false);
+            isHoldMode(false);
         }
     }
 
