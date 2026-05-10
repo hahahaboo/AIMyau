@@ -53,7 +53,7 @@ public class FreeLook extends Module {
             isHoldMode(true);
         }
         
-        if (shouldHold = false && isHodeMode = true) {
+        if (shouldHold = false && isHoldMode = true) {
             setEnabled(false);
             isHoldMode(false);
         }
