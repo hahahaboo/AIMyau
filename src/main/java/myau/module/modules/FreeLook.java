@@ -21,6 +21,7 @@ public class FreeLook extends Module {
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
+    private boolean isHoldMode();
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
@@ -46,7 +47,6 @@ public class FreeLook extends Module {
 
         // Hold Key 邏輯：只有持續按住指定鍵時才啟用 FreeLook
         boolean shouldHold = holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
-        boolean isHoldMode = false;
         
         if (shouldHold = true) {
             setEnabled(true);
