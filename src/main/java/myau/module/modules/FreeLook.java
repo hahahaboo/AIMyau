@@ -1,7 +1,7 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
-import myau.events.RenderLivingEvent;
+import myau.events.KeyEvent;
 import myau.events.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Category;
@@ -9,18 +9,19 @@ import myau.module.Module;
 import myau.property.properties.IntProperty;
 import myau.util.KeyBindUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 
 public class FreeLook extends Module {
 
     private final Minecraft mc = Minecraft.getMinecraft();
 
-    // === Hold Key 設定（公開 final field，會被自動註冊）===
+    // Hold-Key（按住啟用）
     public final IntProperty holdKey = new IntProperty("Hold-Key", 0, 0, 223);
 
     public float freeYaw, freePitch;
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
+
+    private boolean toggled = false;
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
@@ -38,31 +39,37 @@ public class FreeLook extends Module {
     }
 
     @EventTarget
+    public void onKey(KeyEvent event) {
+        if (event.getKey() == getKey() && getKey() != 0) {
+            toggled = !toggled;
+            setEnabled(toggled || isHoldActive());
+        }
+    }
+
+    @EventTarget
     public void onTick(TickEvent event) {
         if (mc.thePlayer == null || event.getType() != EventType.PRE) return;
 
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
 
-        // Hold Key 邏輯：只有持續按住指定鍵時才啟用 FreeLook
-        boolean shouldHold = holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
-        
-        if (isEnabled() != shouldHold) {
-            setEnabled(shouldHold);
+        boolean holdActive = isHoldActive();
+        boolean shouldBeEnabled = toggled || holdActive;
+
+        if (isEnabled() != shouldBeEnabled) {
+            setEnabled(shouldBeEnabled);
         }
     }
 
-    @EventTarget
-    public void onRenderLiving(RenderLivingEvent event) {
-        if (isEnabled() && event.getEntity() == mc.thePlayer) {
-            // 可在此處理渲染取消
-        }
+    private boolean isHoldActive() {
+        return holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
     }
 
     @Override
     public void onDisabled() {
         if (mc.thePlayer == null) return;
         mc.gameSettings.thirdPersonView = previousPerspective;
+        // toggled 不重置，讓玩家可以繼續用 Toggle 控制
     }
 
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
@@ -75,7 +82,24 @@ public class FreeLook extends Module {
 
     @Override
     public String[] getSuffix() {
-        int key = holdKey.getValue();
-        return new String[]{key == 0 ? "None" : KeyBindUtil.getKeyName(key)};
+        boolean currentlyUsingHold = isHoldActive();
+        boolean currentlyUsingToggle = toggled;
+
+        if (!isEnabled()) {
+            return new String[]{""};
+        }
+
+        // 優先顯示 Toggle（因為是持續狀態）
+        if (currentlyUsingToggle && getKey() != 0) {
+            return new String[]{"Toggle - " + KeyBindUtil.getKeyName(getKey())};
+        }
+
+        // Hold 模式
+        if (currentlyUsingHold && holdKey.getValue() != 0) {
+            return new String[]{"Hold - " + KeyBindUtil.getKeyName(holdKey.getValue())};
+        }
+
+        // 保底顯示（不應該走到這裡）
+        return new String[]{"FreeLook"};
     }
 }
