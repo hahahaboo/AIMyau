@@ -56,7 +56,6 @@ public class FreeLook extends Module {
         boolean holdActive = isHoldActive();
         boolean shouldBeEnabled = toggled || holdActive;
 
-        // 同步狀態（主要是處理 Hold 模式）
         if (isEnabled() != shouldBeEnabled) {
             setEnabled(shouldBeEnabled);
         }
@@ -70,7 +69,7 @@ public class FreeLook extends Module {
     public void onDisabled() {
         if (mc.thePlayer == null) return;
         mc.gameSettings.thirdPersonView = previousPerspective;
-        // 注意：這裡不重置 toggled，讓 Toggle 狀態保留（直到再次按鍵）
+        // toggled 不重置，讓玩家可以繼續用 Toggle 控制
     }
 
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
@@ -83,16 +82,24 @@ public class FreeLook extends Module {
 
     @Override
     public String[] getSuffix() {
-        String holdStr = holdKey.getValue() == 0 ? "" : "H:" + KeyBindUtil.getKeyName(holdKey.getValue());
-        String toggleStr = getKey() == 0 ? "" : "T:" + KeyBindUtil.getKeyName(getKey());
+        boolean currentlyUsingHold = isHoldActive();
+        boolean currentlyUsingToggle = toggled;
 
-        if (!holdStr.isEmpty() && !toggleStr.isEmpty()) {
-            return new String[]{holdStr + " | " + toggleStr};
-        } else if (!holdStr.isEmpty()) {
-            return new String[]{holdStr};
-        } else if (!toggleStr.isEmpty()) {
-            return new String[]{toggleStr};
+        if (!isEnabled()) {
+            return new String[]{""};
         }
-        return new String[]{"None"};
+
+        // 優先顯示 Toggle（因為是持續狀態）
+        if (currentlyUsingToggle && getKey() != 0) {
+            return new String[]{"Toggle - " + KeyBindUtil.getKeyName(getKey())};
+        }
+
+        // Hold 模式
+        if (currentlyUsingHold && holdKey.getValue() != 0) {
+            return new String[]{"Hold - " + KeyBindUtil.getKeyName(holdKey.getValue())};
+        }
+
+        // 保底顯示（不應該走到這裡）
+        return new String[]{"FreeLook"};
     }
 }
