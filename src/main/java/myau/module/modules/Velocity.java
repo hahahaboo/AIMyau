@@ -199,8 +199,8 @@ public class Velocity extends Module {
         else if (event.getPacket() instanceof S27PacketExplosion) {
             S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
             if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
+                this.pendingExplosion = true;
                 if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式觸發
-                    this.pendingExplosion = true;
                     if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
                         event.setCancelled(true);
                     }
