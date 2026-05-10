@@ -1,7 +1,6 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
-import myau.events.RenderLivingEvent;
 import myau.events.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Category;
@@ -21,7 +20,8 @@ public class FreeLook extends Module {
     public float prevFreeYaw, prevFreePitch;
     private int previousPerspective = 0;
 
-    private boolean toggled = false;   // 使用 Module 本身 Keybind 的 Toggle 狀態
+    private boolean toggled = false;
+    private boolean wasKeyPressed = false;   // 用來偵測 Toggle Key 的按下邊緣
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
@@ -45,9 +45,16 @@ public class FreeLook extends Module {
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
 
-        // === Toggle 模式：使用玩家設定的 FreeLook Keybind ===
-        if (getKey() != 0 && KeyBindUtil.isKeyPressed(getKey())) {
-            toggled = !toggled;
+        int toggleKeyCode = getKey();
+
+        // === Toggle 模式：使用模組本身的 Keybind ===
+        if (toggleKeyCode != 0) {
+            boolean isCurrentlyPressed = KeyBindUtil.isKeyDown(toggleKeyCode);
+            
+            if (isCurrentlyPressed && !wasKeyPressed) {
+                toggled = !toggled;
+            }
+            wasKeyPressed = isCurrentlyPressed;
         }
 
         // === Hold 模式 ===
@@ -55,22 +62,18 @@ public class FreeLook extends Module {
 
         boolean shouldBeEnabled = toggled || holdActive;
 
-        // 只有狀態真正改變時才切換
+        // 只有狀態改變時才切換
         if (isEnabled() != shouldBeEnabled) {
             setEnabled(shouldBeEnabled);
         }
-    }
-
-    @EventTarget
-    public void onRenderLiving(RenderLivingEvent event) {
-        // 可在此處理渲染相關
     }
 
     @Override
     public void onDisabled() {
         if (mc.thePlayer == null) return;
         mc.gameSettings.thirdPersonView = previousPerspective;
-        toggled = false;  // 關閉模組時重置 Toggle 狀態
+        toggled = false;
+        wasKeyPressed = false;
     }
 
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
