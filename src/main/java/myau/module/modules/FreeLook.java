@@ -1,6 +1,7 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
+import myau.events.KeyEvent;
 import myau.events.TickEvent;
 import myau.event.types.EventType;
 import myau.module.Category;
@@ -21,7 +22,6 @@ public class FreeLook extends Module {
     private int previousPerspective = 0;
 
     private boolean toggled = false;
-    private boolean wasKeyPressed = false;   // 用來偵測 Toggle Key 的按下邊緣
 
     public FreeLook() {
         super("FreeLook", "Look around in 3rd person without changing your direction", Category.RENDER, 0, false, false);
@@ -39,41 +39,38 @@ public class FreeLook extends Module {
     }
 
     @EventTarget
+    public void onKey(KeyEvent event) {
+        if (event.getKey() == getKey() && getKey() != 0) {
+            toggled = !toggled;
+            setEnabled(toggled || isHoldActive());
+        }
+    }
+
+    @EventTarget
     public void onTick(TickEvent event) {
         if (mc.thePlayer == null || event.getType() != EventType.PRE) return;
 
         prevFreeYaw = freeYaw;
         prevFreePitch = freePitch;
 
-        int toggleKeyCode = getKey();
-
-        // === Toggle 模式：使用模組本身的 Keybind ===
-        if (toggleKeyCode != 0) {
-            boolean isCurrentlyPressed = KeyBindUtil.isKeyDown(toggleKeyCode);
-            
-            if (isCurrentlyPressed && !wasKeyPressed) {
-                toggled = !toggled;
-            }
-            wasKeyPressed = isCurrentlyPressed;
-        }
-
-        // === Hold 模式 ===
-        boolean holdActive = holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
-
+        boolean holdActive = isHoldActive();
         boolean shouldBeEnabled = toggled || holdActive;
 
-        // 只有狀態改變時才切換
+        // 同步狀態（主要是處理 Hold 模式）
         if (isEnabled() != shouldBeEnabled) {
             setEnabled(shouldBeEnabled);
         }
+    }
+
+    private boolean isHoldActive() {
+        return holdKey.getValue() != 0 && KeyBindUtil.isKeyDown(holdKey.getValue());
     }
 
     @Override
     public void onDisabled() {
         if (mc.thePlayer == null) return;
         mc.gameSettings.thirdPersonView = previousPerspective;
-        toggled = false;
-        wasKeyPressed = false;
+        // 注意：這裡不重置 toggled，讓 Toggle 狀態保留（直到再次按鍵）
     }
 
     public void handleMouseInput(float deltaYaw, float deltaPitch) {
