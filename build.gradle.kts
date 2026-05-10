@@ -57,6 +57,17 @@ sourceSets.main {
 // Dependencies:
 repositories {
     mavenCentral()
+
+    // 強制 Lombok 只從 Maven Central 下載（解決 Forge repo 優先問題）
+    exclusiveContent {
+        forRepository {
+            mavenCentral()
+        }
+        filter {
+            includeGroup("org.projectlombok")
+        }
+    }
+
     maven("https://repo.spongepowered.org/maven/")
     // If you don't want to log in with your real minecraft account, remove this line
     maven("https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1")
