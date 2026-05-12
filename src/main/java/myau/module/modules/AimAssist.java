@@ -25,7 +25,8 @@ public class AimAssist extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final FloatProperty hSpeed = new FloatProperty("horizontal-speed", 3.0F, 0.0F, 10.0F);
     public final FloatProperty vSpeed = new FloatProperty("vertical-speed", 0.0F, 0.0F, 10.0F);
-    public final FloatProperty randomSpeed = new FloatProperty("random-speed", 0.0F, 0.0F, 10.0F);
+    public final FloatProperty hRandom = new FloatProperty("horizontal-random", 0.0F, 0.0F, 10.0F);
+    public final FloatProperty vRandom = new FloatProperty("vertical-random", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
     public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
@@ -129,18 +130,19 @@ public class AimAssist extends Module {
                                     );
 
                                     // Random speed 邏輯：Horizontal/Vertical speed 各自產生 min speed 與 max speed
-                                    float rand = this.randomSpeed.getValue();
+                                    float hRand = this.hRandom.getValue() / 2.0F;
+                                    float vRand = this.vRandom.getValue() / 2.0F;
 
                                     // Horizontal
                                     float hBase = this.hSpeed.getValue();
-                                    float hMin = Math.max(0.0F, hBase - rand);
-                                    float hMax = Math.min(10.0F, hBase + rand);
+                                    float hMin = Math.max(0.0F, hBase - hRand);
+                                    float hMax = Math.min(10.0F, hBase + hRand);
                                     float yaw = RandomUtil.nextFloat(hMin, hMax);
 
                                     // Vertical
                                     float vBase = this.vSpeed.getValue();
-                                    float vMin = Math.max(0.0F, vBase - rand);
-                                    float vMax = Math.min(10.0F, vBase + rand);
+                                    float vMin = Math.max(0.0F, vBase - vRand);
+                                    float vMax = Math.min(10.0F, vBase + vRand);
                                     float pitch = RandomUtil.nextFloat(vMin, vMax);
 
                                     float targetYaw = rotation[0];
