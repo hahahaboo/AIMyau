@@ -84,18 +84,35 @@ public class AimAssist extends Module {
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
             if (this.randomPitch.getValue()) {
-            this.tickCounter++;
-            if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
-                float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
-                angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
-                int sign = RandomUtil.nextInt(0, 1);
-                this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
+                this.tickCounter++;
+    
+                // 新增：隨機間隔計算邏輯強化
+                if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
+                    float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
+                    angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
+        
+                    int sign = RandomUtil.nextInt(0, 1);
+                    this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
 
-                int ticksVar = this.randomTicks.getValue() + RandomUtil.nextInt(-5, 5);
-                this.currentInterval = Math.max(0, Math.min(40, ticksVar));
-                this.tickCounter = 0;
+                    // === 新增/修改的重點 ===
+                    int baseTicks = this.randomTicks.getValue();
+                    int ticksVar = baseTicks + RandomUtil.nextInt(-2, 3);
+        
+                    // 如果 random-ticks > 0，則隨機後的最小值為1
+                    if (baseTicks > 0) {
+                        this.currentInterval = Math.max(1, Math.min(40, ticksVar));
+                    } else {
+                        this.currentInterval = Math.max(0, Math.min(40, ticksVar));
+                    }
+        
+                    this.tickCounter = 0;
+        
+                    // 如果 random-ticks = 1，則每tick持續觸發（強制間隔為1）
+                    if (baseTicks == 1) {
+                        this.currentInterval = 1;
+                    }
+                }
             }
-        }
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
