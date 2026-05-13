@@ -98,13 +98,7 @@ public class AimAssist extends Module {
                     int baseTicks = this.randomTicks.getValue();
                     int ticksVar = baseTicks + RandomUtil.nextInt(-2, 3);
         
-                    // 如果 random-ticks > 0，則隨機後的最小值為1
-                    if (baseTicks > 0) {
-                        this.currentInterval = Math.max(1, Math.min(40, ticksVar));
-                    } else {
-                        this.currentInterval = Math.max(0, Math.min(40, ticksVar));
-                    }
-        
+                    this.currentInterval = Math.max(1, Math.min(40, ticksVar));
                     this.tickCounter = 0;
         
                     // 如果 random-ticks = 1，則每tick持續觸發（強制間隔為1）
