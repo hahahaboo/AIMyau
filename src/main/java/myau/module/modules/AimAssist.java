@@ -25,7 +25,8 @@ public class AimAssist extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final FloatProperty hSpeed = new FloatProperty("horizontal-speed", 3.0F, 0.0F, 10.0F);
     public final FloatProperty vSpeed = new FloatProperty("vertical-speed", 0.0F, 0.0F, 10.0F);
-    public final FloatProperty randomSpeed = new FloatProperty("random-speed", 0.0F, 0.0F, 10.0F);
+    public final FloatProperty hRandom = new FloatProperty("horizontal-random", 0.0F, 0.0F, 10.0F);
+    public final FloatProperty vRandom = new FloatProperty("vertical-random", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
     public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
@@ -83,18 +84,29 @@ public class AimAssist extends Module {
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
             if (this.randomPitch.getValue()) {
-            this.tickCounter++;
-            if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
-                float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
-                angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
-                int sign = RandomUtil.nextInt(0, 1);
-                this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
+                this.tickCounter++;
+    
+                // 新增：隨機間隔計算邏輯強化
+                if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
+                    float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
+                    angleVar = Math.max(0.5f, Math.min(15.0f, angleVar));
+        
+                    int sign = RandomUtil.nextInt(0, 1);
+                    this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
 
-                int ticksVar = this.randomTicks.getValue() + RandomUtil.nextInt(-5, 5);
-                this.currentInterval = Math.max(0, Math.min(40, ticksVar));
-                this.tickCounter = 0;
+                    // === 新增/修改的重點 ===
+                    int baseTicks = this.randomTicks.getValue();
+                    int ticksVar = baseTicks + RandomUtil.nextInt(-2, 3);
+        
+                    this.currentInterval = Math.max(1, Math.min(40, ticksVar));
+                    this.tickCounter = 0;
+        
+                    // 如果 random-ticks = 1，則每tick持續觸發（強制間隔為1）
+                    if (baseTicks == 1) {
+                        this.currentInterval = 1;
+                    }
+                }
             }
-        }
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
@@ -129,18 +141,19 @@ public class AimAssist extends Module {
                                     );
 
                                     // Random speed 邏輯：Horizontal/Vertical speed 各自產生 min speed 與 max speed
-                                    float rand = this.randomSpeed.getValue();
+                                    float hRand = this.hRandom.getValue() / 2.0F;
+                                    float vRand = this.vRandom.getValue() / 2.0F;
 
                                     // Horizontal
                                     float hBase = this.hSpeed.getValue();
-                                    float hMin = Math.max(0.0F, hBase - rand);
-                                    float hMax = Math.min(10.0F, hBase + rand);
+                                    float hMin = Math.max(0.0F, hBase - hRand);
+                                    float hMax = Math.min(10.0F, hBase + hRand);
                                     float yaw = RandomUtil.nextFloat(hMin, hMax);
 
                                     // Vertical
                                     float vBase = this.vSpeed.getValue();
-                                    float vMin = Math.max(0.0F, vBase - rand);
-                                    float vMax = Math.min(10.0F, vBase + rand);
+                                    float vMin = Math.max(0.0F, vBase - vRand);
+                                    float vMax = Math.min(10.0F, vBase + vRand);
                                     float pitch = RandomUtil.nextFloat(vMin, vMax);
 
                                     float targetYaw = rotation[0];
