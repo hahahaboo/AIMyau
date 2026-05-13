@@ -89,7 +89,7 @@ public class AimAssist extends Module {
                 // 新增：隨機間隔計算邏輯強化
                 if (this.currentInterval <= 0 || this.tickCounter >= this.currentInterval) {
                     float angleVar = this.randomAngle.getValue() + RandomUtil.nextFloat(-1.0f, 1.0f);
-                    angleVar = Math.max(0.0f, Math.min(15.0f, angleVar));
+                    angleVar = Math.max(0.5f, Math.min(15.0f, angleVar));
         
                     int sign = RandomUtil.nextInt(0, 1);
                     this.currentPitchOffset = (sign == 0 ? 1.0f : -1.0f) * angleVar;
