@@ -2,6 +2,7 @@ package myau.mixin;
 
 import myau.Myau;
 import myau.module.modules.Jesus;
+import myau.module.modules.WorldTime;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
@@ -16,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @SideOnly(Side.CLIENT)
 @Mixin({World.class})
 public abstract class MixinWorld {
+
     @Redirect(
             method = {"handleMaterialAcceleration"},
             at = @At(
@@ -42,5 +44,20 @@ public abstract class MixinWorld {
     )
     private IBlockState rayTraceBlocks(World world, BlockPos blockPos) {
         return world.getBlockState(blockPos);
+    }
+
+    @Redirect(
+            method = "getWorldTime",
+            at = @At("RETURN")
+    )
+    private long getWorldTime(World world) {
+        if (Myau.moduleManager == null) {
+            return world.getWorldTime();
+        }
+        WorldTime worldTimeMod = (WorldTime) Myau.moduleManager.modules.get(WorldTime.class);
+        if (worldTimeMod != null && worldTimeMod.isEnabled()) {
+            return worldTimeMod.time.getValue();
+        }
+        return world.getWorldTime();
     }
 }
