@@ -1,8 +1,8 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
-import myau.event.events.PacketEvent;
 import myau.event.types.EventType;
+import myau.events.PacketEvent;
 import myau.events.TickEvent;
 import myau.module.Category;
 import myau.module.Module;
