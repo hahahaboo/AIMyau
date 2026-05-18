@@ -43,4 +43,19 @@ public abstract class MixinWorld {
     private IBlockState rayTraceBlocks(World world, BlockPos blockPos) {
         return world.getBlockState(blockPos);
     }
+
+    @Redirect(
+            method = "getWorldTime",
+            at = @At("RETURN")
+    )
+    private long getWorldTime(World world) {
+        if (Myau.moduleManager == null) {
+            return world.getWorldTime();
+        }
+        WorldTime worldTimeMod = (WorldTime) Myau.moduleManager.modules.get(WorldTime.class);
+        if (worldTimeMod != null && worldTimeMod.isEnabled()) {
+            return worldTimeMod.time.getValue();
+        }
+        return world.getWorldTime();
+    }
 }
