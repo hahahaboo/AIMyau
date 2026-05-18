@@ -2,6 +2,7 @@ package myau.mixin;
 
 import myau.Myau;
 import myau.module.modules.Jesus;
+import myau.module.modules.WorldTime;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
@@ -16,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @SideOnly(Side.CLIENT)
 @Mixin({World.class})
 public abstract class MixinWorld {
+
     @Redirect(
             method = {"handleMaterialAcceleration"},
             at = @At(
