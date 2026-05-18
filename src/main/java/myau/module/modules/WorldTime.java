@@ -10,27 +10,26 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.World;
 
 public class WorldTime extends Module {
-    private static final Minecraft mc = Minecraft.getMinecraft();
     
-    public final IntProperty time = new IntProperty("time", 1000, 1, 24000);
+    public final IntProperty time = new IntProperty("time", 6000, 1, 24000);
 
     public WorldTime() {
-        super("WorldTime", "改變玩家端的的天空時間 (client-side only)", Category.WORLD);
+        super("WorldTime", "改變玩家端的天空時間 (client-side only)", Category.WORLD, 0, false, false);
     }
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.PRE || mc.theWorld == null) {
+        if (!this.isEnabled() || event.getType() != EventType.PRE || Minecraft.getMinecraft().theWorld == null) {
             return;
         }
         // 只在啟用時強制設定時間
-        ((World) mc.theWorld).setWorldTime(this.time.getValue());
+        ((World) Minecraft.getMinecraft().theWorld).setWorldTime(this.time.getValue());
     }
 
     @Override
     public void onEnabled() {
-        if (mc.theWorld != null) {
-            ((World) mc.theWorld).setWorldTime(this.time.getValue());
+        if (Minecraft.getMinecraft().theWorld != null) {
+            ((World) Minecraft.getMinecraft().theWorld).setWorldTime(this.time.getValue());
         }
     }
 }
