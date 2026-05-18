@@ -124,6 +124,7 @@ public class Myau {
         moduleManager.modules.put(Velocity.class, new Velocity());
         moduleManager.modules.put(ViewClip.class, new ViewClip());
         moduleManager.modules.put(WaterMark.class, new WaterMark());
+        moduleManager.modules.put(WorldTime.class, new WorldTime());
         moduleManager.modules.put(Wtap.class, new Wtap());
 
         commandManager.commands.add(new BindCommand());
