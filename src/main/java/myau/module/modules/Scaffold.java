@@ -262,6 +262,16 @@ public class Scaffold extends Module {
         }
     }
 
+    private boolean isValidHit(BlockPos pos, EnumFacing facing, Vec3 hitVec) {
+        if (hitVec == null) return false;
+        MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, 
+                mc.playerController.getBlockReachDistance(), 1.0F);
+        return mop != null 
+                && mop.typeOfHit == MovingObjectType.BLOCK 
+                && mop.getBlockPos().equals(pos) 
+                && mop.sideHit == facing;
+    }
+
     public Scaffold() {
         super("Scaffold", "Auto rotation and place.", Category.PLAYER, 0, false, false);
     }
@@ -383,60 +393,25 @@ public class Scaffold extends Module {
 
                 Vec3 hitVec = null;
                 if (blockData != null) {
-                    double[] x = placeOffsets;
-                    double[] y = placeOffsets;
-                    double[] z = placeOffsets;
-                    switch (blockData.facing()) {
-                        case NORTH:
-                            z = new double[]{0.0};
-                            break;
-                        case EAST:
-                            x = new double[]{1.0};
-                            break;
-                        case SOUTH:
-                            z = new double[]{1.0};
-                            break;
-                        case WEST:
-                            x = new double[]{0.0};
-                            break;
-                        case DOWN:
-                            y = new double[]{0.0};
-                            break;
-                        case UP:
-                            y = new double[]{1.0};
+                    float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
+                    float targetPitch = this.pitch;
+
+                    // === 優化後的主要 raytrace 邏輯 ===
+                    hitVec = BlockUtil.getOptimizedHitVec(blockData.blockPos(), blockData.facing(), baseYaw, targetPitch);
+
+                    if (hitVec != null) {
+                        // 再次驗證並微調角度
+                        double dx = hitVec.xCoord - mc.thePlayer.posX;
+                        double dy = hitVec.yCoord - mc.thePlayer.posY - mc.thePlayer.getEyeHeight();
+                        double dz = hitVec.zCoord - mc.thePlayer.posZ;
+
+                        float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, baseYaw, targetPitch);
+                        
+                        this.yaw = rotations[0];
+                        this.pitch = rotations[1];
                     }
-                    float bestYaw = -180.0F;
-                    float bestPitch = 0.0F;
-                    float bestDiff = 0.0F;
-                    for (double dx : x) {
-                        for (double dy : y) {
-                            for (double dz : z) {
-                                double relX = (double) blockData.blockPos().getX() + dx - mc.thePlayer.posX;
-                                double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-                                double relZ = (double) blockData.blockPos().getZ() + dz - mc.thePlayer.posZ;
-                                float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
-                                float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, baseYaw, this.pitch);
-                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
-                                if (mop != null
-                                        && mop.typeOfHit == MovingObjectType.BLOCK
-                                        && mop.getBlockPos().equals(blockData.blockPos())
-                                        && mop.sideHit == blockData.facing()) {
-                                    float totalDiff = Math.abs(rotations[0] - baseYaw) + Math.abs(rotations[1] - this.pitch);
-                                    if (bestYaw == -180.0F && bestPitch == 0.0F || totalDiff < bestDiff) {
-                                        bestYaw = rotations[0];
-                                        bestPitch = rotations[1];
-                                        bestDiff = totalDiff;
-                                        hitVec = mop.hitVec;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (bestYaw != -180.0F || bestPitch != 0.0F) {
-                        this.yaw = bestYaw;
-                        this.pitch = bestPitch;
-                        this.canRotate = true;
-                    }
+
+                    this.canRotate = (hitVec != null);
                 }
                 if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
                     switch (this.rotationMode.getValue()) {
