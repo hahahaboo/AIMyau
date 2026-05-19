@@ -115,4 +115,39 @@ public class BlockUtil {
     public static boolean isContainer(Block block) {
         return block instanceof BlockContainer;
     }
+
+    /**
+     * 優化版 getHitVec：優先使用 raytrace 結果，失敗時 fallback 到 getClickVec
+     * 減少 Scaffold 中重複的 offset 嘗試
+     */
+    public static Vec3 getOptimizedHitVec(BlockPos blockPos, EnumFacing enumFacing, float yaw, float pitch) {
+        MovingObjectPosition mop = RotationUtil.rayTrace(yaw, pitch, mc.playerController.getBlockReachDistance(), 1.0f);
+        if (mop != null && mop.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK) {
+            if (mop.getBlockPos().equals(blockPos) && mop.sideHit == enumFacing) {
+                return mop.hitVec;
+            }
+        }
+        return getClickVec(blockPos, enumFacing); // fallback
+    }
+
+    /**
+     * 簡化 offset 取樣（減少計算量，保留隨機性）
+     */
+    public static Vec3 getSmartClickVec(BlockPos pos, EnumFacing facing) {
+        Block block = mc.theWorld.getBlockState(pos).getBlock();
+        double x = pos.getX() + 0.5 + RandomUtil.nextDouble(-0.3, 0.3);
+        double y = pos.getY() + (facing == EnumFacing.UP ? block.getBlockBoundsMaxY() - 0.01 : 
+                                 facing == EnumFacing.DOWN ? block.getBlockBoundsMinY() + 0.01 : 0.5);
+        double z = pos.getZ() + 0.5 + RandomUtil.nextDouble(-0.3, 0.3);
+        
+        switch (facing) {
+            case NORTH: z = pos.getZ() + block.getBlockBoundsMinZ() + 0.01; break;
+            case SOUTH: z = pos.getZ() + block.getBlockBoundsMaxZ() - 0.01; break;
+            case WEST:  x = pos.getX() + block.getBlockBoundsMinX() + 0.01; break;
+            case EAST:  x = pos.getX() + block.getBlockBoundsMaxX() - 0.01; break;
+            case UP:    y = pos.getY() + block.getBlockBoundsMaxY() - 0.01; break;
+            case DOWN:  y = pos.getY() + block.getBlockBoundsMinY() + 0.01; break;
+        }
+        return new Vec3(x, y, z);
+    }
 }
