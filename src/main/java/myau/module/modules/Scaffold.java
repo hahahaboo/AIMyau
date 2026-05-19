@@ -262,6 +262,16 @@ public class Scaffold extends Module {
         }
     }
 
+    private boolean isValidHit(BlockPos pos, EnumFacing facing, Vec3 hitVec) {
+        if (hitVec == null) return false;
+        MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, 
+                mc.playerController.getBlockReachDistance(), 1.0F);
+        return mop != null 
+                && mop.typeOfHit == MovingObjectType.BLOCK 
+                && mop.getBlockPos().equals(pos) 
+                && mop.sideHit == facing;
+    }
+
     public Scaffold() {
         super("Scaffold", "Auto rotation and place.", Category.PLAYER, 0, false, false);
     }
@@ -379,64 +389,47 @@ public class Scaffold extends Module {
                             }
                     }
                 }
+                // === 新優化邏輯（替換上面區塊）===
                 BlockData blockData = this.getBlockData();
-
                 Vec3 hitVec = null;
+
                 if (blockData != null) {
-                    double[] x = placeOffsets;
-                    double[] y = placeOffsets;
-                    double[] z = placeOffsets;
-                    switch (blockData.facing()) {
-                        case NORTH:
-                            z = new double[]{0.0};
-                            break;
-                        case EAST:
-                            x = new double[]{1.0};
-                            break;
-                        case SOUTH:
-                            z = new double[]{1.0};
-                            break;
-                        case WEST:
-                            x = new double[]{0.0};
-                            break;
-                        case DOWN:
-                            y = new double[]{0.0};
-                            break;
-                        case UP:
-                            y = new double[]{1.0};
-                    }
-                    float bestYaw = -180.0F;
-                    float bestPitch = 0.0F;
-                    float bestDiff = 0.0F;
-                    for (double dx : x) {
-                        for (double dy : y) {
-                            for (double dz : z) {
-                                double relX = (double) blockData.blockPos().getX() + dx - mc.thePlayer.posX;
-                                double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-                                double relZ = (double) blockData.blockPos().getZ() + dz - mc.thePlayer.posZ;
-                                float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
-                                float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, baseYaw, this.pitch);
-                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
-                                if (mop != null
-                                        && mop.typeOfHit == MovingObjectType.BLOCK
-                                        && mop.getBlockPos().equals(blockData.blockPos())
-                                        && mop.sideHit == blockData.facing()) {
-                                    float totalDiff = Math.abs(rotations[0] - baseYaw) + Math.abs(rotations[1] - this.pitch);
-                                    if (bestYaw == -180.0F && bestPitch == 0.0F || totalDiff < bestDiff) {
-                                        bestYaw = rotations[0];
-                                        bestPitch = rotations[1];
-                                        bestDiff = totalDiff;
-                                        hitVec = mop.hitVec;
-                                    }
-                                }
-                            }
+                    float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
+                    float targetPitch = this.pitch; // 使用目前預設 pitch
+
+                    // 優先使用單次 raytrace 找最佳 hit
+                    hitVec = BlockUtil.getOptimizedHitVec(blockData.blockPos(), blockData.facing(), baseYaw, targetPitch);
+
+                    // 如果 raytrace 沒命中，再用 smart offset 微調（減少嘗試次數）
+                    if (hitVec == null || !isValidHit(blockData.blockPos(), blockData.facing(), hitVec)) {
+                        hitVec = BlockUtil.getSmartClickVec(blockData.blockPos(), blockData.facing());
+                        
+                        // 快速驗證一次
+                        double dx = hitVec.xCoord - mc.thePlayer.posX;
+                        double dy = hitVec.yCoord - mc.thePlayer.posY - mc.thePlayer.getEyeHeight();
+                        double dz = hitVec.zCoord - mc.thePlayer.posZ;
+                        float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, baseYaw, targetPitch);
+                        
+                        MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 
+                                mc.playerController.getBlockReachDistance(), 1.0F);
+                        
+                        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK 
+                                && mop.getBlockPos().equals(blockData.blockPos()) 
+                                && mop.sideHit == blockData.facing()) {
+                            this.yaw = rotations[0];
+                            this.pitch = rotations[1];
+                            hitVec = mop.hitVec;
                         }
+                    } else {
+                        // 成功命中，直接微調 yaw/pitch
+                        double dx = hitVec.xCoord - mc.thePlayer.posX;
+                        double dy = hitVec.yCoord - mc.thePlayer.posY - mc.thePlayer.getEyeHeight();
+                        double dz = hitVec.zCoord - mc.thePlayer.posZ;
+                        float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, baseYaw, targetPitch);
+                        this.yaw = rotations[0];
+                        this.pitch = rotations[1];
                     }
-                    if (bestYaw != -180.0F || bestPitch != 0.0F) {
-                        this.yaw = bestYaw;
-                        this.pitch = bestPitch;
-                        this.canRotate = true;
-                    }
+                    this.canRotate = (hitVec != null);
                 }
                 if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
                     switch (this.rotationMode.getValue()) {
@@ -473,35 +466,52 @@ public class Scaffold extends Module {
                 }
                 if (blockData != null && hitVec != null && this.rotationTick <= 0) {
                     this.place(blockData.blockPos(), blockData.facing(), hitVec);
+
                     if (this.multiplace.getValue()) {
                         for (int i = 0; i < 3; i++) {
                             blockData = this.getBlockData();
                             if (blockData == null) {
                                 break;
                             }
-                            MovingObjectPosition mop = RotationUtil.rayTrace(this.yaw, this.pitch, mc.playerController.getBlockReachDistance(), 1.0F);
-                            if (mop != null
-                                    && mop.typeOfHit == MovingObjectType.BLOCK
-                                    && mop.getBlockPos().equals(blockData.blockPos())
-                                    && mop.sideHit == blockData.facing()) {
-                                this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+
+                            // === 優化後：使用 getOptimizedHitVec 減少 raytrace 次數 ===
+                            Vec3 multiHitVec = BlockUtil.getOptimizedHitVec(
+                                blockData.blockPos(), 
+                                blockData.facing(), 
+                                this.yaw, 
+                                this.pitch
+                            );
+
+                            if (multiHitVec != null) {
+                                // 直接使用優化後的 hitVec 放置
+                                this.place(blockData.blockPos(), blockData.facing(), multiHitVec);
                             } else {
-                                hitVec = BlockUtil.getClickVec(blockData.blockPos(), blockData.facing());
-                                double dx = hitVec.xCoord - mc.thePlayer.posX;
-                                double dy = hitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-                                double dz = hitVec.zCoord - mc.thePlayer.posZ;
-                                float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, event.getYaw(), event.getPitch());
+                                // fallback：使用 smart click vec
+                                multiHitVec = BlockUtil.getSmartClickVec(blockData.blockPos(), blockData.facing());
+                                
+                                double dx = multiHitVec.xCoord - mc.thePlayer.posX;
+                                double dy = multiHitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+                                double dz = multiHitVec.zCoord - mc.thePlayer.posZ;
+                                
+                                float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, this.yaw, this.pitch);
+                                
+                                // 角度限制檢查（保留原有邏輯）
                                 if (!(Math.abs(rotations[0] - this.yaw) < 120.0F) || !(Math.abs(rotations[1] - this.pitch) < 60.0F)) {
                                     break;
                                 }
-                                mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
-                                if (mop == null
-                                        || mop.typeOfHit != MovingObjectType.BLOCK
-                                        || !mop.getBlockPos().equals(blockData.blockPos())
-                                        || mop.sideHit != blockData.facing()) {
+                                
+                                // 最終驗證
+                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 
+                                        mc.playerController.getBlockReachDistance(), 1.0F);
+                                
+                                if (mop != null 
+                                        && mop.typeOfHit == MovingObjectType.BLOCK
+                                        && mop.getBlockPos().equals(blockData.blockPos())
+                                        && mop.sideHit == blockData.facing()) {
+                                    this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+                                } else {
                                     break;
                                 }
-                                this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
                             }
                         }
                     }
