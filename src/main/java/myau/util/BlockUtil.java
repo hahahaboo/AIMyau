@@ -115,4 +115,65 @@ public class BlockUtil {
     public static boolean isContainer(Block block) {
         return block instanceof BlockContainer;
     }
+
+        /**
+     * 更安全的優化 raytrace（解決少數 flag 問題）
+     */
+    public static Vec3 getOptimizedHitVec(BlockPos blockPos, EnumFacing enumFacing, float yaw, float pitch) {
+        // 第一次直接用當前角度 raytrace
+        MovingObjectPosition mop = RotationUtil.rayTrace(yaw, pitch, mc.playerController.getBlockReachDistance(), 1.0f);
+        if (isValidMop(mop, blockPos, enumFacing)) {
+            return mop.hitVec;
+        }
+
+        // 第二次：使用安全內縮的 ClickVec
+        Vec3 clickVec = getSafeClickVec(blockPos, enumFacing);
+        double dx = clickVec.xCoord - mc.thePlayer.posX;
+        double dy = clickVec.yCoord - mc.thePlayer.posY - mc.thePlayer.getEyeHeight();
+        double dz = clickVec.zCoord - mc.thePlayer.posZ;
+
+        float[] rotations = RotationUtil.getRotationsTo(dx, dy, dz, yaw, pitch);
+        mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0f);
+
+        if (isValidMop(mop, blockPos, enumFacing)) {
+            return mop.hitVec;
+        }
+
+        // 最終 fallback
+        return getClickVec(blockPos, enumFacing);
+    }
+
+    private static boolean isValidMop(MovingObjectPosition mop, BlockPos pos, EnumFacing facing) {
+        return mop != null 
+                && mop.typeOfHit == MovingObjectPosition.MovingObjectType.BLOCK
+                && mop.getBlockPos().equals(pos)
+                && mop.sideHit == facing;
+    }
+
+    /**
+     * 更安全的 ClickVec（內縮避免邊緣被 flag）
+     */
+    public static Vec3 getSafeClickVec(BlockPos pos, EnumFacing facing) {
+        Block block = mc.theWorld.getBlockState(pos).getBlock();
+        double offset = 0.1; // 安全內縮
+
+        double x = pos.getX() + 0.5;
+        double y = pos.getY() + 0.5;
+        double z = pos.getZ() + 0.5;
+
+        switch (facing) {
+            case NORTH: z = pos.getZ() + block.getBlockBoundsMinZ() + offset; break;
+            case SOUTH: z = pos.getZ() + block.getBlockBoundsMaxZ() - offset; break;
+            case WEST:  x = pos.getX() + block.getBlockBoundsMinX() + offset; break;
+            case EAST:  x = pos.getX() + block.getBlockBoundsMaxX() - offset; break;
+            case UP:    y = pos.getY() + block.getBlockBoundsMaxY() - offset; break;
+            case DOWN:  y = pos.getY() + block.getBlockBoundsMinY() + offset; break;
+        }
+
+        // 少量隨機防檢測
+        x += RandomUtil.nextDouble(-0.03, 0.03);
+        z += RandomUtil.nextDouble(-0.03, 0.03);
+
+        return new Vec3(x, y, z);
+    }
 }
