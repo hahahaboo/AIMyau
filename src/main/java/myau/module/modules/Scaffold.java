@@ -387,64 +387,75 @@ public class Scaffold extends Module {
                     double[] y = placeOffsets;
                     double[] z = placeOffsets;
                     switch (blockData.facing()) {
-                        case NORTH:
-                            z = new double[]{0.0};
-                            break;
-                        case EAST:
-                            x = new double[]{1.0};
-                            break;
-                        case SOUTH:
-                            z = new double[]{1.0};
-                            break;
-                        case WEST:
-                            x = new double[]{0.0};
-                            break;
-                        case DOWN:
-                            y = new double[]{0.0};
-                            break;
-                        case UP:
-                            y = new double[]{1.0};
+                        case NORTH: z = new double[]{0.0}; break;
+                        case EAST:  x = new double[]{1.0}; break;
+                        case SOUTH: z = new double[]{1.0}; break;
+                        case WEST:  x = new double[]{0.0}; break;
+                        case DOWN:  y = new double[]{0.0}; break;
+                        case UP:    y = new double[]{1.0}; break;
                     }
+
                     float bestYaw = -180.0F;
                     float bestPitch = 0.0F;
-                    float bestDiff = 0.0F;
+                    float bestDiff = Float.MAX_VALUE;
+                    boolean foundValid = false;
+
+                    // === 改良重點：針對 SIDEWAYS / BACKWARDS 使用「理想角度」作為 base ===
+                    float preferredYaw = this.yaw;  // 保留原本設定的理想角度
+
                     for (double dx : x) {
                         for (double dy : y) {
                             for (double dz : z) {
                                 double relX = (double) blockData.blockPos().getX() + dx - mc.thePlayer.posX;
                                 double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
                                 double relZ = (double) blockData.blockPos().getZ() + dz - mc.thePlayer.posZ;
-                                float baseYaw = RotationUtil.wrapAngleDiff(this.yaw, event.getYaw());
-                                float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, baseYaw, this.pitch);
-                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], mc.playerController.getBlockReachDistance(), 1.0F);
+
+                                // 使用 preferredYaw（理想角度）作為 baseYaw
+                                float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, preferredYaw, this.pitch);
+
+                                MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 
+                                        mc.playerController.getBlockReachDistance(), 1.0F);
+
                                 if (mop != null
                                         && mop.typeOfHit == MovingObjectType.BLOCK
                                         && mop.getBlockPos().equals(blockData.blockPos())
                                         && mop.sideHit == blockData.facing()) {
-                                    float totalDiff = Math.abs(rotations[0] - baseYaw) + Math.abs(rotations[1] - this.pitch);
-                                    if (bestYaw == -180.0F && bestPitch == 0.0F || totalDiff < bestDiff) {
+
+                                    float yawDiff = Math.abs(RotationUtil.wrapAngleDiff(rotations[0], preferredYaw));
+                                    float pitchDiff = Math.abs(rotations[1] - this.pitch);
+                                    float totalDiff = yawDiff + pitchDiff * 1.5f; // pitch 稍高權重
+
+                                    if (totalDiff < bestDiff) {
                                         bestYaw = rotations[0];
                                         bestPitch = rotations[1];
                                         bestDiff = totalDiff;
                                         hitVec = mop.hitVec;
+                                        foundValid = true;
                                     }
                                 }
                             }
                         }
                     }
-                    if (bestYaw != -180.0F || bestPitch != 0.0F) {
-                        this.yaw = bestYaw;
+
+                    // 關鍵改動：
+                    if (foundValid) {
+                        this.yaw = bestYaw;      // 只做最小微調
                         this.pitch = bestPitch;
                         this.canRotate = true;
+                    } else {
+                        // raytrace 完全失敗時 → 強制保留 SIDEWAYS / BACKWARDS 的理想角度
+                        this.canRotate = true;
+                        // ChatUtil.debug("Raytrace failed for " + rotationMode.getModeName() + ", keeping preferred angle");
                     }
                 }
-                if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
+                // SIDEWAYS / BACKWARDS 已在 raytrace 階段處理完畢，不再強制覆蓋
+                if (this.canRotate && MoveUtil.isForwardPressed() 
+                        && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F
+                        && this.rotationMode.getValue() != 2 
+                        && this.rotationMode.getValue() != 3) {
                     switch (this.rotationMode.getValue()) {
-                        case 2:
-                            this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
-                            break;
-                        case 3:
-                            this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
+                        case 2: this.yaw = RotationUtil.quantizeAngle(yawDiffTo180); break;
+                        case 3: this.yaw = RotationUtil.quantizeAngle(diagonalYaw); break;
                     }
                 }
                 if (this.rotationMode.getValue() != 0) {
