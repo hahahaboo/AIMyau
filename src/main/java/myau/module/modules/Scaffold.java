@@ -379,13 +379,14 @@ public class Scaffold extends Module {
                             }
                     }
                 }
-                BlockData blockData = this.getBlockData();
+                                BlockData blockData = this.getBlockData();
 
                 Vec3 hitVec = null;
                 if (blockData != null) {
                     double[] x = placeOffsets;
                     double[] y = placeOffsets;
                     double[] z = placeOffsets;
+
                     switch (blockData.facing()) {
                         case NORTH: z = new double[]{0.0}; break;
                         case EAST:  x = new double[]{1.0}; break;
@@ -395,13 +396,11 @@ public class Scaffold extends Module {
                         case UP:    y = new double[]{1.0}; break;
                     }
 
-                    float bestYaw = -180.0F;
-                    float bestPitch = 0.0F;
+                    float preferredYaw = this.yaw;   // 保留 SIDEWAYS / BACKWARDS 的理想角度
+                    float bestYaw = this.yaw;
+                    float bestPitch = this.pitch;
                     float bestDiff = Float.MAX_VALUE;
                     boolean foundValid = false;
-
-                    // === 改良重點：針對 SIDEWAYS / BACKWARDS 使用「理想角度」作為 base ===
-                    float preferredYaw = this.yaw;  // 保留原本設定的理想角度
 
                     for (double dx : x) {
                         for (double dy : y) {
@@ -410,7 +409,7 @@ public class Scaffold extends Module {
                                 double relY = (double) blockData.blockPos().getY() + dy - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
                                 double relZ = (double) blockData.blockPos().getZ() + dz - mc.thePlayer.posZ;
 
-                                // 使用 preferredYaw（理想角度）作為 baseYaw
+                                // 重點：使用 preferredYaw 作為基準
                                 float[] rotations = RotationUtil.getRotationsTo(relX, relY, relZ, preferredYaw, this.pitch);
 
                                 MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 
@@ -423,7 +422,7 @@ public class Scaffold extends Module {
 
                                     float yawDiff = Math.abs(RotationUtil.wrapAngleDiff(rotations[0], preferredYaw));
                                     float pitchDiff = Math.abs(rotations[1] - this.pitch);
-                                    float totalDiff = yawDiff + pitchDiff * 1.5f; // pitch 稍高權重
+                                    float totalDiff = yawDiff + pitchDiff * 2.0f; // pitch 權重更高
 
                                     if (totalDiff < bestDiff) {
                                         bestYaw = rotations[0];
@@ -437,27 +436,16 @@ public class Scaffold extends Module {
                         }
                     }
 
-                    // 關鍵改動：
                     if (foundValid) {
-                        this.yaw = bestYaw;      // 只做最小微調
+                        // 只做極小微調，保持 SIDEWAYS / BACKWARDS 角度穩定
+                        this.yaw = bestYaw;
                         this.pitch = bestPitch;
-                        this.canRotate = true;
-                    } else {
-                        // raytrace 完全失敗時 → 強制保留 SIDEWAYS / BACKWARDS 的理想角度
-                        this.canRotate = true;
-                        // ChatUtil.debug("Raytrace failed for " + rotationMode.getModeName() + ", keeping preferred angle");
-                    }
+                    } 
+                    // else：raytrace 失敗時完全保留 preferredYaw
+                    
+                    this.canRotate = true;
                 }
-                // SIDEWAYS / BACKWARDS 已在 raytrace 階段處理完畢，不再強制覆蓋
-                if (this.canRotate && MoveUtil.isForwardPressed() 
-                        && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F
-                        && this.rotationMode.getValue() != 2 
-                        && this.rotationMode.getValue() != 3) {
-                    switch (this.rotationMode.getValue()) {
-                        case 2: this.yaw = RotationUtil.quantizeAngle(yawDiffTo180); break;
-                        case 3: this.yaw = RotationUtil.quantizeAngle(diagonalYaw); break;
-                    }
-                }
+
                 if (this.rotationMode.getValue() != 0) {
                     float targetYaw = this.yaw;
                     float targetPitch = this.pitch;
