@@ -65,6 +65,7 @@ public class Scaffold extends Module {
     private boolean shouldKeepY = false;
     private boolean towering = false;
     private EnumFacing targetFacing = null;
+    private Vec3 lastHitVec = null;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS", "GODBIRGDE", "SMOOTH"});
     public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
@@ -80,6 +81,7 @@ public class Scaffold extends Module {
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
     public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final FloatProperty raytraceStability = new FloatProperty("raytrace-stability", 0.015F, 0.001F, 0.1F);
     public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
@@ -299,6 +301,7 @@ public class Scaffold extends Module {
                 this.startY = this.shouldKeepY ? this.startY : MathHelper.floor_double(mc.thePlayer.posY);
                 this.shouldKeepY = false;
                 this.towering = false;
+                this.lastHitVec = null;
             }
             if (this.canPlace()) {
                 ItemStack stack = mc.thePlayer.getHeldItem();
@@ -471,9 +474,26 @@ public class Scaffold extends Module {
                         event.setPervRotation(targetYaw, 3);
                     }
                 }
+                // === 修改處：放置前檢查 raytrace 變化量 ===
                 if (blockData != null && hitVec != null && this.rotationTick <= 0) {
-                    this.place(blockData.blockPos(), blockData.facing(), hitVec);
-                    if (this.multiplace.getValue()) {
+    
+                    boolean isStable = true;
+                    if (this.lastHitVec != null) {
+                        double change = hitVec.distanceTo(this.lastHitVec);
+                        if (change > this.raytraceStability.getValue()) {
+                            isStable = false;
+                        }
+                    }
+    
+                    if (isStable) {
+                        this.place(blockData.blockPos(), blockData.facing(), hitVec);
+                        this.lastHitVec = hitVec;           // 更新上次穩定的 hitVec
+                    } else {
+                        this.lastHitVec = null;             // 不穩定時重置
+                    }
+
+                    // multiplace 也同步使用穩定性檢查
+                    if (this.multiplace.getValue() && isStable) {
                         for (int i = 0; i < 3; i++) {
                             blockData = this.getBlockData();
                             if (blockData == null) {
@@ -485,7 +505,9 @@ public class Scaffold extends Module {
                                     && mop.getBlockPos().equals(blockData.blockPos())
                                     && mop.sideHit == blockData.facing()) {
                                 this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+                                this.lastHitVec = mop.hitVec;   // 更新
                             } else {
+                                // ... 其餘原有 multiplace 邏輯保持不變 ...
                                 hitVec = BlockUtil.getClickVec(blockData.blockPos(), blockData.facing());
                                 double dx = hitVec.xCoord - mc.thePlayer.posX;
                                 double dy = hitVec.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
@@ -502,6 +524,7 @@ public class Scaffold extends Module {
                                     break;
                                 }
                                 this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+                                this.lastHitVec = mop.hitVec;
                             }
                         }
                     }
