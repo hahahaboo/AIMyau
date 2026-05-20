@@ -71,6 +71,7 @@ public class Scaffold extends Module {
     public final FloatProperty tellynormalrotationminspeed = new FloatProperty("rotation-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("rotation-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
+    public final FloatProperty edgeThreshold = new FloatProperty("edge-threshold", 0.15, 0.01, 0.6);
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
@@ -225,6 +226,16 @@ public class Scaffold extends Module {
             default:
                 return mc.thePlayer.posX - Math.floor(mc.thePlayer.posX);
         }
+    }
+
+    private boolean isCloseToEdge(BlockData blockData) {
+        if (blockData == null) return false;
+    
+        EnumFacing facing = blockData.facing();
+        double distance = this.distanceToEdge(facing);
+    
+        // 只在玩家面向該方塊的邊緣時才放置
+        return distance <= this.edgeThreshold.getValue();
     }
 
     private float getSpeed() {
@@ -471,7 +482,7 @@ public class Scaffold extends Module {
                         event.setPervRotation(targetYaw, 3);
                     }
                 }
-                if (blockData != null && hitVec != null && this.rotationTick <= 0) {
+                if (blockData != null && hitVec != null && this.rotationTick <= 0 && this.isCloseToEdge(blockData)) {
                     this.place(blockData.blockPos(), blockData.facing(), hitVec);
                     if (this.multiplace.getValue()) {
                         for (int i = 0; i < 3; i++) {
