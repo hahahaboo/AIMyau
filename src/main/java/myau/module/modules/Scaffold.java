@@ -71,7 +71,7 @@ public class Scaffold extends Module {
     public final FloatProperty tellynormalrotationminspeed = new FloatProperty("rotation-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("rotation-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
-    public final FloatProperty edgeThreshold = new FloatProperty("edge-threshold", 0.15, 0.01, 0.6);
+    public final FloatProperty edgeThreshold = new FloatProperty("edge-threshold", 0.15F, 0.01F, 0.6F);
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
