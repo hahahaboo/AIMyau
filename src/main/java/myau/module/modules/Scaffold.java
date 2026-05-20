@@ -82,7 +82,9 @@ public class Scaffold extends Module {
     public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty raytraceStability = new BooleanProperty("raytrace-stability", true);
-    public final FloatProperty stability = new FloatProperty("stability", 0.1F, 0.01F, 1F, this.raytraceStability::getValue);
+    public final FloatProperty normalStability = new FloatProperty("normal-stability", 0.5F, 0.1F, 5.0F, this.raytraceStability::getValue);
+    public final FloatProperty diagonalStability = new FloatProperty("diagonal-stability", 0.75F, 0.1F, 5.0F, this.raytraceStability::getValue);
+    public final FloatProperty towerStability = new FloatProperty("tower-stability", 1.5F, 0.1F, 5.0F, this.raytraceStability::getValue);
     public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
@@ -263,6 +265,19 @@ public class Scaffold extends Module {
         } else {
             return false;
         }
+    }
+
+    private float getCurrentStability() {
+        if (this.isTowering() || this.towering) {
+            return this.towerStability.getValue();
+        }
+    
+        float currentYaw = this.getCurrentYaw();  // 或 this.yaw
+        if (this.isDiagonal(currentYaw)) {
+            return this.diagonalStability.getValue();
+        }
+    
+        return this.normalStability.getValue();
     }
 
     public Scaffold() {
@@ -479,10 +494,12 @@ public class Scaffold extends Module {
                 if (blockData != null && hitVec != null && this.rotationTick <= 0) {
     
                     boolean isStable = true;
+                    float currentThreshold = this.getCurrentStability();
+                    
                     if (this.raytraceStability.getValue()) {
                         if (this.lastHitVec != null) {
                             double change = hitVec.distanceTo(this.lastHitVec);
-                            if (change > this.stability.getValue()) {
+                            if (change > currentThreshold) {
                                 isStable = false;
                             }
                         }
