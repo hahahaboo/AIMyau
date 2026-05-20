@@ -81,7 +81,8 @@ public class Scaffold extends Module {
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
     public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
-    public final FloatProperty raytraceStability = new FloatProperty("raytrace-stability", 0.1F, 0.01F, 1F);
+    public final BooleanProperty raytraceStability = new BooleanProperty("raytrace-stability", true);
+    public final FloatProperty stability = new FloatProperty("stability", 0.1F, 0.01F, 1F, this.raytraceStability::getValue);
     public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
@@ -478,10 +479,12 @@ public class Scaffold extends Module {
                 if (blockData != null && hitVec != null && this.rotationTick <= 0) {
     
                     boolean isStable = true;
-                    if (this.lastHitVec != null) {
-                        double change = hitVec.distanceTo(this.lastHitVec);
-                        if (change > this.raytraceStability.getValue()) {
-                            isStable = false;
+                    if (this.raytraceStability.getValue()) {
+                        if (this.lastHitVec != null) {
+                            double change = hitVec.distanceTo(this.lastHitVec);
+                            if (change > this.stability.getValue()) {
+                                isStable = false;
+                            }
                         }
                     }
     
