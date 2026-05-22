@@ -1,7 +1,6 @@
 package myau.module.modules;
 
 import myau.Myau;
-import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.PacketEvent;
@@ -10,7 +9,6 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
-import myau.property.properties.ModeProperty;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.play.server.S08PacketPlayerPosLook;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
@@ -18,7 +16,6 @@ import org.lwjgl.input.Mouse;
 
 public class KnockbackDelay extends Module {
 
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"Delay", "Blink"});
     public final FloatProperty distance = new FloatProperty("distance", 6.0f, 3.0f, 12.0f);
     public final FloatProperty chance = new FloatProperty("chance", 100f, 0f, 100f);
     public final FloatProperty maxDelay = new FloatProperty("max-delay", 200f, 50f, 1000f);
@@ -27,16 +24,20 @@ public class KnockbackDelay extends Module {
     public final BooleanProperty lookingAtPlayer = new BooleanProperty("looking-at-player", false);
     public final BooleanProperty requireLMB = new BooleanProperty("require-lmb", false);
 
+    private long delayStartTime = 0;
+    private boolean isDelaying = false;
+
     public KnockbackDelay() {
-        super("Knockback Delay", "Delays knockback packets using blink", Category.COMBAT, 0, false, false);
+        super("Knockback Delay", "Delays knockback packets", Category.COMBAT, 0, false, false);
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (event.getType() != EventType.RECEIVE || !isEnabled()) return;
 
+        // TP 封包強制釋放
         if (event.getPacket() instanceof S08PacketPlayerPosLook) {
-            resetBlink();
+            resetDelay();
             return;
         }
 
@@ -47,26 +48,23 @@ public class KnockbackDelay extends Module {
 
         if (!shouldDelay()) return;
 
+        // 機率判斷
         if (chance.getValue() < 100 && Math.random() * 100 >= chance.getValue()) return;
 
-        if (mode.getValue() == 1) { // Blink 模式
-            if (Myau.blinkManager.getBlinkingModule() != BlinkModules.KNOCKBACK_DELAY) {
-                Myau.blinkManager.setBlinkState(true, BlinkModules.KNOCKBACK_DELAY);
-            }
-            event.setCancelled(true);
-        } else {
-            event.setCancelled(true);
-        }
+        // Delay Mode
+        event.setCancelled(true);
+        isDelaying = true;
+        delayStartTime = System.currentTimeMillis();
     }
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.POST || !isEnabled()) return;
+        if (event.getType() != EventType.POST || !isEnabled() || !isDelaying) return;
 
-        if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
-            if (!shouldDelay()) {
-                resetBlink();
-            }
+        long elapsed = System.currentTimeMillis() - delayStartTime;
+
+        if (elapsed >= maxDelay.getValue().intValue() || !shouldDelay()) {
+            resetDelay();
         }
     }
 
@@ -96,21 +94,19 @@ public class KnockbackDelay extends Module {
         return mc.objectMouseOver != null && mc.objectMouseOver.entityHit instanceof EntityPlayer;
     }
 
-    private void resetBlink() {
-        if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
-            Myau.blinkManager.setBlinkState(false, BlinkModules.KNOCKBACK_DELAY);
-        }
+    private void resetDelay() {
+        isDelaying = false;
     }
 
     @Override
     public void onDisabled() {
-        resetBlink();
+        resetDelay();
         super.onDisabled();
     }
 
     @Override
     public String[] getSuffix() {
-        int delay = maxDelay.getValue().intValue();   // 正確轉型方式
+        int delay = maxDelay.getValue().intValue();
         return new String[]{delay + "ms"};
     }
 }
