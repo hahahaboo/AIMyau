@@ -3,5 +3,6 @@ package myau.enums;
 public enum DelayModules {
     NONE,
     VELOCITY,
-    BED_NUKER
+    BED_NUKER,
+    KNOCKBACK_DELAY
 }
