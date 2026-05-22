@@ -19,9 +19,9 @@ import org.lwjgl.input.Mouse;
 public class KnockbackDelay extends Module {
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"Delay", "Blink"});
-    public final FloatProperty distance = new FloatProperty("distance", 6.0f, 3.0f, 12.0f, 0.1f);
-    public final FloatProperty chance = new FloatProperty("chance", 100f, 0f, 100f, 1f);
-    public final FloatProperty maxDelay = new FloatProperty("max-delay", 200f, 50f, 1000f, 10f);
+    public final FloatProperty distance = new FloatProperty("distance", 6.0f, 3.0f, 12.0f);
+    public final FloatProperty chance = new FloatProperty("chance", 100f, 0f, 100f);
+    public final FloatProperty maxDelay = new FloatProperty("max-delay", 200f, 50f, 1000f);
 
     public final BooleanProperty inAir = new BooleanProperty("in-air", true);
     public final BooleanProperty lookingAtPlayer = new BooleanProperty("looking-at-player", false);
@@ -33,9 +33,9 @@ public class KnockbackDelay extends Module {
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!event.isIncoming() || !isEnabled()) return;
+        if (event.getType() != EventType.RECEIVE || !isEnabled()) return;
 
-        // 收到 TP 封包時強制釋放
+        // 收到 TP 封包強制釋放
         if (event.getPacket() instanceof S08PacketPlayerPosLook) {
             resetBlink();
             return;
@@ -57,7 +57,7 @@ public class KnockbackDelay extends Module {
             }
             event.setCancelled(true);
         } else {
-            // Delay 模式（目前先 Cancel，之後可擴展 DelayManager）
+            // Delay 模式
             event.setCancelled(true);
         }
     }
@@ -112,7 +112,7 @@ public class KnockbackDelay extends Module {
     }
 
     @Override
-    public String getSuffix() {
-        return (int) maxDelay.getValue() + "ms";
+    public String[] getSuffix() {
+        return new String[]{(int) maxDelay.getValue() + "ms"};
     }
 }
