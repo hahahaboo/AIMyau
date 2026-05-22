@@ -57,7 +57,6 @@ public class KnockbackDelay extends Module {
             }
             event.setCancelled(true);
         } else {
-            // Delay 模式
             event.setCancelled(true);
         }
     }
@@ -113,6 +112,6 @@ public class KnockbackDelay extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{(int) maxDelay.getValue() + "ms"};
+        return new String[]{String.valueOf((int) maxDelay.getValue()) + "ms"};
     }
 }
