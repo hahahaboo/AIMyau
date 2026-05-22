@@ -197,16 +197,13 @@ public class KnockbackDelay extends Module {
 
     private Entity findTarget() {
         KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-        if (ka != null && ka.isEnabled() && ka.target != null) {
-            try {
-                Field entityField = KillAura.AttackData.class.getDeclaredField("entity");
-                entityField.setAccessible(true);
-                return (Entity) entityField.get(ka.target);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+    
+        // 使用 KillAura 已經提供的 public getter（getTarget()）
+        if (ka != null && ka.isEnabled() && ka.getTarget() != null) {
+            return ka.getTarget();   // 直接取得 EntityLivingBase
         }
 
+        // 後備方案（保持不變）
         if (mc.pointedEntity != null) return mc.pointedEntity;
 
         if (mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
