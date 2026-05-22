@@ -35,7 +35,6 @@ public class KnockbackDelay extends Module {
     public void onPacket(PacketEvent event) {
         if (event.getType() != EventType.RECEIVE || !isEnabled()) return;
 
-        // 收到 TP 封包強制釋放
         if (event.getPacket() instanceof S08PacketPlayerPosLook) {
             resetBlink();
             return;
@@ -48,7 +47,6 @@ public class KnockbackDelay extends Module {
 
         if (!shouldDelay()) return;
 
-        // 機率判斷
         if (chance.getValue() < 100 && Math.random() * 100 >= chance.getValue()) return;
 
         if (mode.getValue() == 1) { // Blink 模式
@@ -112,6 +110,7 @@ public class KnockbackDelay extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{String.valueOf((int) maxDelay.getValue()) + "ms"};
+        int delay = maxDelay.getValue().intValue();   // 正確轉型方式
+        return new String[]{delay + "ms"};
     }
 }
