@@ -8,6 +8,7 @@ import myau.events.LoadWorldEvent;
 import myau.events.PacketEvent;
 import myau.events.UpdateEvent;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ItemUtil;
@@ -44,7 +45,7 @@ public class KnockbackDelay extends Module {
     private boolean blink;
 
     public KnockbackDelay() {
-        super("KnockbackDelay", false);
+        super("KnockbackDelay", " ", Category.COMBAT, 0, false, false);
     }
 
     @Override
