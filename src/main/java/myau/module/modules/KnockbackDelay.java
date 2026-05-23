@@ -28,8 +28,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * KnockbackDelay — delays incoming velocity + transaction packets
  * to manipulate when knockback is applied to the player.
  *
- * Queues server-bound packets while the player is hurt and releases
- * them after a configurable delay, keeping packet order intact.
+ * 改用 S12PacketEntityVelocity（自己）觸發延遲，並加入 S08 setback 保護
  */
 public class KnockbackDelay extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -87,9 +86,8 @@ public class KnockbackDelay extends Module {
             handle(delay);
         }
 
-        if (mc.thePlayer.hurtTime > 0) {
-            blink = true;
-        } else if (packets.isEmpty()) {
+        // 【修改後】blink 狀態只由 S12 封包控制，當佇列清空後自動關閉
+        if (packets.isEmpty()) {
             blink = false;
         }
     }
@@ -137,6 +135,22 @@ public class KnockbackDelay extends Module {
             }
         }
 
+        // 【新增】S08PacketPlayerPosLook 保護 - 收到 Setback 立刻 flush
+        if (packet instanceof S08PacketPlayerPosLook) {
+            if (blink && !packets.isEmpty()) {
+                reset();                    // 立刻釋放所有佇列封包，避免 position corruption & infinite desync
+                return;
+            }
+        }
+
+        // 【新增】S12PacketEntityVelocity 自己受到擊退 → 開啟 blink
+        if (packet instanceof S12PacketEntityVelocity) {
+            S12PacketEntityVelocity vel = (S12PacketEntityVelocity) packet;
+            if (vel.getEntityID() == mc.thePlayer.getEntityId()) {
+                blink = true;                    // 收到自己的擊退封包 → 開始延遲
+            }
+        }
+
         if (blink) {
             event.setCancelled(true);
             packets.add(new TimedPacket(packet, System.currentTimeMillis()));
@@ -154,7 +168,7 @@ public class KnockbackDelay extends Module {
     }
 
     private void reset() {
-        blink = false;              // 【修復重點】強制關閉 blink
+        blink = false;
         flush();                    // 無論 blink 狀態都執行 flush
     }
 
@@ -208,14 +222,13 @@ public class KnockbackDelay extends Module {
     
         // 使用 KillAura 已經提供的 public getter（getTarget()）
         if (ka != null && ka.isEnabled() && ka.getTarget() != null) {
-            return ka.getTarget();   // 直接取得 EntityLivingBase
+            return ka.getTarget();
         }
 
-        // 後備方案（保持不變）
-        if (mc.pointedEntity != null) return mc.pointedEntity;
-
-        if (mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
-            return mc.objectMouseOver.entityHit;
+        // Fallback: 滑鼠指向的實體
+        MovingObjectPosition ray = mc.objectMouseOver;
+        if (ray != null && ray.entityHit != null) {
+            return ray.entityHit;
         }
 
         return null;
