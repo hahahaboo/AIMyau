@@ -120,7 +120,6 @@ public class KnockbackDelay extends Module {
         // 【新增】更多動畫/狀態相關封包即時處理，減少反作弊偵測
         if (packet instanceof S0BPacketAnimation) return;           // 攻擊、傷害擺動動畫
         if (packet instanceof S14PacketEntity) return;              // 實體更新（包含動畫狀態）
-        if (packet instanceof S19PacketEntityStatus) return;        // 狀態封包（已在上方處理，但保留）
 
         // S08 Setback 保護
         if (packet instanceof S08PacketPlayerPosLook) {
