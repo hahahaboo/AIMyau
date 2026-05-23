@@ -8,6 +8,7 @@ import myau.event.types.Priority;
 import myau.events.*;
 import myau.management.RotationState;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
@@ -73,11 +74,11 @@ public class Scaffold extends Module {
     private double savedMotionY;
     private double savedMotionZ;
     private boolean safeStuckActive = false;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 2, new String[]{"NONE", "DEFAULT", "BACKWARDS", "SIDEWAYS", "GODBIRGDE", "SMOOTH", "Hypixel"});
-    public final FloatProperty tellystartrotationminspeed = new FloatProperty("telly-start-rotation-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("telly-start-rotation-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("telly-normal-rotation-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("telly-normal-rotation-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 2, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel"});
+    public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -89,11 +90,12 @@ public class Scaffold extends Module {
     public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
     public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("no-keep-y-on-jump-potion", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty multiplace = new BooleanProperty("multi-place", true);
-    public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", true);
+    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
+    public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
+    public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
-    public final BooleanProperty itemSpoof = new BooleanProperty("item-spoof", false);
+    public final BooleanProperty itemSpoof = new BooleanProperty("item-spoof", true);
     public final BooleanProperty blockCounter = new BooleanProperty("block-counter", true);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
     public final FloatProperty edgeDistance = new FloatProperty("edge-distance", 0.13F, 0.0F, 0.5F, () -> this.eagle.getValue());
@@ -201,6 +203,21 @@ public class Scaffold extends Module {
                     mc.thePlayer.swingItem();
                 } else {
                     PacketUtil.sendPacket(new C0APacketAnimation());
+                }
+
+                if (this.biggestStack.getValue()) {
+                    int bestSlot = -1;
+                    int maxStack = 0;
+                    for (int i = 0; i < 9; ++i) {
+                        ItemStack itemStack = mc.thePlayer.inventory.getStackInSlot(i);
+                        if (ItemUtil.isBlock(itemStack) && itemStack.stackSize > maxStack) {
+                            maxStack = itemStack.stackSize;
+                            bestSlot = i;
+                        }
+                    }
+                    if (bestSlot != -1) {
+                        mc.thePlayer.inventory.currentItem = bestSlot;
+                    }
                 }
             }
         }
