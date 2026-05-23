@@ -56,6 +56,7 @@ public class KnockbackDelay extends Module {
     @Override
     public void onDisabled() {
         reset();
+        packets.clear();        // 額外確保完全清空佇列
     }
 
     @EventTarget
@@ -63,6 +64,12 @@ public class KnockbackDelay extends Module {
         if (event.getType() != EventType.PRE) return;
         if (mc.thePlayer == null || mc.theWorld == null) return;
         if (mc.isSingleplayer() || mc.thePlayer.ticksExisted < 20) return;
+
+        // 【修復重點】模組被禁用時強制清理，防止卡住
+        if (!isEnabled()) {
+            reset();
+            return;
+        }
 
         if (mc.currentScreen != null) {
             reset();
@@ -147,9 +154,8 @@ public class KnockbackDelay extends Module {
     }
 
     private void reset() {
-        if (!blink) return;
-        blink = false;
-        flush();
+        blink = false;              // 【修復重點】強制關閉 blink
+        flush();                    // 無論 blink 狀態都執行 flush
     }
 
     private void handle(int delay) {
@@ -165,6 +171,7 @@ public class KnockbackDelay extends Module {
     }
 
     private void flush() {
+        // 【修復重點】強制釋放所有已佇列封包，解決無法正常 disable 的問題
         TimedPacket wrapper;
         while ((wrapper = packets.poll()) != null) {
             processPacketSilent(wrapper.packet);
