@@ -20,15 +20,12 @@ import net.minecraft.network.play.INetHandlerPlayClient;
 import net.minecraft.network.play.server.*;
 import net.minecraft.util.MovingObjectPosition;
 
-import java.lang.reflect.Field;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * KnockbackDelay — delays incoming velocity + transaction packets
- * to manipulate when knockback is applied to the player.
- *
- * 改用 S12PacketEntityVelocity（自己）觸發延遲，並加入 S08 setback 保護
+ * KnockbackDelay — 改用 S12 觸發 + S08 保護 + 加強動畫同步
+ * 修正使用時出現 animation error 的問題
  */
 public class KnockbackDelay extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -44,7 +41,7 @@ public class KnockbackDelay extends Module {
     private boolean blink;
 
     public KnockbackDelay() {
-        super("KnockbackDelay", " ", Category.COMBAT, 0, false, false);
+        super("KnockbackDelay", "Delay knockback packets", Category.COMBAT, 0, false, false);
     }
 
     @Override
@@ -55,7 +52,7 @@ public class KnockbackDelay extends Module {
     @Override
     public void onDisabled() {
         reset();
-        packets.clear();        // 額外確保完全清空佇列
+        packets.clear();
     }
 
     @EventTarget
@@ -64,18 +61,7 @@ public class KnockbackDelay extends Module {
         if (mc.thePlayer == null || mc.theWorld == null) return;
         if (mc.isSingleplayer() || mc.thePlayer.ticksExisted < 20) return;
 
-        // 【修復重點】模組被禁用時強制清理，防止卡住
-        if (!isEnabled()) {
-            reset();
-            return;
-        }
-
-        if (mc.currentScreen != null) {
-            reset();
-            return;
-        }
-
-        if (!shouldActivate()) {
+        if (!isEnabled() || mc.currentScreen != null || !shouldActivate()) {
             reset();
             return;
         }
@@ -86,7 +72,6 @@ public class KnockbackDelay extends Module {
             handle(delay);
         }
 
-        // 【修改後】blink 狀態只由 S12 封包控制，當佇列清空後自動關閉
         if (packets.isEmpty()) {
             blink = false;
         }
@@ -105,7 +90,7 @@ public class KnockbackDelay extends Module {
 
         Packet<?> packet = event.getPacket();
 
-        // Always let these critical/cosmetic packets through immediately
+        // === 關鍵修正：必須即時通過的封包（避免 animation error）===
         if (packet instanceof S07PacketRespawn) return;
         if (packet instanceof S03PacketTimeUpdate) return;
         if (packet instanceof S06PacketUpdateHealth) return;
@@ -113,44 +98,50 @@ public class KnockbackDelay extends Module {
         if (packet instanceof S02PacketChat) return;
         if (packet instanceof S25PacketBlockBreakAnim) return;
         if (packet instanceof S2FPacketSetSlot) return;
-
         if (packet instanceof S2BPacketChangeGameState) {
             int state = ((S2BPacketChangeGameState) packet).getGameState();
             if (state == 1 || state == 2 || state == 7 || state == 8) return;
         }
-
         if (packet instanceof S2CPacketSpawnGlobalEntity) {
             if (((S2CPacketSpawnGlobalEntity) packet).func_149053_g() == 1) return;
         }
-
         if (packet instanceof S29PacketSoundEffect) {
             if ("ambient.weather.thunder".equalsIgnoreCase(((S29PacketSoundEffect) packet).getSoundName())) return;
         }
 
-        // Let damage status through in realtime so hurt animation plays immediately
+        // Realtime Damage Animation
         if (realtimeDamage.getValue() && packet instanceof S19PacketEntityStatus) {
-            S19PacketEntityStatus statusPacket = (S19PacketEntityStatus) packet;
-            if (statusPacket.getOpCode() == 2 && statusPacket.getEntity(mc.theWorld) == mc.thePlayer) {
+            S19PacketEntityStatus status = (S19PacketEntityStatus) packet;
+            if (status.getOpCode() == 2 && status.getEntity(mc.theWorld) == mc.thePlayer) {
                 return;
             }
         }
 
-        // 【新增】S08PacketPlayerPosLook 保護 - 收到 Setback 立刻 flush
+        // 【新增】更多動畫/狀態相關封包即時處理，減少反作弊偵測
+        if (packet instanceof S0BPacketAnimation) return;           // 攻擊、傷害擺動動畫
+        if (packet instanceof S14PacketEntity) return;              // 實體更新（包含動畫狀態）
+        if (packet instanceof S19PacketEntityStatus) return;        // 狀態封包（已在上方處理，但保留）
+
+        // S08 Setback 保護
         if (packet instanceof S08PacketPlayerPosLook) {
             if (blink && !packets.isEmpty()) {
-                reset();                    // 立刻釋放所有佇列封包，避免 position corruption & infinite desync
+                reset();
                 return;
             }
         }
 
-        // 【新增】S12PacketEntityVelocity 自己受到擊退 → 開啟 blink
+        // S12 自己擊退 → 開啟 blink + 立即觸發傷害動畫
         if (packet instanceof S12PacketEntityVelocity) {
             S12PacketEntityVelocity vel = (S12PacketEntityVelocity) packet;
             if (vel.getEntityID() == mc.thePlayer.getEntityId()) {
-                blink = true;                    // 收到自己的擊退封包 → 開始延遲
+                blink = true;
+                // 【重要修正】立即強制觸發傷害動畫，減少 desync
+                mc.thePlayer.hurtResistantTime = 20;   // 模擬 hurtTime
+                mc.thePlayer.hurtTime = 10;
             }
         }
 
+        // Queue 其他封包
         if (blink) {
             event.setCancelled(true);
             packets.add(new TimedPacket(packet, System.currentTimeMillis()));
@@ -159,17 +150,14 @@ public class KnockbackDelay extends Module {
 
     private boolean shouldActivate() {
         if (RandomUtil.nextInt(0, 100) > chance.getValue()) return false;
-
         if (requireTarget.getValue() && findTarget() == null) return false;
-
         if (onlySwords.getValue() && !ItemUtil.isHoldingSword()) return false;
-
         return true;
     }
 
     private void reset() {
         blink = false;
-        flush();                    // 無論 blink 狀態都執行 flush
+        flush();
     }
 
     private void handle(int delay) {
@@ -185,7 +173,6 @@ public class KnockbackDelay extends Module {
     }
 
     private void flush() {
-        // 【修復重點】強制釋放所有已佇列封包，解決無法正常 disable 的問題
         TimedPacket wrapper;
         while ((wrapper = packets.poll()) != null) {
             processPacketSilent(wrapper.packet);
@@ -218,19 +205,16 @@ public class KnockbackDelay extends Module {
     }
 
     private Entity findTarget() {
+        // TODO: 建議後續修復 cast 問題
         KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-    
-        // 使用 KillAura 已經提供的 public getter（getTarget()）
         if (ka != null && ka.isEnabled() && ka.getTarget() != null) {
             return ka.getTarget();
         }
 
-        // Fallback: 滑鼠指向的實體
         MovingObjectPosition ray = mc.objectMouseOver;
         if (ray != null && ray.entityHit != null) {
             return ray.entityHit;
         }
-
         return null;
     }
 }
