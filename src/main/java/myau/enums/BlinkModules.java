@@ -7,5 +7,5 @@ public enum BlinkModules {
     BLINK,
     NO_FALL,
     NO_SLOW,
-    KNOCKBACK_DELAY
+    KBDELAY
 }
