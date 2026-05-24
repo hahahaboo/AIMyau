@@ -8,8 +8,8 @@ import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
-import myau.module.Module;
 import myau.module.Category;
+import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.property.properties.PercentProperty;
@@ -25,8 +25,6 @@ import net.minecraft.util.Vec3;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -50,12 +48,12 @@ public class KnockbackDelay extends Module {
     private double savedX, savedY, savedZ;
 
     public KnockbackDelay() {
-        super("KnockbackDelay", "Delays knockback packets (new KBDelay version)", Category.COMBAT, 0, false, false);
+        super("KnockbackDelay", "Delays knockback packets (KBDelay)", Category.COMBAT, 0, false, false);
     }
 
     @Override
     public void onDisabled() {
-        flush();
+        flush();                    // 模組關閉時強制 flush
     }
 
     @EventTarget(Priority.HIGHEST)
@@ -64,6 +62,7 @@ public class KnockbackDelay extends Module {
 
         Packet<?> packet = event.getPacket();
 
+        // 收到伺服器位置修正包 → 立即釋放所有封包（重要安全機制）
         if (packet instanceof S08PacketPlayerPosLook) {
             flush();
             return;
@@ -72,6 +71,7 @@ public class KnockbackDelay extends Module {
         if (packet instanceof S12PacketEntityVelocity) {
             S12PacketEntityVelocity velocityPacket = (S12PacketEntityVelocity) packet;
             if (velocityPacket.getEntityID() == mc.thePlayer.getEntityId()) {
+                
                 if (blinking) {
                     event.setCancelled(true);
                     inboundQueue.add(new TimedPacket(packet, System.currentTimeMillis()));
@@ -89,7 +89,7 @@ public class KnockbackDelay extends Module {
 
         if (!blinking) return;
 
-        // 保留重要封包不 delay
+        // 重要封包不延遲
         if (packet instanceof S07PacketRespawn) return;
         if (packet instanceof S03PacketTimeUpdate) return;
         if (packet instanceof S06PacketUpdateHealth) return;
@@ -103,7 +103,12 @@ public class KnockbackDelay extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.isDead) {
+        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
+            if (blinking) flush();
+            return;
+        }
+
+        if (mc.thePlayer.isDead) {
             flush();
             return;
         }
@@ -111,12 +116,14 @@ public class KnockbackDelay extends Module {
         if (!blinking) return;
 
         long now = System.currentTimeMillis();
-        
+
+        // 超過最大延遲時間 → 強制 flush
         if (now - lastBlinkStartTime >= maximumDelay.getValue()) {
             flush();
             return;
         }
 
+        // 釋放已到期的封包
         while (!inboundQueue.isEmpty()) {
             TimedPacket timed = inboundQueue.peek();
             if (timed != null && now - timed.time >= maximumDelay.getValue()) {
@@ -151,6 +158,7 @@ public class KnockbackDelay extends Module {
         savedX = mc.thePlayer.posX;
         savedY = mc.thePlayer.posY;
         savedZ = mc.thePlayer.posZ;
+
         if (bidirectional.getValue()) {
             Myau.blinkManager.setBlinkState(true, BlinkModules.KBDELAY);
         }
@@ -167,7 +175,9 @@ public class KnockbackDelay extends Module {
         stopBlinking();
         while (!inboundQueue.isEmpty()) {
             TimedPacket timed = inboundQueue.poll();
-            if (timed != null) processPacket(timed.packet);
+            if (timed != null) {
+                processPacket(timed.packet);
+            }
         }
     }
 
@@ -184,8 +194,6 @@ public class KnockbackDelay extends Module {
         
         for (EntityPlayer player : mc.theWorld.playerEntities) {
             if (player == mc.thePlayer || player.isDead) continue;
-            // AntiBot 檢查已移除（AIMyau 中無此 class）
-            
             double distSq = mc.thePlayer.getDistanceSqToEntity(player);
             if (distSq <= closestDist) {
                 closestDist = distSq;
@@ -203,7 +211,6 @@ public class KnockbackDelay extends Module {
         
         AxisAlignedBB bb = target.getEntityBoundingBox().expand(0.1, 0.1, 0.1);
         MovingObjectPosition mop = bb.calculateIntercept(eyes, end);
-        
         return mop != null;
     }
 
@@ -226,7 +233,6 @@ public class KnockbackDelay extends Module {
         GL11.glLineWidth(1.5f);
         GL11.glColor4f(1.0f, 0.5f, 0.0f, 0.6f);
         GL11.glBegin(GL11.GL_LINES);
-        // (box rendering lines same as original)
         GL11.glVertex3d(x-w, y, z-w); GL11.glVertex3d(x+w, y, z-w);
         GL11.glVertex3d(x+w, y, z-w); GL11.glVertex3d(x+w, y, z+w);
         GL11.glVertex3d(x+w, y, z+w); GL11.glVertex3d(x-w, y, z+w);
@@ -250,7 +256,10 @@ public class KnockbackDelay extends Module {
     private static class TimedPacket {
         final Packet<?> packet;
         final long time;
-        TimedPacket(Packet<?> packet, long time) { this.packet = packet; this.time = time; }
+        TimedPacket(Packet<?> packet, long time) {
+            this.packet = packet;
+            this.time = time;
+        }
     }
 
     @Override
