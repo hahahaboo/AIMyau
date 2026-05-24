@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
@@ -57,7 +58,7 @@ public class KnockbackDelay extends Module {
         flush();
     }
 
-    @EventTarget
+    @EventTarget(Priority.HIGHEST)
     public void onPacketReceive(PacketEvent event) {
         if (event.getType() != EventType.RECEIVE || !isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
 
