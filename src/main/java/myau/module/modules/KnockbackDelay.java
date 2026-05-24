@@ -48,12 +48,12 @@ public class KnockbackDelay extends Module {
     private double savedX, savedY, savedZ;
 
     public KnockbackDelay() {
-        super("KnockbackDelay", "Delays knockback packets (KBDelay)", Category.COMBAT, 0, false, false);
+        super("KnockbackDelay", "Delays knockback packets", Category.COMBAT, 0, false, false);
     }
 
     @Override
     public void onDisabled() {
-        flush();                    // 模組關閉時強制 flush
+        flush();
     }
 
     @EventTarget(Priority.HIGHEST)
@@ -62,7 +62,6 @@ public class KnockbackDelay extends Module {
 
         Packet<?> packet = event.getPacket();
 
-        // 收到伺服器位置修正包 → 立即釋放所有封包（重要安全機制）
         if (packet instanceof S08PacketPlayerPosLook) {
             flush();
             return;
@@ -89,7 +88,6 @@ public class KnockbackDelay extends Module {
 
         if (!blinking) return;
 
-        // 重要封包不延遲
         if (packet instanceof S07PacketRespawn) return;
         if (packet instanceof S03PacketTimeUpdate) return;
         if (packet instanceof S06PacketUpdateHealth) return;
@@ -103,12 +101,7 @@ public class KnockbackDelay extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
-            if (blinking) flush();
-            return;
-        }
-
-        if (mc.thePlayer.isDead) {
+        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.isDead) {
             flush();
             return;
         }
@@ -116,14 +109,12 @@ public class KnockbackDelay extends Module {
         if (!blinking) return;
 
         long now = System.currentTimeMillis();
-
-        // 超過最大延遲時間 → 強制 flush
+        
         if (now - lastBlinkStartTime >= maximumDelay.getValue()) {
             flush();
             return;
         }
 
-        // 釋放已到期的封包
         while (!inboundQueue.isEmpty()) {
             TimedPacket timed = inboundQueue.peek();
             if (timed != null && now - timed.time >= maximumDelay.getValue()) {
@@ -140,7 +131,7 @@ public class KnockbackDelay extends Module {
     }
 
     private boolean shouldDelay() {
-        if (Math.random() * 100 > chance.getValue()) return false;
+        if (chance.getValue() < 100 && Math.random() * 100 > chance.getValue()) return false;
         
         EntityPlayer target = getNearestPlayer(distanceToTarget.getValue());
         if (target == null) return false;
@@ -158,7 +149,6 @@ public class KnockbackDelay extends Module {
         savedX = mc.thePlayer.posX;
         savedY = mc.thePlayer.posY;
         savedZ = mc.thePlayer.posZ;
-
         if (bidirectional.getValue()) {
             Myau.blinkManager.setBlinkState(true, BlinkModules.KBDELAY);
         }
@@ -175,9 +165,7 @@ public class KnockbackDelay extends Module {
         stopBlinking();
         while (!inboundQueue.isEmpty()) {
             TimedPacket timed = inboundQueue.poll();
-            if (timed != null) {
-                processPacket(timed.packet);
-            }
+            if (timed != null) processPacket(timed.packet);
         }
     }
 
@@ -194,6 +182,8 @@ public class KnockbackDelay extends Module {
         
         for (EntityPlayer player : mc.theWorld.playerEntities) {
             if (player == mc.thePlayer || player.isDead) continue;
+            // AntiBot.isBot(player) 已移除 (按要求)
+            
             double distSq = mc.thePlayer.getDistanceSqToEntity(player);
             if (distSq <= closestDist) {
                 closestDist = distSq;
@@ -211,6 +201,7 @@ public class KnockbackDelay extends Module {
         
         AxisAlignedBB bb = target.getEntityBoundingBox().expand(0.1, 0.1, 0.1);
         MovingObjectPosition mop = bb.calculateIntercept(eyes, end);
+        
         return mop != null;
     }
 
@@ -256,14 +247,11 @@ public class KnockbackDelay extends Module {
     private static class TimedPacket {
         final Packet<?> packet;
         final long time;
-        TimedPacket(Packet<?> packet, long time) {
-            this.packet = packet;
-            this.time = time;
-        }
+        TimedPacket(Packet<?> packet, long time) { this.packet = packet; this.time = time; }
     }
 
     @Override
     public String[] getSuffix() {
-        return new String[]{"Delay: " + maximumDelay.getValue() + "ms"};
+        return new String[]{"Delay: " + maximumDelay.getValue() + "ms", "Bidirectional: " + bidirectional.getValue()};
     }
 }
