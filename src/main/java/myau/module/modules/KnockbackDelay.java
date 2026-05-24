@@ -61,16 +61,19 @@ public class KnockbackDelay extends Module {
             return;
         }
 
-        // 檢查是否需要自動關閉 blink
+        // 檢查是否需要自動關閉 blink（使用 ticksExisted 作為計時器）
         if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
             boolean isOnGround = mc.thePlayer.onGround;
             int delay = isOnGround ? groundDelay.getValue() : airDelay.getValue();
 
-            if (delay <= 0 || Myau.blinkManager.getBlinkTicks() >= delay / 50) {
+            // 使用玩家 ticksExisted 計算延遲時間（每 tick ≈ 50ms）
+            if (delay <= 0 || (mc.thePlayer.ticksExisted - startBlinkTick) * 50 >= delay) {
                 reset();
             }
         }
     }
+
+    private int startBlinkTick = 0; // 用來記錄開始 blink 的 tick
 
     @EventTarget
     public void onLoadWorld(LoadWorldEvent event) {
@@ -116,7 +119,7 @@ public class KnockbackDelay extends Module {
             }
         }
 
-        // S08 Setback 保護（避免卡住）
+        // S08 Setback 保護
         if (packet instanceof S08PacketPlayerPosLook) {
             if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
                 reset();
@@ -130,15 +133,15 @@ public class KnockbackDelay extends Module {
             S12PacketEntityVelocity vel = (S12PacketEntityVelocity) packet;
             if (vel.getEntityID() == mc.thePlayer.getEntityId() && shouldActivate()) {
                 Myau.blinkManager.setBlinkState(true, BlinkModules.KNOCKBACK_DELAY);
-                // 不取消此封包，讓玩家能立即感受到擊退方向（可自行調整）
+                startBlinkTick = mc.thePlayer.ticksExisted; // 記錄開始時間
             }
         }
 
-        // 如果正在 KnockbackDelay Blink 中，則 delay 此封包（包含 client packet & server packet）
+        // 如果正在 KnockbackDelay Blink 中，delay 此封包（client + server）
         if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
             if (event.getType() == EventType.RECEIVE || event.getType() == EventType.SEND) {
                 event.setCancelled(true);
-                Myau.blinkManager.offerPacket(packet);  // 交由 BlinkManager 統一管理
+                Myau.blinkManager.offerPacket(packet);
             }
         }
     }
@@ -154,11 +157,12 @@ public class KnockbackDelay extends Module {
         if (Myau.blinkManager.getBlinkingModule() == BlinkModules.KNOCKBACK_DELAY) {
             Myau.blinkManager.setBlinkState(false, BlinkModules.KNOCKBACK_DELAY);
         }
+        startBlinkTick = 0;
     }
 
     private Entity findTarget() {
-        // 優先使用 KillAura 的目標
-        Module kaModule = Myau.moduleManager.getModule(KillAura.class);
+        // 使用 modules map 直接取（正確方式）
+        Module kaModule = Myau.moduleManager.modules.get(KillAura.class);
         if (kaModule instanceof KillAura) {
             KillAura ka = (KillAura) kaModule;
             if (ka.isEnabled() && ka.getTarget() != null) {
