@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.LoadWorldEvent;
 import myau.events.PacketEvent;
 import myau.events.UpdateEvent;
