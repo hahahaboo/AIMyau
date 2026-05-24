@@ -1,236 +1,259 @@
 package myau.module.modules;
 
 import myau.Myau;
+import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
-import myau.event.types.Priority;
-import myau.events.LoadWorldEvent;
 import myau.events.PacketEvent;
-import myau.events.UpdateEvent;
+import myau.events.Render3DEvent;
+import myau.events.TickEvent;
 import myau.module.Module;
 import myau.module.Category;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
-import myau.util.ItemUtil;
-import myau.util.RandomUtil;
+import myau.property.properties.PercentProperty;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.INetHandlerPlayClient;
 import net.minecraft.network.play.server.*;
+import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.Vec3;
+import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.GL11;
 
-import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-/**
- * KnockbackDelay — delays incoming velocity + transaction packets
- * to manipulate when knockback is applied to the player.
- *
- * 改用 S12PacketEntityVelocity（自己）觸發延遲，並加入 S08 setback 保護
- */
 public class KnockbackDelay extends Module {
+
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    private final IntProperty airDelay = new IntProperty("AirDelay", 90, 0, 1000);
-    private final IntProperty groundDelay = new IntProperty("GroundDelay", 0, 0, 1000);
-    private final IntProperty chance = new IntProperty("Chance", 100, 0, 100);
-    private final BooleanProperty realtimeDamage = new BooleanProperty("RealtimeDamage", true);
-    private final BooleanProperty requireTarget = new BooleanProperty("RequireTarget", false);
-    private final BooleanProperty onlySwords = new BooleanProperty("OnlySwords", false);
+    private final IntProperty distanceToTarget = new IntProperty("Distance to target", 6, 3, 12);
+    private final IntProperty maximumDelay = new IntProperty("Maximum delay", 200, 50, 1000);
+    private final PercentProperty chance = new PercentProperty("Chance %", 100);
 
-    private final Queue<TimedPacket> packets = new ConcurrentLinkedQueue<>();
-    private boolean blink;
+    private final BooleanProperty inAir = new BooleanProperty("In air", true);
+    private final BooleanProperty lookingAtPlayer = new BooleanProperty("Looking at player", false);
+    private final BooleanProperty requireLMB = new BooleanProperty("Require LMB", false);
+    private final BooleanProperty bidirectional = new BooleanProperty("Bidirectional", true);
+    private final BooleanProperty showBox = new BooleanProperty("Show Box", true);
+
+    private final Queue<TimedPacket> inboundQueue = new ConcurrentLinkedQueue<>();
+    private boolean blinking = false;
+    private long lastBlinkStartTime = 0;
+    private double savedX, savedY, savedZ;
 
     public KnockbackDelay() {
-        super("KnockbackDelay", " ", Category.COMBAT, 0, false, false);
-    }
-
-    @Override
-    public String[] getSuffix() {
-        return new String[]{airDelay.getValue() + " - " + groundDelay.getValue()};
+        super("KnockbackDelay", "Delays knockback packets (new KBDelay version)", Category.COMBAT, 0, false, false);
     }
 
     @Override
     public void onDisabled() {
-        reset();
-        packets.clear();        // 額外確保完全清空佇列
+        flush();
     }
 
     @EventTarget
-    public void onUpdate(UpdateEvent event) {
-        if (event.getType() != EventType.PRE) return;
-        if (mc.thePlayer == null || mc.theWorld == null) return;
-        if (mc.isSingleplayer() || mc.thePlayer.ticksExisted < 20) return;
-
-        // 【修復重點】模組被禁用時強制清理，防止卡住
-        if (!isEnabled()) {
-            reset();
-            return;
-        }
-
-        if (mc.currentScreen != null) {
-            reset();
-            return;
-        }
-
-        if (!shouldActivate()) {
-            reset();
-            return;
-        }
-
-        int delay = mc.thePlayer.onGround ? groundDelay.getValue() : airDelay.getValue();
-
-        if (!packets.isEmpty()) {
-            handle(delay);
-        }
-
-        // 【修改後】blink 狀態只由 S12 封包控制，當佇列清空後自動關閉
-        if (packets.isEmpty()) {
-            blink = false;
-        }
-    }
-
-    @EventTarget
-    public void onLoadWorld(LoadWorldEvent event) {
-        reset();
-    }
-
-    @EventTarget(Priority.HIGHEST)
-    public void onPacket(PacketEvent event) {
-        if (event.getType() != EventType.RECEIVE) return;
-        if (mc.thePlayer == null || mc.theWorld == null) return;
-        if (mc.isSingleplayer() || mc.thePlayer.ticksExisted < 20 || event.isCancelled()) return;
+    public void onPacketReceive(PacketEvent event) {
+        if (event.getType() != EventType.RECEIVE || !isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
 
         Packet<?> packet = event.getPacket();
 
-        // Always let these critical/cosmetic packets through immediately
+        if (packet instanceof S08PacketPlayerPosLook) {
+            flush();
+            return;
+        }
+
+        if (packet instanceof S12PacketEntityVelocity) {
+            S12PacketEntityVelocity velocityPacket = (S12PacketEntityVelocity) packet;
+            if (velocityPacket.getEntityID() == mc.thePlayer.getEntityId()) {
+                if (blinking) {
+                    event.setCancelled(true);
+                    inboundQueue.add(new TimedPacket(packet, System.currentTimeMillis()));
+                    return;
+                }
+
+                if (shouldDelay()) {
+                    event.setCancelled(true);
+                    inboundQueue.add(new TimedPacket(packet, System.currentTimeMillis()));
+                    startBlinking();
+                }
+                return;
+            }
+        }
+
+        if (!blinking) return;
+
+        // 保留重要封包不 delay
         if (packet instanceof S07PacketRespawn) return;
         if (packet instanceof S03PacketTimeUpdate) return;
         if (packet instanceof S06PacketUpdateHealth) return;
         if (packet instanceof S13PacketDestroyEntities) return;
         if (packet instanceof S02PacketChat) return;
-        if (packet instanceof S25PacketBlockBreakAnim) return;
         if (packet instanceof S2FPacketSetSlot) return;
 
-        if (packet instanceof S2BPacketChangeGameState) {
-            int state = ((S2BPacketChangeGameState) packet).getGameState();
-            if (state == 1 || state == 2 || state == 7 || state == 8) return;
-        }
-
-        if (packet instanceof S2CPacketSpawnGlobalEntity) {
-            if (((S2CPacketSpawnGlobalEntity) packet).func_149053_g() == 1) return;
-        }
-
-        if (packet instanceof S29PacketSoundEffect) {
-            if ("ambient.weather.thunder".equalsIgnoreCase(((S29PacketSoundEffect) packet).getSoundName())) return;
-        }
-
-        // Let damage status through in realtime so hurt animation plays immediately
-        if (realtimeDamage.getValue() && packet instanceof S19PacketEntityStatus) {
-            S19PacketEntityStatus statusPacket = (S19PacketEntityStatus) packet;
-            if (statusPacket.getOpCode() == 2 && statusPacket.getEntity(mc.theWorld) == mc.thePlayer) {
-                return;
-            }
-        }
-
-        // 【新增】S08PacketPlayerPosLook 保護 - 收到 Setback 立刻 flush
-        if (packet instanceof S08PacketPlayerPosLook) {
-            if (blink && !packets.isEmpty()) {
-                reset();                    // 立刻釋放所有佇列封包，避免 position corruption & infinite desync
-                return;
-            }
-        }
-
-        // 【新增】S12PacketEntityVelocity 自己受到擊退 → 開啟 blink
-        if (packet instanceof S12PacketEntityVelocity) {
-            S12PacketEntityVelocity vel = (S12PacketEntityVelocity) packet;
-            if (vel.getEntityID() == mc.thePlayer.getEntityId()) {
-                blink = true;                    // 收到自己的擊退封包 → 開始延遲
-            }
-        }
-
-        if (blink) {
-            event.setCancelled(true);
-            packets.add(new TimedPacket(packet, System.currentTimeMillis()));
-        }
+        event.setCancelled(true);
+        inboundQueue.add(new TimedPacket(packet, System.currentTimeMillis()));
     }
 
-    private boolean shouldActivate() {
-        if (RandomUtil.nextInt(0, 100) > chance.getValue()) return false;
+    @EventTarget
+    public void onTick(TickEvent event) {
+        if (event.getType() != EventType.POST || !isEnabled() || mc.thePlayer == null || mc.theWorld == null || mc.thePlayer.isDead) {
+            flush();
+            return;
+        }
 
-        if (requireTarget.getValue() && findTarget() == null) return false;
+        if (!blinking) return;
 
-        if (onlySwords.getValue() && !ItemUtil.isHoldingSword()) return false;
+        long now = System.currentTimeMillis();
+        
+        if (now - lastBlinkStartTime >= maximumDelay.getValue()) {
+            flush();
+            return;
+        }
 
-        return true;
-    }
-
-    private void reset() {
-        blink = false;
-        flush();                    // 無論 blink 狀態都執行 flush
-    }
-
-    private void handle(int delay) {
-        while (!packets.isEmpty()) {
-            TimedPacket wrapper = packets.peek();
-            if (wrapper != null && wrapper.elapsed(delay)) {
-                packets.poll();
-                processPacketSilent(wrapper.packet);
+        while (!inboundQueue.isEmpty()) {
+            TimedPacket timed = inboundQueue.peek();
+            if (timed != null && now - timed.time >= maximumDelay.getValue()) {
+                inboundQueue.poll();
+                processPacket(timed.packet);
             } else {
                 break;
             }
         }
+
+        if (inboundQueue.isEmpty()) {
+            stopBlinking();
+        }
+    }
+
+    private boolean shouldDelay() {
+        if (Math.random() * 100 > chance.getValue()) return false;
+        
+        EntityPlayer target = getNearestPlayer(distanceToTarget.getValue());
+        if (target == null) return false;
+
+        if (inAir.getValue() && mc.thePlayer.onGround) return false;
+        if (lookingAtPlayer.getValue() && !isLookingAtPlayer(target)) return false;
+        if (requireLMB.getValue() && !Mouse.isButtonDown(0)) return false;
+
+        return true;
+    }
+
+    private void startBlinking() {
+        blinking = true;
+        lastBlinkStartTime = System.currentTimeMillis();
+        savedX = mc.thePlayer.posX;
+        savedY = mc.thePlayer.posY;
+        savedZ = mc.thePlayer.posZ;
+        if (bidirectional.getValue()) {
+            Myau.blinkManager.setBlinkState(true, BlinkModules.KBDELAY);
+        }
+    }
+
+    private void stopBlinking() {
+        blinking = false;
+        if (bidirectional.getValue()) {
+            Myau.blinkManager.setBlinkState(false, BlinkModules.KBDELAY);
+        }
     }
 
     private void flush() {
-        // 【修復重點】強制釋放所有已佇列封包，解決無法正常 disable 的問題
-        TimedPacket wrapper;
-        while ((wrapper = packets.poll()) != null) {
-            processPacketSilent(wrapper.packet);
+        stopBlinking();
+        while (!inboundQueue.isEmpty()) {
+            TimedPacket timed = inboundQueue.poll();
+            if (timed != null) processPacket(timed.packet);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void processPacketSilent(Packet<?> packet) {
-        try {
-            if (mc.getNetHandler() != null) {
-                ((Packet<INetHandlerPlayClient>) packet).processPacket(mc.getNetHandler());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    private void processPacket(Packet<?> packet) {
+        if (mc.getNetHandler() != null) {
+            ((Packet<INetHandlerPlayClient>) packet).processPacket(mc.getNetHandler());
         }
+    }
+
+    private EntityPlayer getNearestPlayer(double range) {
+        EntityPlayer closest = null;
+        double closestDist = range * range;
+        
+        for (EntityPlayer player : mc.theWorld.playerEntities) {
+            if (player == mc.thePlayer || player.isDead) continue;
+            // AntiBot 檢查已移除（AIMyau 中無此 class）
+            
+            double distSq = mc.thePlayer.getDistanceSqToEntity(player);
+            if (distSq <= closestDist) {
+                closestDist = distSq;
+                closest = player;
+            }
+        }
+        return closest;
+    }
+
+    private boolean isLookingAtPlayer(EntityPlayer target) {
+        Vec3 eyes = mc.thePlayer.getPositionEyes(1.0F);
+        Vec3 look = mc.thePlayer.getLook(1.0F);
+        double range = distanceToTarget.getValue();
+        Vec3 end = eyes.addVector(look.xCoord * range, look.yCoord * range, look.zCoord * range);
+        
+        AxisAlignedBB bb = target.getEntityBoundingBox().expand(0.1, 0.1, 0.1);
+        MovingObjectPosition mop = bb.calculateIntercept(eyes, end);
+        
+        return mop != null;
+    }
+
+    @EventTarget
+    public void onRender3D(Render3DEvent event) {
+        if (!isEnabled() || !showBox.getValue() || !blinking) return;
+        
+        net.minecraft.client.renderer.entity.RenderManager rm = mc.getRenderManager();
+        double x = savedX - rm.viewerPosX;
+        double y = savedY - rm.viewerPosY;
+        double z = savedZ - rm.viewerPosZ;
+        double w = 0.3, h = 1.8;
+
+        GlStateManager.pushMatrix();
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableDepth();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.disableLighting();
+        GL11.glLineWidth(1.5f);
+        GL11.glColor4f(1.0f, 0.5f, 0.0f, 0.6f);
+        GL11.glBegin(GL11.GL_LINES);
+        // (box rendering lines same as original)
+        GL11.glVertex3d(x-w, y, z-w); GL11.glVertex3d(x+w, y, z-w);
+        GL11.glVertex3d(x+w, y, z-w); GL11.glVertex3d(x+w, y, z+w);
+        GL11.glVertex3d(x+w, y, z+w); GL11.glVertex3d(x-w, y, z+w);
+        GL11.glVertex3d(x-w, y, z+w); GL11.glVertex3d(x-w, y, z-w);
+        GL11.glVertex3d(x-w, y+h, z-w); GL11.glVertex3d(x+w, y+h, z-w);
+        GL11.glVertex3d(x+w, y+h, z-w); GL11.glVertex3d(x+w, y+h, z+w);
+        GL11.glVertex3d(x+w, y+h, z+w); GL11.glVertex3d(x-w, y+h, z+w);
+        GL11.glVertex3d(x-w, y+h, z+w); GL11.glVertex3d(x-w, y+h, z-w);
+        GL11.glVertex3d(x-w, y, z-w); GL11.glVertex3d(x-w, y+h, z-w);
+        GL11.glVertex3d(x+w, y, z-w); GL11.glVertex3d(x+w, y+h, z-w);
+        GL11.glVertex3d(x+w, y, z+w); GL11.glVertex3d(x+w, y+h, z+w);
+        GL11.glVertex3d(x-w, y, z+w); GL11.glVertex3d(x-w, y+h, z+w);
+        GL11.glEnd();
+        GlStateManager.enableDepth();
+        GlStateManager.enableTexture2D();
+        GlStateManager.disableBlend();
+        GlStateManager.enableLighting();
+        GlStateManager.popMatrix();
     }
 
     private static class TimedPacket {
-        private final Packet<?> packet;
-        private final long time;
-
-        public TimedPacket(Packet<?> packet, long time) {
-            this.packet = packet;
-            this.time = time;
-        }
-
-        public boolean elapsed(int delayMs) {
-            return System.currentTimeMillis() - time >= delayMs;
-        }
+        final Packet<?> packet;
+        final long time;
+        TimedPacket(Packet<?> packet, long time) { this.packet = packet; this.time = time; }
     }
 
-    private Entity findTarget() {
-        KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-    
-        // 使用 KillAura 已經提供的 public getter（getTarget()）
-        if (ka != null && ka.isEnabled() && ka.getTarget() != null) {
-            return ka.getTarget();
-        }
-
-        // Fallback: 滑鼠指向的實體
-        MovingObjectPosition ray = mc.objectMouseOver;
-        if (ray != null && ray.entityHit != null) {
-            return ray.entityHit;
-        }
-
-        return null;
+    @Override
+    public String[] getSuffix() {
+        return new String[]{"Delay: " + maximumDelay.getValue() + "ms"};
     }
 }
