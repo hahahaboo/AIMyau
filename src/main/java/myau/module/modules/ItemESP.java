@@ -39,7 +39,7 @@ public class ItemESP extends Module {
     public final BooleanProperty iron = new BooleanProperty("iron", true);
 
     public ItemESP() {
-        super("ItemESP", "ESP for items.", Category.RENDER, 0, false, false);
+        super("ItemESP", "ESP for items.", Category.RENDER, 0, false, true);
     }
 
     private boolean shouldHighlightItem(int itemId) {
