@@ -3,7 +3,6 @@ package myau;
 import myau.command.CommandManager;
 import myau.command.commands.*;
 import myau.config.Config;
-import myau.config.HideConfig;
 import myau.event.EventManager;
 import myau.management.*;
 import myau.module.Module;
@@ -27,7 +26,6 @@ public class Myau {
     public static DelayManager delayManager;
     public static FloatManager floatManager;
     public static FriendManager friendManager;
-    public static HideConfig hideConfig;
     public static LagManager lagManager;
     public static ModuleManager moduleManager;
     public static PlayerStateManager playerStateManager;
@@ -160,12 +158,8 @@ public class Myau {
             EventManager.register(module);
         }
         globalConfig = new Config("default", true);
-        hideConfig = new HideConfig("Hide", true);
         if (globalConfig.file.exists()) {
             globalConfig.load();
-        }
-        if (hideConfig.file.exists()) {
-            hideConfig.load();
         }
         if (friendManager.file.exists()) {
             friendManager.load();
@@ -176,7 +170,6 @@ public class Myau {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             FontResourceManager.cleanupAllFonts();
             globalConfig.save();
-            hideConfig.save();
         }));
     }
 }
