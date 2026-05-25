@@ -46,7 +46,7 @@ public class ESP extends Module {
     private boolean glow = true;
 
     public ESP() {
-        super("ESP", "Allows you to see entities through walls.", Category.RENDER, 0, false, false);
+        super("ESP", "Allows you to see entities through walls.", Category.RENDER, 0, false, true);
     }
 
     private boolean shouldRenderPlayer(EntityPlayer entityPlayer) {
