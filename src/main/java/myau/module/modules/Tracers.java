@@ -36,7 +36,7 @@ public class Tracers extends Module {
     public final BooleanProperty showBots = new BooleanProperty("bots", false);
 
     public Tracers() {
-        super("Tracers", "Tracers", Category.RENDER, 0, false, false);
+        super("Tracers", "Tracers", Category.RENDER, 0, false, true);
     }
 
     private boolean shouldRender(EntityPlayer entityPlayer) {
