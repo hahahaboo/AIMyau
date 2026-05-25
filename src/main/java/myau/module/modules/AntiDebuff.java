@@ -9,6 +9,6 @@ public class AntiDebuff extends Module {
     public final BooleanProperty nausea = new BooleanProperty("nausea", true);
 
     public AntiDebuff() {
-        super("AntiDebuff", "Remove Debuff", Category.WORLD, 0, false, false);
+        super("AntiDebuff", "Remove Debuff", Category.WORLD, 0, false, true);
     }
 }
