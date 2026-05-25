@@ -28,7 +28,7 @@ public class ChestESP extends Module {
     public final BooleanProperty tracers;
 
     public ChestESP() {
-        super("ChestESP", "Shows chests through walls.", Category.RENDER, 0, false, false);
+        super("ChestESP", "Shows chests through walls.", Category.RENDER, 0, false, true);
         this.color = new ColorProperty("color", new Color(255, 170, 0).getRGB());
         this.opacity = new PercentProperty("opacity", 100);
         this.tracers = new BooleanProperty("tracers", false);
