@@ -8,6 +8,6 @@ public class NoHurtCam extends Module {
     public final PercentProperty multiplier = new PercentProperty("multiplier", 0);
 
     public NoHurtCam() {
-        super("NoHurtCam", "", Category.RENDER, 0, false, true);
+        super("NoHurtCam", "", Category.RENDER, 0, true, true);
     }
 }
