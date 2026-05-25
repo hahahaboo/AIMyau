@@ -22,7 +22,7 @@ public class WaterMark extends Module {
     public final BooleanProperty shadow = new BooleanProperty("Shadow", true, () -> mode.getValue() == 1);
 
     public WaterMark() {
-        super("WaterMark", "Just watermark,hmm", Category.RENDER, 0, false, false);
+        super("WaterMark", "Just watermark,hmm", Category.RENDER, 0, false, true);
     }
 
     private FontRenderer getCustomFont() {

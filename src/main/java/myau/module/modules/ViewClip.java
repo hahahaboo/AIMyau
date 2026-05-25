@@ -8,7 +8,7 @@ public class ViewClip extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     public ViewClip() {
-        super("ViewClip", "idk", Category.RENDER, 0, false, false);
+        super("ViewClip", "idk", Category.RENDER, 0, false, true);
     }
 
     @Override

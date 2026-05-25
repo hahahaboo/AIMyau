@@ -34,7 +34,7 @@ public class NotificationModule extends Module {
     public final ModeProperty positionY = new ModeProperty("Position Y", 1, new String[]{"TOP", "BOTTOM"});
 
     public NotificationModule() {
-        super("Notifications", "Display notifications", Category.RENDER, 0, true, false);
+        super("Notifications", "Display notifications", Category.RENDER, 0, true, true);
     }
 
     @Override

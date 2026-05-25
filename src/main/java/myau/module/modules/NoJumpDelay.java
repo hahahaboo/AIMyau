@@ -15,7 +15,7 @@ public class NoJumpDelay extends Module {
     public final IntProperty delay = new IntProperty("delay", 3, 0, 8);
 
     public NoJumpDelay() {
-        super("NoJumpDelay", "", Category.PLAYER, 0, false, false);
+        super("NoJumpDelay", "", Category.PLAYER, 0, true, true);
     }
 
     @EventTarget(Priority.HIGHEST)

@@ -33,7 +33,7 @@ public class Chams extends Module {
     public final BooleanProperty bots = new BooleanProperty("bots", false);
 
     public Chams() {
-        super("Chams", "Renders entities through walls with color.", Category.RENDER, 0, false, false);
+        super("Chams", "Renders entities through walls with color.", Category.RENDER, 0, false, true);
     }
 
     private boolean shouldRenderChams(EntityLivingBase entityLivingBase) {

@@ -67,7 +67,7 @@ public class NameTags extends Module {
     public final BooleanProperty bots = new BooleanProperty("bots", false);
 
     public NameTags() {
-        super("NameTags", "Show nametags on players", Category.RENDER, 0, false, false);
+        super("NameTags", "Show nametags on players", Category.RENDER, 0, false, true);
     }
 
     public boolean shouldRenderTags(EntityLivingBase entityLivingBase) {
