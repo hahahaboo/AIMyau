@@ -31,7 +31,6 @@ public class HideCommand extends Command {
         }
 
         module.setHidden(true);
-        Myau.hideConfig.save();
         ChatUtil.sendFormatted("&aModule '" + module.getName() + "' is now hidden from HUD.");
     }
 }
