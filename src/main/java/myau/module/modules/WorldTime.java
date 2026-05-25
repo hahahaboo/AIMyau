@@ -16,7 +16,7 @@ public class WorldTime extends Module {
     public final IntProperty time = new IntProperty("time", 1000, 1, 24000);
 
     public WorldTime() {
-        super("WorldTime", "改變玩家端的天空時間 (client-side only)", Category.RENDER, 0, false, false);
+        super("WorldTime", "改變玩家端的天空時間 (client-side only)", Category.RENDER, 0, false, true);
     }
 
     @EventTarget
