@@ -31,7 +31,6 @@ public class ShowCommand extends Command {
         }
 
         module.setHidden(false);
-        Myau.hideConfig.save();
         ChatUtil.sendFormatted("&aModule '" + module.getName() + "' is now visible on HUD.");
     }
 }
