@@ -5,14 +5,14 @@ import myau.events.AttackEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
-import myau.property.properties.FloatProperty;
+import myau.property.properties.PercentProperty;
 import myau.util.RandomUtil;
 import myau.util.RotationUtil;
 import net.minecraft.entity.EntityLivingBase;
 
 public class HitSelect extends Module {
 
-    public final FloatProperty chance;
+    public final PercentProperty chance;
     public final BooleanProperty bestTiming;
 
     private EntityLivingBase currentTarget = null;
@@ -22,7 +22,7 @@ public class HitSelect extends Module {
     public HitSelect() {
         super("HitSelect", "Selective hitting with timing and chance control", Category.COMBAT, 0, false, false);
         
-        this.chance = new FloatProperty("chance", 80.0F, 0.0F, 100.0F);
+        this.chance = new PercentProperty("chance", 0.80f);           // 80% 預設值
         this.bestTiming = new BooleanProperty("best-timing", true);
     }
 
@@ -51,7 +51,6 @@ public class HitSelect extends Module {
                 inBestTimingMode = false;   // 失敗後退出最佳模式
             } else {
                 shouldHit = true;
-                // 繼續允許攻擊
             }
             return;
         }
@@ -66,7 +65,7 @@ public class HitSelect extends Module {
         }
 
         // 判斷2: chance 是否觸發
-        if (!RandomUtil.chance(this.chance.getValue() / 100.0)) {
+        if (!RandomUtil.chance(this.chance.getValue())) {   // PercentProperty 直接使用 getValue()
             event.setCancelled(true);
             return;
         }
