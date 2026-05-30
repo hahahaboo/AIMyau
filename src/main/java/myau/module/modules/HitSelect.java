@@ -16,15 +16,15 @@ public class HitSelect extends Module {
     public final BooleanProperty bestTiming;
 
     private EntityLivingBase currentTarget = null;
-    private boolean inBestTimingMode = false;   // 是否處於最佳時機模式（只判斷4）
-    private boolean shouldHit = false;
+    private boolean inBestTimingMode = false;
+    private boolean readyToHit = false;        // 新增：是否已準備好可以 hit
 
-    private int chanceCounter = 0;   // Velocity 風格的 chance 計數器
+    private int chanceCounter = 0;
 
     public HitSelect() {
         super("HitSelect", "Selective hitting with timing and chance control", Category.COMBAT, 0, false, false);
         
-        this.chance = new PercentProperty("chance", 80);           // 80% 預設值 (Integer)
+        this.chance = new PercentProperty("chance", 80);
         this.bestTiming = new BooleanProperty("best-timing", true);
     }
 
@@ -34,10 +34,10 @@ public class HitSelect extends Module {
             return;
         }
 
-        // 獲取 target：優先使用 AttackEvent，若無則 fallback 到 mouse over
         EntityLivingBase target = getTarget(event);
         if (target == null) {
             resetState();
+            event.setCancelled(true);
             return;
         }
 
@@ -47,68 +47,70 @@ public class HitSelect extends Module {
             currentTarget = target;
         }
 
-        // 如果處於 best-timing 模式，直接執行判斷4
+        // ==================== 主要邏輯 ====================
+
         if (inBestTimingMode) {
-            if (!checkJudgment4(target)) {
-                event.setCancelled(true);
-                inBestTimingMode = false;   // 失敗後退出最佳模式
+            // best-timing 模式：只持續檢查判斷4，直到滿足為止
+            if (checkJudgment4(target)) {
+                readyToHit = true;
             } else {
-                shouldHit = true;
+                readyToHit = false;
             }
-            return;
-        }
-
-        // ==================== 正常完整流程 ====================
-
-        // 判斷1: A在hurttime 且 不在地上
-        boolean judgment1 = mc.thePlayer.hurtTime > 0 && !mc.thePlayer.onGround;
-        if (!judgment1) {
-            event.setCancelled(true);
-            return;
-        }
-
-        // 判斷2: chance 是否觸發 (參考 Velocity 實作)
-        this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
-        if (this.chanceCounter < 100) {
-            event.setCancelled(true);
-            return;
-        }
-        this.chanceCounter = 0;   // 重置計數器（成功觸發後）
-
-        // 判斷3: A是否在下落 (falling)
-        boolean isFalling = mc.thePlayer.motionY < 0;
-        if (!isFalling) {
-            event.setCancelled(true);
-            return;
-        }
-
-        // 判斷4: B不在hurttime 且 可被打到 (distance <= 3)
-        if (!checkJudgment4(target)) {
-            event.setCancelled(true);
-            return;
-        }
-
-        // 可以攻擊
-        shouldHit = true;
-
-        // 判斷5: best-timing
-        if (this.bestTiming.getValue()) {
-            inBestTimingMode = true;   // 進入最佳時機模式，下次直接判斷4
         } else {
-            resetState();   // false 則下次從頭開始
+            // 正常模式：完整執行判斷1~4
+            readyToHit = performFullCheck(target);
+        }
+
+        // 如果還沒準備好，就持續 cancel hit
+        if (!readyToHit) {
+            event.setCancelled(true);
+            return;
+        }
+
+        // 可以 hit
+        if (this.bestTiming.getValue()) {
+            inBestTimingMode = true;
+        } else {
+            resetState(); // 非 best-timing 模式下，打完一次就重置
         }
     }
 
     /**
-     * 優先從 AttackEvent 取得 target，若無則使用 mouse over
+     * 執行完整判斷流程 (1→2→3→4)
      */
+    private boolean performFullCheck(EntityLivingBase target) {
+        // 判斷1: A在hurttime 且 不在地上
+        if (!(mc.thePlayer.hurtTime > 0 && !mc.thePlayer.onGround)) {
+            return false;
+        }
+
+        // 判斷2: chance (Velocity 風格)
+        this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
+        if (this.chanceCounter < 100) {
+            return false;
+        }
+        this.chanceCounter = 0;
+
+        // 判斷3: A正在下落
+        if (!(mc.thePlayer.motionY < 0)) {
+            return false;
+        }
+
+        // 判斷4: B不在hurttime 且 距離 <= 3
+        return checkJudgment4(target);
+    }
+
+    private boolean checkJudgment4(EntityLivingBase target) {
+        return target.hurtTime <= 0 && RotationUtil.distanceToEntity(target) <= 3.0;
+    }
+
     private EntityLivingBase getTarget(AttackEvent event) {
         EntityLivingBase target = (EntityLivingBase) event.getTarget();
         if (target != null) {
             return target;
         }
 
-        // Fallback: 使用鼠標指向的實體
+        // Fallback: mouse over
         if (mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             if (mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
                 return (EntityLivingBase) mc.objectMouseOver.entityHit;
@@ -117,15 +119,11 @@ public class HitSelect extends Module {
         return null;
     }
 
-    private boolean checkJudgment4(EntityLivingBase target) {
-        return target.hurtTime <= 0 && RotationUtil.distanceToEntity(target) <= 3.0;
-    }
-
     private void resetState() {
         currentTarget = null;
         inBestTimingMode = false;
-        shouldHit = false;
-        chanceCounter = 0;   // 重置 chance 計數器
+        readyToHit = false;
+        chanceCounter = 0;
     }
 
     @Override
