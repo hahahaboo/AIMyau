@@ -6,7 +6,6 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.PercentProperty;
-import myau.util.RandomUtil;
 import myau.util.RotationUtil;
 import net.minecraft.entity.EntityLivingBase;
 
@@ -19,10 +18,12 @@ public class HitSelect extends Module {
     private boolean inBestTimingMode = false;   // 是否處於最佳時機模式（只判斷4）
     private boolean shouldHit = false;
 
+    private int chanceCounter = 0;   // Velocity 風格的 chance 計數器
+
     public HitSelect() {
         super("HitSelect", "Selective hitting with timing and chance control", Category.COMBAT, 0, false, false);
         
-        this.chance = new PercentProperty("chance", 0.80f);           // 80% 預設值
+        this.chance = new PercentProperty("chance", 80);           // 80% 預設值 (Integer)
         this.bestTiming = new BooleanProperty("best-timing", true);
     }
 
@@ -64,11 +65,13 @@ public class HitSelect extends Module {
             return;
         }
 
-        // 判斷2: chance 是否觸發
-        if (!RandomUtil.chance(this.chance.getValue())) {   // PercentProperty 直接使用 getValue()
+        // 判斷2: chance 是否觸發 (參考 Velocity 實作)
+        this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
+        if (this.chanceCounter < 100) {
             event.setCancelled(true);
             return;
         }
+        this.chanceCounter = 0;   // 重置計數器（成功觸發後）
 
         // 判斷3: A是否在下落 (falling)
         boolean isFalling = mc.thePlayer.motionY < 0;
@@ -102,6 +105,7 @@ public class HitSelect extends Module {
         currentTarget = null;
         inBestTimingMode = false;
         shouldHit = false;
+        chanceCounter = 0;   // 重置 chance 計數器
     }
 
     @Override
