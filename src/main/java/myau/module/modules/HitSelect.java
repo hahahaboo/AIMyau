@@ -8,6 +8,7 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.RotationUtil;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.MovingObjectPosition;
 
 public class HitSelect extends Module {
 
@@ -33,7 +34,8 @@ public class HitSelect extends Module {
             return;
         }
 
-        EntityLivingBase target = (EntityLivingBase) event.getTarget();
+        // 獲取 target：優先使用 AttackEvent，若無則 fallback 到 mouse over
+        EntityLivingBase target = getTarget(event);
         if (target == null) {
             resetState();
             return;
@@ -95,6 +97,24 @@ public class HitSelect extends Module {
         } else {
             resetState();   // false 則下次從頭開始
         }
+    }
+
+    /**
+     * 優先從 AttackEvent 取得 target，若無則使用 mouse over
+     */
+    private EntityLivingBase getTarget(AttackEvent event) {
+        EntityLivingBase target = (EntityLivingBase) event.getTarget();
+        if (target != null) {
+            return target;
+        }
+
+        // Fallback: 使用鼠標指向的實體
+        if (mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
+            if (mc.objectMouseOver.entityHit instanceof EntityLivingBase) {
+                return (EntityLivingBase) mc.objectMouseOver.entityHit;
+            }
+        }
+        return null;
     }
 
     private boolean checkJudgment4(EntityLivingBase target) {
