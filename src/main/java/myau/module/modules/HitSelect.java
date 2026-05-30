@@ -17,9 +17,10 @@ public class HitSelect extends Module {
 
     private EntityLivingBase currentTarget = null;
     private boolean inBestTimingMode = false;
-    private boolean readyToHit = false;        // 新增：是否已準備好可以 hit
+    private boolean readyToHit = false;
 
     private int chanceCounter = 0;
+    private int prevHurtTime = 0;   // 用來偵測玩家是否剛受到傷害
 
     public HitSelect() {
         super("HitSelect", "Selective hitting with timing and chance control", Category.COMBAT, 0, false, false);
@@ -33,6 +34,12 @@ public class HitSelect extends Module {
         if (!this.isEnabled() || event.isCancelled()) {
             return;
         }
+
+        // 傷害偵測：玩家受到傷害時重設 inBestTimingMode
+        if (mc.thePlayer.hurtTime > 0 && prevHurtTime == 0) {
+            resetBestTimingMode();
+        }
+        prevHurtTime = mc.thePlayer.hurtTime;
 
         EntityLivingBase target = getTarget(event);
         if (target == null) {
@@ -119,11 +126,18 @@ public class HitSelect extends Module {
         return null;
     }
 
+    /** 僅重設最佳時機模式（玩家受傷時使用） */
+    private void resetBestTimingMode() {
+        inBestTimingMode = false;
+        readyToHit = false;
+    }
+
     private void resetState() {
         currentTarget = null;
         inBestTimingMode = false;
         readyToHit = false;
         chanceCounter = 0;
+        prevHurtTime = 0;
     }
 
     @Override
