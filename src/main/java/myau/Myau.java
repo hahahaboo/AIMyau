@@ -83,6 +83,7 @@ public class Myau {
         moduleManager.modules.put(FreeLook.class, new FreeLook());
         moduleManager.modules.put(FullBright.class, new FullBright());
         moduleManager.modules.put(GhostHand.class, new GhostHand());
+        moduleManager.modules.put(HitSelect.class, new HitSelect());
         moduleManager.modules.put(HUD.class, new HUD());
         moduleManager.modules.put(Indicators.class, new Indicators());
         moduleManager.modules.put(InvManager.class, new InvManager());
