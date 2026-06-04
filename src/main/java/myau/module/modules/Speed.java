@@ -11,6 +11,7 @@ import myau.events.UpdateEvent;
 import myau.management.RotationState;
 import myau.mixin.IAccessorEntity;
 import myau.module.Module;
+import myau.module.Category;
 import myau.util.MoveUtil;
 import myau.util.RotationUtil;
 import myau.property.properties.BooleanProperty;
