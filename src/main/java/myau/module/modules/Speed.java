@@ -12,6 +12,7 @@ import myau.management.RotationState;
 import myau.mixin.IAccessorEntity;
 import myau.module.Module;
 import myau.module.Category;
+import myau.module.modules.KillAura;
 import myau.util.MoveUtil;
 import myau.util.RotationUtil;
 import myau.property.properties.BooleanProperty;
