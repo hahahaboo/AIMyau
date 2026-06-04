@@ -269,7 +269,6 @@ public class Scaffold extends Module {
         this.lastSnapPlacePitch = this.pitch;
     }
 
-
     private EnumFacing yawToFacing(float yaw) {
         if (yaw < -135.0F || yaw > 135.0F) {
             return EnumFacing.NORTH;
