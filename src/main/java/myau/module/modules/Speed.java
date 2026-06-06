@@ -28,7 +28,7 @@ public class Speed extends Module {
     public final FloatProperty multiplier = new FloatProperty("multiplier", 1.0F, 0.0F, 10.0F, () -> this.mode.getValue() == 0);
     public final FloatProperty friction = new FloatProperty("friction", 1.0F, 0.0F, 10.0F, () -> this.mode.getValue() == 0);
     public final PercentProperty strafe = new PercentProperty("strafe", 0, () -> this.mode.getValue() == 0);
-        public final ModeProperty blockPlacements = new ModeProperty("block-placements", 1, new String[]{"LEGIT", "BLATANT"}, () -> this.mode.getValue() == 1);
+    public final ModeProperty blockPlacements = new ModeProperty("block-placements", 1, new String[]{"LEGIT", "BLATANT"}, () -> this.mode.getValue() == 1);
     public final BooleanProperty onlyJumping = new BooleanProperty("only-jumping", true, () -> this.mode.getValue() == 1);
 
     private boolean wasOnGround = false;
