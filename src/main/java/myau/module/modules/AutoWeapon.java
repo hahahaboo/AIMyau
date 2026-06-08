@@ -1,9 +1,11 @@
 package myau.module.modules;
 
+import myau.Myau;
 import myau.event.EventTarget;
 import myau.events.Render2DEvent;
 import myau.module.Category;
 import myau.module.Module;
+import myau.module.modules.KillAura;
 import myau.property.properties.BooleanProperty;
 import myau.util.ItemUtil;
 import net.minecraft.item.ItemStack;
@@ -23,18 +25,26 @@ public class AutoWeapon extends Module {
     private int prevSlot;
 
     public AutoWeapon() {
-        super("AutoWeapon", "Automatically switch to the best damage weapon when looking at an entity", Category.COMBAT, 0, false, false);
+        super("AutoWeapon", "Automatically switch to the best damage weapon when looking at an entity or KillAura has target", Category.COMBAT, 0, false, false);
     }
 
     @EventTarget
     public void onRender2D(Render2DEvent event) {
-        if (!isEnabled()) return;   // ←←← 新增這一行（修復 bug 的關鍵）
+        if (!isEnabled()) return;   
 
         if (mc.thePlayer == null || mc.theWorld == null || mc.currentScreen != null)
             return;
 
-        if (mc.objectMouseOver == null || mc.objectMouseOver.entityHit == null
-                || (onlyClick.getValue() && !Mouse.isButtonDown(0))) {
+        boolean hasKillAuraTarget = false;
+        KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+        if (killAura != null && killAura.isEnabled()) {
+            hasKillAuraTarget = killAura.getTarget() != null;
+        }
+
+        boolean hasMouseTarget = mc.objectMouseOver != null && mc.objectMouseOver.entityHit != null;
+
+        if (!hasMouseTarget && !hasKillAuraTarget
+                || (onlyClick.getValue() && !Mouse.isButtonDown(0) && !hasKillAuraTarget)) {
             if (onWeapon) {
                 onWeapon = false;
                 if (switchBack.getValue()) {
@@ -42,7 +52,7 @@ public class AutoWeapon extends Module {
                 }
             }
         } else {
-            if (onlyClick.getValue()) {
+            if (onlyClick.getValue() && !hasKillAuraTarget) {
                 if (!Mouse.isButtonDown(0))
                     return;
             }
