@@ -77,7 +77,7 @@ public class Scaffold extends Module {
     private boolean snapRotating = false;
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 2, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel", "Snap"});
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel", "Snap"});
     public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
     public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
