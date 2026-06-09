@@ -92,7 +92,7 @@ public class Scaffold extends Module {
         public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
             public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "AIR SNEAK"});
-        public final IntProperty airSneak = new IntProperty("air-sneak", 2, 1, 3, () -> this.keepY.getValue() == 4);
+        public final IntProperty airSneak = new IntProperty("air-sneak", 4, 1, 5, () -> this.keepY.getValue() == 4);
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
         public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
