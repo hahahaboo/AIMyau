@@ -92,7 +92,7 @@ public class Scaffold extends Module {
         public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
             public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "AIR SNEAK"});
-        public final IntProperty airSneak = new IntProperty("air-sneak", 4, 1, 5, () -> this.keepY.getValue() == 4);
+        public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 4);
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
         public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
@@ -109,7 +109,7 @@ public class Scaffold extends Module {
     private int eagleSneakTicks = 0;
     private long eagleLastSneakTime = 0L;
     private int eagleBlocksPlaced = 0;
-    private int airSneakTicks = 0;
+    private long airSneakEndTime = 0L;
     private boolean hasTouchedGround = true;
 
     private boolean shouldStopSprint() {
@@ -350,23 +350,19 @@ public class Scaffold extends Module {
 
     private void updateAirSneak() {
         if (this.keepY.getValue() != 4) {
-            this.airSneakTicks = 0;
+            this.airSneakEndTime = 0L;
             return;
         }
 
         if (mc.thePlayer.onGround) {
             this.hasTouchedGround = true;
-            if (this.airSneakTicks > 0) {
-                this.airSneakTicks = 0;
-            }
+            this.airSneakEndTime = 0L;
             return;
         }
 
-        if (this.shouldAirSneak() && this.airSneakTicks == 0) {
-            this.airSneakTicks = this.airSneak.getValue();
+        if (this.shouldAirSneak() && this.airSneakEndTime == 0L) {
+            this.airSneakEndTime = System.currentTimeMillis() + this.airSneak.getValue();
             this.hasTouchedGround = false;
-        } else if (this.airSneakTicks > 0) {
-            this.airSneakTicks--;
         }
     }
 
@@ -934,7 +930,7 @@ public class Scaffold extends Module {
 
             // ==================== Air Sneak Logic ====================
             this.updateAirSneak();
-            if (this.airSneakTicks > 0 && !mc.thePlayer.movementInput.sneak) {
+            if (this.airSneakEndTime > System.currentTimeMillis() && !mc.thePlayer.movementInput.sneak) {
                 mc.thePlayer.movementInput.sneak = true;
                 mc.thePlayer.movementInput.moveForward *= 0.3F;
                 mc.thePlayer.movementInput.moveStrafe *= 0.3F;
@@ -1090,7 +1086,7 @@ public class Scaffold extends Module {
         this.snapRotating = false;
         this.lastSnapPlaceYaw = Float.NaN;
         this.lastSnapPlacePitch = Float.NaN;
-        this.airSneakTicks = 0;
+        this.airSneakEndTime = 0L;
         this.hasTouchedGround = true;
     }
 
@@ -1111,7 +1107,7 @@ public class Scaffold extends Module {
         this.safeStuckActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
-        this.airSneakTicks = 0;
+        this.airSneakEndTime = 0L;
     }
 
     public int getBlockCount() {
