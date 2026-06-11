@@ -78,26 +78,27 @@ public class Scaffold extends Module {
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel", "Snap"});
-    public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
-    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3);
+        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
     public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
-    public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
-    public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
-    public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
-    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
-    public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
-        public final BooleanProperty eagle = new BooleanProperty("eagle", false);
-    public final FloatProperty edgeDistance = new FloatProperty("edge-distance", 0.13F, 0.0F, 0.5F, () -> this.eagle.getValue());
-    public final IntProperty sneakDelay = new IntProperty("sneak-delay", 80, 0, 500, () -> this.eagle.getValue());
-    public final IntProperty blocksPerSneak = new IntProperty("blocks-per-sneak", 1, 1, 5, () -> this.eagle.getValue());
+        public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
+        public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
+            public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
+    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "AIR SNEAK"});
+        public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 4);
+        public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
+        public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final BooleanProperty eagle = new BooleanProperty("eagle", false);
+        public final FloatProperty edgeDistance = new FloatProperty("edge-distance", 0.13F, 0.0F, 0.5F, () -> this.eagle.getValue());
+        public final IntProperty sneakDelay = new IntProperty("sneak-delay", 80, 0, 500, () -> this.eagle.getValue());
+        public final IntProperty blocksPerSneak = new IntProperty("blocks-per-sneak", 1, 1, 5, () -> this.eagle.getValue());
     public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
@@ -108,6 +109,8 @@ public class Scaffold extends Module {
     private int eagleSneakTicks = 0;
     private long eagleLastSneakTime = 0L;
     private int eagleBlocksPlaced = 0;
+    private long airSneakEndTime = 0L;
+    private boolean hasTouchedGround = true;
 
     private boolean shouldStopSprint() {
         if (this.isTowering()) {
@@ -338,6 +341,31 @@ public class Scaffold extends Module {
         }
     }
 
+    private boolean shouldAirSneak() {
+        return this.keepY.getValue() == 4 
+                && !mc.thePlayer.onGround 
+                && mc.thePlayer.motionY < 0.0 
+                && this.hasTouchedGround;
+    }
+
+    private void updateAirSneak() {
+        if (this.keepY.getValue() != 4) {
+            this.airSneakEndTime = 0L;
+            return;
+        }
+
+        if (mc.thePlayer.onGround) {
+            this.hasTouchedGround = true;
+            this.airSneakEndTime = 0L;
+            return;
+        }
+
+        if (this.shouldAirSneak() && this.airSneakEndTime == 0L) {
+            this.airSneakEndTime = System.currentTimeMillis() + this.airSneak.getValue();
+            this.hasTouchedGround = false;
+        }
+    }
+
     private float getSpeed() {
         if (!mc.thePlayer.onGround) {
             return (float) this.airMotion.getValue() / 100.0F;
@@ -365,7 +393,7 @@ public class Scaffold extends Module {
 
     private boolean isTowering() {
         if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
-            boolean keepY = this.keepY.getValue() == 3;
+            boolean keepY = this.keepY.getValue() == 3 || this.keepY.getValue() == 4;
             boolean tower = this.tower.getValue() == 3;
             return keepY && this.stage > 0 || tower && mc.gameSettings.keyBindJump.isKeyDown();
         } else {
@@ -899,8 +927,17 @@ public class Scaffold extends Module {
                 mc.thePlayer.movementInput.moveForward *= 0.3F;
                 mc.thePlayer.movementInput.moveStrafe *= 0.3F;
             }
+
+            // ==================== Air Sneak Logic ====================
+            this.updateAirSneak();
+            if (this.airSneakEndTime > System.currentTimeMillis() && !mc.thePlayer.movementInput.sneak) {
+                mc.thePlayer.movementInput.sneak = true;
+                mc.thePlayer.movementInput.moveForward *= 0.3F;
+                mc.thePlayer.movementInput.moveStrafe *= 0.3F;
+            }
         }
     }
+
 
     @EventTarget
     public void onLivingUpdate(LivingUpdateEvent event) {
@@ -1049,6 +1086,8 @@ public class Scaffold extends Module {
         this.snapRotating = false;
         this.lastSnapPlaceYaw = Float.NaN;
         this.lastSnapPlacePitch = Float.NaN;
+        this.airSneakEndTime = 0L;
+        this.hasTouchedGround = true;
     }
 
     @Override
@@ -1068,6 +1107,7 @@ public class Scaffold extends Module {
         this.safeStuckActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
+        this.airSneakEndTime = 0L;
     }
 
     public int getBlockCount() {
