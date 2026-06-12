@@ -26,6 +26,7 @@ public class AntiAFK extends Module {
     private final TimerUtil action3Timer = new TimerUtil();
 
     private boolean isAFK = false;
+    private boolean isModuleAction = false;  // 新增：防止模組自身動作觸發退出
     private int strafeTicks = 0;
     private float lastStrafe = 0f;
 
@@ -43,7 +44,6 @@ public class AntiAFK extends Module {
     public void onDisabled() {
         super.onDisabled();
         resetAll();
-        // 確保不留下輸入
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
@@ -52,6 +52,7 @@ public class AntiAFK extends Module {
 
     private void resetAll() {
         isAFK = false;
+        isModuleAction = false;
         afkTimer.reset();
         action1Timer.reset();
         action2Timer.reset();
@@ -85,17 +86,23 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
-        exitAFK();
+        if (!isModuleAction) {   // 只在玩家真實點擊時退出
+            exitAFK();
+        }
     }
 
     @EventTarget
     public void onRightClick(RightClickMouseEvent e) {
-        exitAFK();
+        if (!isModuleAction) {
+            exitAFK();
+        }
     }
 
     @EventTarget
     public void onJump(JumpEvent e) {
-        exitAFK();
+        if (!isModuleAction) {
+            exitAFK();
+        }
     }
 
     private boolean isMovementKey(int key) {
@@ -112,12 +119,11 @@ public class AntiAFK extends Module {
         action2Timer.reset();
         action3Timer.reset();
         strafeTicks = 0;
-        performAction1();
-
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Enter AFK (tick: %d)", 
                 Myau.clientName, mc.thePlayer.ticksExisted));
         }
+        performAction1();
     }
 
     private void exitAFK() {
@@ -172,7 +178,10 @@ public class AntiAFK extends Module {
     }
 
     private void performAction2() {
+        isModuleAction = true;
         KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+        isModuleAction = false;
+
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Attack (tick: %d)", 
                 Myau.clientName, mc.thePlayer.ticksExisted));
@@ -180,7 +189,10 @@ public class AntiAFK extends Module {
     }
 
     private void performAction3() {
+        isModuleAction = true;
         KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindJump.getKeyCode());
+        isModuleAction = false;
+
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Action3 - Jump (tick: %d)", 
                 Myau.clientName, mc.thePlayer.ticksExisted));
