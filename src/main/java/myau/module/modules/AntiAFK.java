@@ -31,7 +31,6 @@ public class AntiAFK extends Module {
 
     public AntiAFK() {
         super("AntiAFK", "防止因長時間不動作而被伺服器踢出", Category.MISC, 0, false, false);
-        addProperties(time, debugLog);
     }
 
     @Override
