@@ -119,12 +119,11 @@ public class AntiAFK extends Module {
         action2Timer.reset();
         action3Timer.reset();
         strafeTicks = 0;
-        performAction1();
-
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Enter AFK (tick: %d)", 
                 Myau.clientName, mc.thePlayer.ticksExisted));
         }
+        performAction1();
     }
 
     private void exitAFK() {
