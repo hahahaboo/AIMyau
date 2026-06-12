@@ -9,6 +9,7 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
@@ -19,11 +20,14 @@ import net.minecraft.util.MovingObjectPosition;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
+    
     public final IntProperty minDelay = new IntProperty("min-delay", 0, 0, 250);
     public final IntProperty maxDelay = new IntProperty("max-delay", 25, 0, 250);
     public final IntProperty minDuration = new IntProperty("min-duration", 85, 0, 250);
     public final IntProperty maxDuration = new IntProperty("max-duration", 115, 0, 250);
+    public final PercentProperty chance = new PercentProperty("chance", 100);
     public final BooleanProperty intelligent = new BooleanProperty("intelligent", false);
+    public final BooleanProperty onlyGround = new BooleanProperty("only-ground", false);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean active = false;
@@ -31,6 +35,9 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long initialDurationMs = 0L;
+    
+    // chance 機制用計數器（與 JumpReset 完全一致）
+    private int chanceCounter = 0;
 
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
@@ -39,11 +46,11 @@ public class Wtap extends Module {
     private boolean canTrigger() {
         return !(mc.thePlayer.movementInput.moveForward < 0.8F)
                 && !mc.thePlayer.isCollidedHorizontally
-                && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F) || mc.thePlayer.capabilities.allowFlying) && (mc.thePlayer.isSprinting()
+                && (!((float) mc.thePlayer.getFoodStats().getFoodLevel() <= 6.0F) || mc.thePlayer.capabilities.allowFlying) 
+                && (mc.thePlayer.isSprinting()
                 || !mc.thePlayer.isUsingItem() && !mc.thePlayer.isPotionActive(Potion.blindness) && mc.gameSettings.keyBindSprint.isKeyDown());
     }
 
-    // 完全模仿 MoreKB 的 onTick 偵測方式（使用 objectMouseOver + hurtTime == 10）
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled()) {
@@ -71,6 +78,18 @@ public class Wtap extends Module {
         }
         
         if (entity.hurtTime == 10 && !this.active && mc.thePlayer.isSprinting()) {
+            // 新增 only-ground 檢查
+            if (this.onlyGround.getValue() && !mc.thePlayer.onGround) {
+                return;
+            }
+
+            // chance 機制（與 JumpReset 完全相同）
+            this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
+            if (this.chanceCounter < 100) {
+                return;
+            }
+            this.chanceCounter = 0;
+
             this.active = true;
             this.stopForward = false;
             this.delayTicks = RandomUtil.nextInt(this.minDelay.getValue(), this.maxDelay.getValue());
