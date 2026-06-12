@@ -24,7 +24,7 @@ public class AntiAFK extends Module {
     private final TimerUtil action1Timer = new TimerUtil();
     private final TimerUtil action2Timer = new TimerUtil();
     private final TimerUtil action3Timer = new TimerUtil();
-    private final TimerUtil ignoreTimer = new TimerUtil();   // 新增：忽略模組自身動作
+    private final TimerUtil ignoreTimer = new TimerUtil();
 
     private boolean isAFK = false;
     private int strafeTicks = 0;
@@ -86,7 +86,7 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
-        if (ignoreTimer.hasTimeElapsed(150)) {   // 忽略模組剛執行的攻擊
+        if (ignoreTimer.hasTimeElapsed(150)) {
             exitAFK();
         }
     }
@@ -179,7 +179,7 @@ public class AntiAFK extends Module {
     }
 
     private void performAction2() {
-        ignoreTimer.reset();                    // ← 新增：開始忽略
+        ignoreTimer.reset();
         KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
 
         if (debugLog.getValue()) {
@@ -189,12 +189,25 @@ public class AntiAFK extends Module {
     }
 
     private void performAction3() {
-        ignoreTimer.reset();                    // ← 新增：開始忽略
-        KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindJump.getKeyCode());
+        ignoreTimer.reset();
+        
+        // 修正跳躍：直接呼叫 player.jump() + 按鍵
+        if (mc.thePlayer != null) {
+            mc.thePlayer.jump();
+            KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
+            
+            // 下一個 tick 放開（在 onTick 中處理較佳，但這裡簡單處理）
+            new Thread(() -> {
+                try {
+                    Thread.sleep(50);
+                    KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
+                } catch (Exception ignored) {}
+            }).start();
+        }
 
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Action3 - Jump (tick: %d)", 
-                Myau.clientName, mc.thePlayer.ticksExisted));
+                Myau.clientName, mc.thePlayer != null ? mc.thePlayer.ticksExisted : 0));
         }
     }
 }
