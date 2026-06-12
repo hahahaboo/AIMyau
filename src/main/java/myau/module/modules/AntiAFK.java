@@ -1,6 +1,7 @@
 package myau.module.modules;
 
 import myau.event.EventTarget;
+import myau.event.types.EventType;
 import myau.events.*;
 import myau.module.Category;
 import myau.module.Module;
@@ -14,7 +15,6 @@ public class AntiAFK extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     private final IntProperty time = new IntProperty("Time", 30, 10, 300);
-
     private final TimerUtil afkTimer = new TimerUtil();
     private final TimerUtil action1Timer = new TimerUtil();
     private final TimerUtil action2Timer = new TimerUtil();
@@ -26,7 +26,6 @@ public class AntiAFK extends Module {
 
     public AntiAFK() {
         super("AntiAFK", "防止因長時間不動作而被伺服器踢出", Category.MISC, 0, false, false);
-        addProperties(time);
     }
 
     @Override
@@ -40,12 +39,10 @@ public class AntiAFK extends Module {
         super.onDisabled();
         resetAll();
         // 清理按鍵狀態
-        if (mc.gameSettings != null) {
-            mc.gameSettings.keyBindForward.setKeyDown(false);
-            mc.gameSettings.keyBindBack.setKeyDown(false);
-            mc.gameSettings.keyBindLeft.setKeyDown(false);
-            mc.gameSettings.keyBindRight.setKeyDown(false);
-        }
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), false);
     }
 
     private void resetAll() {
@@ -60,7 +57,7 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onTick(TickEvent e) {
-        if (mc.thePlayer == null) return;
+        if (mc.thePlayer == null || e.getType() != EventType.PRE) return;
 
         if (!isAFK) {
             if (afkTimer.hasTimeElapsed(time.getValue() * 1000L)) {
@@ -73,13 +70,12 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onKey(KeyEvent e) {
-        if (e.isPressed()) {
-            int key = e.getKey();
-            if (isMovementKey(key) || 
-                key == mc.gameSettings.keyBindJump.getKeyCode() || 
-                key == mc.gameSettings.keyBindSneak.getKeyCode()) {
-                exitAFK();
-            }
+        // 玩家手動按鍵 (移動、跳躍、蹲下)
+        int key = e.getKey();
+        if (isMovementKey(key) || 
+            key == mc.gameSettings.keyBindJump.getKeyCode() || 
+            key == mc.gameSettings.keyBindSneak.getKeyCode()) {
+            exitAFK();
         }
     }
 
@@ -112,7 +108,7 @@ public class AntiAFK extends Module {
         action2Timer.reset();
         action3Timer.reset();
         strafeTicks = 0;
-        performAction1(); // 進入時立即執行動作1
+        performAction1(); // 進入時立即執行
     }
 
     private void exitAFK() {
@@ -139,17 +135,17 @@ public class AntiAFK extends Module {
     }
 
     private void performAction1() {
-        strafeTicks = 10; // 約 0.5 秒
-        lastStrafe = 1.0f; // 先向右
+        strafeTicks = 10; // ≈0.5秒
+        lastStrafe = 1.0f; // 先右
     }
 
     @EventTarget
     public void onMoveInput(MoveInputEvent e) {
-        if (isAFK && strafeTicks > 0) {
-            e.setStrafe(lastStrafe);
+        if (isAFK && strafeTicks > 0 && mc.thePlayer != null && mc.thePlayer.movementInput != null) {
+            mc.thePlayer.movementInput.moveStrafe = lastStrafe;
             strafeTicks--;
             if (strafeTicks == 5) {
-                lastStrafe = -1.0f; // 切換向左
+                lastStrafe = -1.0f; // 切換左
             }
             if (strafeTicks <= 0) {
                 lastStrafe = 0f;
