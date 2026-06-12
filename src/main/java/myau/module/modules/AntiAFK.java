@@ -1,11 +1,14 @@
 package myau.module.modules;
 
+import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.*;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.util.ChatUtil;
 import myau.util.KeyBindUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
@@ -15,6 +18,8 @@ public class AntiAFK extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     private final IntProperty time = new IntProperty("Time", 30, 10, 300);
+    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
+
     private final TimerUtil afkTimer = new TimerUtil();
     private final TimerUtil action1Timer = new TimerUtil();
     private final TimerUtil action2Timer = new TimerUtil();
@@ -26,6 +31,7 @@ public class AntiAFK extends Module {
 
     public AntiAFK() {
         super("AntiAFK", "防止因長時間不動作而被伺服器踢出", Category.MISC, 0, false, false);
+        addProperties(time, debugLog);
     }
 
     @Override
@@ -38,7 +44,7 @@ public class AntiAFK extends Module {
     public void onDisabled() {
         super.onDisabled();
         resetAll();
-        // 清理按鍵狀態
+        // 確保不留下輸入
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
@@ -70,7 +76,6 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onKey(KeyEvent e) {
-        // 玩家手動按鍵 (移動、跳躍、蹲下)
         int key = e.getKey();
         if (isMovementKey(key) || 
             key == mc.gameSettings.keyBindJump.getKeyCode() || 
@@ -108,12 +113,21 @@ public class AntiAFK extends Module {
         action2Timer.reset();
         action3Timer.reset();
         strafeTicks = 0;
-        performAction1(); // 進入時立即執行
+        performAction1();
+
+        if (debugLog.getValue()) {
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: Enter AFK (tick: %d)", 
+                Myau.clientName, mc.thePlayer.ticksExisted));
+        }
     }
 
     private void exitAFK() {
         if (isAFK) {
             isAFK = false;
+            if (debugLog.getValue()) {
+                ChatUtil.sendFormatted(String.format("%sAntiAFK: Exit AFK (tick: %d)", 
+                    Myau.clientName, mc.thePlayer != null ? mc.thePlayer.ticksExisted : 0));
+            }
             resetAll();
         }
         afkTimer.reset();
@@ -135,8 +149,13 @@ public class AntiAFK extends Module {
     }
 
     private void performAction1() {
-        strafeTicks = 10; // ≈0.5秒
-        lastStrafe = 1.0f; // 先右
+        strafeTicks = 10;
+        lastStrafe = 1.0f;
+
+        if (debugLog.getValue()) {
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action1 - Strafe (tick: %d)", 
+                Myau.clientName, mc.thePlayer.ticksExisted));
+        }
     }
 
     @EventTarget
@@ -145,7 +164,7 @@ public class AntiAFK extends Module {
             mc.thePlayer.movementInput.moveStrafe = lastStrafe;
             strafeTicks--;
             if (strafeTicks == 5) {
-                lastStrafe = -1.0f; // 切換左
+                lastStrafe = -1.0f;
             }
             if (strafeTicks <= 0) {
                 lastStrafe = 0f;
@@ -155,9 +174,17 @@ public class AntiAFK extends Module {
 
     private void performAction2() {
         KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+        if (debugLog.getValue()) {
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Attack (tick: %d)", 
+                Myau.clientName, mc.thePlayer.ticksExisted));
+        }
     }
 
     private void performAction3() {
         KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindJump.getKeyCode());
+        if (debugLog.getValue()) {
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action3 - Jump (tick: %d)", 
+                Myau.clientName, mc.thePlayer.ticksExisted));
+        }
     }
 }
