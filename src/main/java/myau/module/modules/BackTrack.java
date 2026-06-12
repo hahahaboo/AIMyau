@@ -61,7 +61,7 @@ public class BackTrack extends Module {
     // Data
     private final Queue<QueueData> packetQueue = new LinkedList<>();
     private final Queue<Vec3Data> positions = new LinkedList<>();
-    private final Map<EntityLivingBase, List<Vec3>> backtrackedPlayer = new ConcurrentHashMap<>();
+    private final Map<EntityLivingBase, java.util.List<Vec3>> backtrackedPlayer = new ConcurrentHashMap<>();
 
     private EntityLivingBase target;
     private long globalTimer = System.currentTimeMillis();
@@ -167,7 +167,7 @@ public class BackTrack extends Module {
 
     private void storeBacktrackedPosition(EntityLivingBase entity, Vec3 pos) {
         backtrackedPlayer.computeIfAbsent(entity, k -> new ArrayList<>()).add(pos);
-        List<Vec3> list = backtrackedPlayer.get(entity);
+        java.util.List<Vec3> list = backtrackedPlayer.get(entity);
         if (list.size() > 50) list.remove(0);
     }
 
