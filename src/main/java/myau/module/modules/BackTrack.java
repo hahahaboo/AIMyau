@@ -62,7 +62,7 @@ public class BackTrack extends Module {
     // Data
     private final Queue<QueueData> packetQueue = new LinkedList<>();
     private final Queue<Vec3Data> positions = new LinkedList<>();
-    private final Map<EntityLivingBase, List<Vec3>> backtrackedPlayer = new ConcurrentHashMap<>();
+    private final Map<EntityLivingBase, java.util.List<Vec3>> backtrackedPlayer = new ConcurrentHashMap<>();
 
     private EntityLivingBase target;
     private long globalTimer = System.currentTimeMillis();
@@ -168,7 +168,7 @@ public class BackTrack extends Module {
 
     private void storeBacktrackedPosition(EntityLivingBase entity, Vec3 pos) {
         backtrackedPlayer.computeIfAbsent(entity, k -> new ArrayList<>()).add(pos);
-        List<Vec3> list = backtrackedPlayer.get(entity);
+        java.util.List<Vec3> list = backtrackedPlayer.get(entity);
         if (list.size() > 50) list.remove(0);
     }
 
@@ -231,7 +231,7 @@ public class BackTrack extends Module {
         float r = color.getRed() / 255f;
         float g = color.getGreen() / 255f;
         float b = color.getBlue() / 255f;
-        float a = 0.4f; // semi-transparent
+        float a = 0.4f;
 
         GL11.glPushMatrix();
         GL11.glDisable(GL11.GL_TEXTURE_2D);
@@ -240,19 +240,17 @@ public class BackTrack extends Module {
         GL11.glDisable(GL11.GL_DEPTH_TEST);
         GL11.glLineWidth(wireframeWidth.getValue());
 
-        double x = target.lastTickPosX + (target.posX - target.lastTickPosX) * event.getPartialTicks() - mc.getRenderManager().viewerPosX;
-        double y = target.lastTickPosY + (target.posY - target.lastTickPosY) * event.getPartialTicks() - mc.getRenderManager().viewerPosY;
-        double z = target.lastTickPosZ + (target.posZ - target.lastTickPosZ) * event.getPartialTicks() - mc.getRenderManager().viewerPosZ;
+        double x = (target.lastTickPosX + (target.posX - target.lastTickPosX) * event.getPartialTicks()) - mc.getRenderManager().viewerPosX;
+        double y = (target.lastTickPosY + (target.posY - target.lastTickPosY) * event.getPartialTicks()) - mc.getRenderManager().viewerPosY;
+        double z = (target.lastTickPosZ + (target.posZ - target.lastTickPosZ) * event.getPartialTicks()) - mc.getRenderManager().viewerPosZ;
 
         AxisAlignedBB bb = target.getEntityBoundingBox().expand(0.1, 0.1, 0.1)
                 .offset(-target.posX, -target.posY, -target.posZ)
                 .offset(x, y, z);
 
         if (espMode.getValue() == 1) { // Box
-            // Fill
             GL11.glColor4f(r, g, b, a * 0.5f);
             drawFilledBoundingBox(bb);
-            // Outline
             GL11.glColor4f(r, g, b, 1.0f);
             drawBoundingBox(bb);
         } else if (espMode.getValue() == 3) { // Wireframe
@@ -294,10 +292,7 @@ public class BackTrack extends Module {
         // Top
         GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ); GL11.glVertex3d(bb.maxX, bb.maxY, bb.minZ);
         GL11.glVertex3d(bb.maxX, bb.maxY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ);
-        // Sides...
-        GL11.glVertex3d(bb.minX, bb.minY, bb.minZ); GL11.glVertex3d(bb.minX, bb.maxY, bb.minZ);
-        GL11.glVertex3d(bb.minX, bb.maxY, bb.maxZ); GL11.glVertex3d(bb.minX, bb.minY, bb.maxZ);
-        // ... (簡化版，完整可後續擴展)
+        // Front, Back, Left, Right (簡化)
         GL11.glEnd();
     }
 
