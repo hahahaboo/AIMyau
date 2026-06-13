@@ -10,8 +10,11 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.KeyBindUtil;
+import myau.util.PacketUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.entity.Entity;
+import net.minecraft.network.play.client.C02PacketUseEntity;
 
 public class AntiAFK extends Module {
 
@@ -24,7 +27,6 @@ public class AntiAFK extends Module {
     private final TimerUtil action1Timer = new TimerUtil();
     private final TimerUtil action2Timer = new TimerUtil();
     private final TimerUtil action3Timer = new TimerUtil();
-    private final TimerUtil ignoreTimer = new TimerUtil();
 
     private boolean isAFK = false;
     private int strafeTicks = 0;
@@ -56,7 +58,6 @@ public class AntiAFK extends Module {
         action1Timer.reset();
         action2Timer.reset();
         action3Timer.reset();
-        ignoreTimer.reset();
         strafeTicks = 0;
         lastStrafe = 0f;
     }
@@ -86,23 +87,18 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
-        if (ignoreTimer.hasTimeElapsed(150)) {
-            exitAFK();
-        }
+        // 只對玩家真實左鍵輸入反應（封包攻擊不會觸發此事件）
+        exitAFK();
     }
 
     @EventTarget
     public void onRightClick(RightClickMouseEvent e) {
-        if (ignoreTimer.hasTimeElapsed(150)) {
-            exitAFK();
-        }
+        exitAFK();
     }
 
     @EventTarget
     public void onJump(JumpEvent e) {
-        if (ignoreTimer.hasTimeElapsed(150)) {
-            exitAFK();
-        }
+        exitAFK();
     }
 
     private boolean isMovementKey(int key) {
@@ -178,24 +174,24 @@ public class AntiAFK extends Module {
     }
 
     private void performAction2() {
-        ignoreTimer.reset();
-        KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+        // 使用封包攻擊（不會觸發 LeftClickMouseEvent）
+        if (mc.thePlayer != null) {
+            mc.thePlayer.swingItem();
+            PacketUtil.sendPacket(new C02PacketUseEntity(mc.thePlayer, C02PacketUseEntity.Action.ATTACK));
+        }
 
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Attack (tick: %d)", 
-                Myau.clientName, mc.thePlayer.ticksExisted));
+                Myau.clientName, mc.thePlayer != null ? mc.thePlayer.ticksExisted : 0));
         }
     }
 
     private void performAction3() {
-        ignoreTimer.reset();
-        
-        // 修正跳躍：直接呼叫 player.jump() + 按鍵
         if (mc.thePlayer != null) {
             mc.thePlayer.jump();
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
             
-            // 下一個 tick 放開（在 onTick 中處理較佳，但這裡簡單處理）
+            // 短暫放開
             new Thread(() -> {
                 try {
                     Thread.sleep(50);
