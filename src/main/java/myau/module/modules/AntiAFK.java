@@ -22,8 +22,7 @@ public class AntiAFK extends Module {
 
     private final TimerUtil afkTimer = new TimerUtil();
     private final TimerUtil action1Timer = new TimerUtil();
-    private final TimerUtil action2Timer = new TimerUtil();
-    private final TimerUtil action3Timer = new TimerUtil();
+    private final TimerUtil action2Timer = new TimerUtil();   // 原 action3 遞補，每20秒跳躍
 
     private boolean isAFK = false;
     private int strafeTicks = 0;
@@ -54,7 +53,6 @@ public class AntiAFK extends Module {
         afkTimer.reset();
         action1Timer.reset();
         action2Timer.reset();
-        action3Timer.reset();
         strafeTicks = 0;
         lastStrafe = 0f;
     }
@@ -84,7 +82,6 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
-        // 只對玩家真實左鍵輸入反應
         exitAFK();
     }
 
@@ -110,7 +107,6 @@ public class AntiAFK extends Module {
         afkTimer.reset();
         action1Timer.reset();
         action2Timer.reset();
-        action3Timer.reset();
         strafeTicks = 0;
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Enter AFK (tick: %d)", 
@@ -132,17 +128,13 @@ public class AntiAFK extends Module {
     }
 
     private void handleAFKActions() {
-        if (action1Timer.hasTimeElapsed(30000)) {
+        if (action1Timer.hasTimeElapsed(15000)) {
             performAction1();
             action1Timer.reset();
         }
-        if (action2Timer.hasTimeElapsed(20000)) {
+        if (action2Timer.hasTimeElapsed(40000)) {   // 每20秒跳躍一次
             performAction2();
             action2Timer.reset();
-        }
-        if (action3Timer.hasTimeElapsed(50000)) {
-            performAction3();
-            action3Timer.reset();
         }
     }
 
@@ -170,23 +162,11 @@ public class AntiAFK extends Module {
         }
     }
 
-    private void performAction2() {
-        // 使用 AutoClicker 相同的安全模擬方式（不會觸發 LeftClickMouseEvent）
-        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-        KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
-
-        if (debugLog.getValue()) {
-            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Attack (tick: %d)", 
-                Myau.clientName, mc.thePlayer != null ? mc.thePlayer.ticksExisted : 0));
-        }
-    }
-
-    private void performAction3() {
+    private void performAction2() {   // 原 Action3 遞補：跳躍
         if (mc.thePlayer != null) {
             mc.thePlayer.jump();
             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), true);
             
-            // 短暫放開
             new Thread(() -> {
                 try {
                     Thread.sleep(50);
@@ -196,7 +176,7 @@ public class AntiAFK extends Module {
         }
 
         if (debugLog.getValue()) {
-            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action3 - Jump (tick: %d)", 
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Jump (tick: %d)", 
                 Myau.clientName, mc.thePlayer != null ? mc.thePlayer.ticksExisted : 0));
         }
     }
