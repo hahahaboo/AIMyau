@@ -10,11 +10,8 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ChatUtil;
 import myau.util.KeyBindUtil;
-import myau.util.PacketUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.play.client.C02PacketUseEntity;
 
 public class AntiAFK extends Module {
 
@@ -87,7 +84,7 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
-        // 只對玩家真實左鍵輸入反應（封包攻擊不會觸發此事件）
+        // 只對玩家真實左鍵輸入反應
         exitAFK();
     }
 
@@ -174,11 +171,9 @@ public class AntiAFK extends Module {
     }
 
     private void performAction2() {
-        // 使用封包攻擊（不會觸發 LeftClickMouseEvent）
-        if (mc.thePlayer != null) {
-            mc.thePlayer.swingItem();
-            PacketUtil.sendPacket(new C02PacketUseEntity(mc.thePlayer, C02PacketUseEntity.Action.ATTACK));
-        }
+        // 使用 AutoClicker 相同的安全模擬方式（不會觸發 LeftClickMouseEvent）
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
+        KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
 
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Action2 - Attack (tick: %d)", 
