@@ -73,15 +73,16 @@ public class Scaffold extends Module {
     private double savedMotionX;
     private double savedMotionY;
     private double savedMotionZ;
+    private boolean placedThisTick = false;
     private boolean safeStuckActive = false;
     private boolean snapRotating = false;
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel", "Snap"});
-        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
+        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
+        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
+        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -91,8 +92,8 @@ public class Scaffold extends Module {
         public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
         public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
             public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
-    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "AIR SNEAK"});
-        public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 4);
+    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY" ,"AIRSNEAK"});
+        public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 5);
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
         public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
@@ -116,7 +117,7 @@ public class Scaffold extends Module {
         if (this.isTowering()) {
             return false;
         } else {
-            boolean stage = this.keepY.getValue() == 1 || this.keepY.getValue() == 2;
+            boolean stage = this.keepY.getValue() == 1 || this.keepY.getValue() == 2 || this.keepY.getValue() == 4;
             return (!stage || this.stage <= 0) && this.sprintMode.getValue() == 0;
         }
     }
@@ -204,6 +205,7 @@ public class Scaffold extends Module {
                 if (mc.playerController.getCurrentGameType() != GameType.CREATIVE) {
                     this.blockCount--;
                 }
+                this.placedThisTick = true;
                 this.eagleBlocksPlaced++;
                 if (this.swing.getValue()) {
                     mc.thePlayer.swingItem();
@@ -342,14 +344,14 @@ public class Scaffold extends Module {
     }
 
     private boolean shouldAirSneak() {
-        return this.keepY.getValue() == 4 
+        return this.keepY.getValue() == 5 
                 && !mc.thePlayer.onGround 
                 && mc.thePlayer.motionY < 0.0 
                 && this.hasTouchedGround;
     }
 
     private void updateAirSneak() {
-        if (this.keepY.getValue() != 4) {
+        if (this.keepY.getValue() != 5) {
             this.airSneakEndTime = 0L;
             return;
         }
@@ -393,7 +395,7 @@ public class Scaffold extends Module {
 
     private boolean isTowering() {
         if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
-            boolean keepY = this.keepY.getValue() == 3 || this.keepY.getValue() == 4;
+            boolean keepY = this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5;
             boolean tower = this.tower.getValue() == 3;
             return keepY && this.stage > 0 || tower && mc.gameSettings.keyBindJump.isKeyDown();
         } else {
@@ -412,6 +414,7 @@ public class Scaffold extends Module {
     @EventTarget(Priority.HIGH)
     public void onUpdate(UpdateEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
+            this.placedThisTick = false;
             if (this.safeStuckDelayTicks > 0) {
                 this.safeStuckDelayTicks--;
                 if (this.safeStuckDelayTicks <= 0) {
@@ -733,7 +736,7 @@ public class Scaffold extends Module {
                     }
                 }
                 if (this.targetFacing != null) {
-                    if (this.rotationTick <= 0) {
+                    if (this.rotationTick <= 0 && !this.placedThisTick) {
                         int playerBlockX = MathHelper.floor_double(mc.thePlayer.posX);
                         int playerBlockY = MathHelper.floor_double(mc.thePlayer.posY);
                         int playerBlockZ = MathHelper.floor_double(mc.thePlayer.posZ);
@@ -742,14 +745,16 @@ public class Scaffold extends Module {
                         this.place(belowPlayer, this.targetFacing, hitVec);
                     }
                     this.targetFacing = null;
-                } else if (this.keepY.getValue() == 2 && this.stage > 0 && !mc.thePlayer.onGround) {
+                } else if ((this.keepY.getValue() == 2 || this.keepY.getValue() == 4) && this.stage > 0 && !mc.thePlayer.onGround) {
                     int nextBlockY = MathHelper.floor_double(mc.thePlayer.posY + mc.thePlayer.motionY);
                     if (nextBlockY <= this.startY && mc.thePlayer.posY > (double) (this.startY + 1)) {
                         this.shouldKeepY = true;
                         blockData = this.getBlockData();
-                        if (blockData != null && this.rotationTick <= 0) {
-                            hitVec = BlockUtil.getHitVec(blockData.blockPos(), blockData.facing(), this.yaw, this.pitch);
-                            this.place(blockData.blockPos(), blockData.facing(), hitVec);
+                        if (blockData != null && this.rotationTick <= 0 && !this.placedThisTick) {
+                            MovingObjectPosition mop = this.getPlacementMop(blockData, this.yaw, this.pitch);
+                            if (mop != null) {
+                                this.place(blockData.blockPos(), blockData.facing(), mop.hitVec);
+                            }
                         }
                     }
                 }
