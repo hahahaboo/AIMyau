@@ -29,7 +29,7 @@ public class AntiAFK extends Module {
     private float lastStrafe = 0f;
 
     public AntiAFK() {
-        super("AntiAFK", "防止因長時間不動作而被伺服器踢出", Category.MISC, 0, false, false);
+        super("AntiAFK", "防止因長時間不動作而被伺服器踢出", Category.MISC, 0, false, true);
     }
 
     @Override

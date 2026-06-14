@@ -53,4 +53,10 @@ public class JumpReset extends Module {
             }
         }
     }
+
+    @Override
+    public String[] getSuffix() {
+        int chanceValue = this.chance.getValue();
+        return new String[]{chanceValue + "%"};
+    }
 }
