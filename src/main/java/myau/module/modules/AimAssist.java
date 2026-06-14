@@ -215,4 +215,18 @@ public class AimAssist extends Module {
             this.timer.reset();
         }
     }
+
+    @Override
+    public String[] getSuffix() {
+        float hRand = this.hRandom.getValue() / 2.0F;
+        float hBase = this.hSpeed.getValue();
+        float hMin = Math.max(0.0F, hBase - hRand);
+        float hMax = Math.min(10.0F, hBase + hRand);
+        
+        if (Math.abs(hMin - hMax) < 0.01F) {  // 如果幾乎相等
+            return new String[]{String.format("%.1f", hMin)};
+        } else {
+            return new String[]{String.format("%.1f-%.1f", hMin, hMax)};
+        }
+    }
 }
