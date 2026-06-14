@@ -103,6 +103,6 @@ public class MoreKB extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{this.mode.getMode()};
+        return new String[]{this.mode.getModeString()};  // ← 使用 ModeProperty 正確的方法
     }
 }
