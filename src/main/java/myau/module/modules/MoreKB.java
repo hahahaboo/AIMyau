@@ -100,4 +100,9 @@ public class MoreKB extends Module {
     private boolean isMoving() {
         return mc.thePlayer.moveForward != 0.0F || mc.thePlayer.moveStrafing != 0.0F;
     }
+
+    @Override
+    public String[] getSuffix() {
+        return new String[]{this.mode.getMode()};
+    }
 }
