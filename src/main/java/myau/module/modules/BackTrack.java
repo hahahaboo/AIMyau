@@ -23,6 +23,7 @@ import net.minecraft.network.play.INetHandlerPlayClient;
 import net.minecraft.network.play.server.*;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.Vec3;
+import net.minecraft.util.MovingObjectPosition;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
@@ -195,6 +196,12 @@ public class BackTrack extends Module {
     @EventTarget
     public void onAttack(AttackEvent event) {
         Entity ent = event.getTarget();
+    
+        // 如果 AttackEvent 没有 target，fallback 使用 mouse object (objectMouseOver)
+        if (ent == null && mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
+            ent = mc.objectMouseOver.entityHit;
+        }
+    
         if (ent instanceof EntityPlayer) {
             if (target == null || ent != target) {
                 vec3 = ent.getPositionVector();
