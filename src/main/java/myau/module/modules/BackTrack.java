@@ -128,7 +128,7 @@ public class BackTrack extends Module {
             return;
         }
 
-        // SMOOTH style - 適配 AIMyau TimerUtil
+        // SMOOTH style
         while (!packetQueue.isEmpty()) {
             try {
                 TimedPacket tp = packetQueue.element();
@@ -229,24 +229,6 @@ public class BackTrack extends Module {
     }
 
     @EventTarget
-    public void onAttack(AttackEvent event) {
-        if (!isEnabled()) return;
-        Entity ent = event.getTarget();
-        if (ent instanceof EntityPlayer) {
-            if (target == null || ent != target) {
-                vec3 = ent.getPositionVector();
-            }
-            target = (EntityPlayer) ent;
-
-            double distance = mc.thePlayer.getDistanceToEntity(target);
-            if (distance < distanceMin.getValue() || distance > distanceMax.getValue()) return;
-
-            currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
-            cycleTimer.reset();
-        }
-    }
-
-    @EventTarget
     public void onRender3D(Render3DEvent event) {
         if (!isEnabled() || target == null || vec3 == null || target.isDead || currentLatency == 0) return;
 
@@ -301,48 +283,4 @@ public class BackTrack extends Module {
                 break;
             case 4:
                 GL11.glLineWidth(2.0F);
-                RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
-                break;
-        }
-
-        GL11.glEnable(GL11.GL_TEXTURE_2D);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDepthMask(true);
-        GL11.glLineWidth(1.0F);
-        GlStateManager.popMatrix();
-    }
-
-    private void releaseAll() {
-        if (!packetQueue.isEmpty()) {
-            for (TimedPacket tp : packetQueue) {
-                Packet<?> packet = tp.getPacket();
-                skipPackets.add(packet);
-                receivePacket(packet);
-            }
-            packetQueue.clear();
-        }
-    }
-
-    private void receivePacket(Packet<?> packet) {
-        if (packet == null) return;
-        try {
-            ((Packet<INetHandlerPlayClient>) packet).processPacket(mc.getNetHandler());
-        } catch (ThreadQuickExitException ignored) {}
-    }
-
-    private static class TimedPacket {
-        private final Packet<?> packet;
-        private final TimerUtil timer;
-        private final int latency;
-
-        TimedPacket(Packet<?> packet, int latency) {
-            this.packet = packet;
-            this.timer = new TimerUtil();
-            this.latency = Math.max(latency, 1);
-            this.timer.reset();  // 確保 SMOOTH style 正常
-        }
-
-        Packet<?> getPacket() { return packet; }
-    }
-}
+                RenderGlobal.drawOutlinedBoundingBox(bb, color
