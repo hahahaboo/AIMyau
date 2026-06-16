@@ -283,4 +283,48 @@ public class BackTrack extends Module {
                 break;
             case 4:
                 GL11.glLineWidth(2.0F);
-                RenderGlobal.drawOutlinedBoundingBox(bb, color
+                RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
+                break;
+        }
+
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL11.glDepthMask(true);
+        GL11.glLineWidth(1.0F);
+        GlStateManager.popMatrix();
+    }
+
+    private void releaseAll() {
+        if (!packetQueue.isEmpty()) {
+            for (TimedPacket tp : packetQueue) {
+                Packet<?> packet = tp.getPacket();
+                skipPackets.add(packet);
+                receivePacket(packet);
+            }
+            packetQueue.clear();
+        }
+    }
+
+    private void receivePacket(Packet<?> packet) {
+        if (packet == null) return;
+        try {
+            ((Packet<INetHandlerPlayClient>) packet).processPacket(mc.getNetHandler());
+        } catch (ThreadQuickExitException ignored) {}
+    }
+
+    private static class TimedPacket {
+        private final Packet<?> packet;
+        private final TimerUtil timer;
+        private final int latency;
+
+        TimedPacket(Packet<?> packet, int latency) {
+            this.packet = packet;
+            this.timer = new TimerUtil();
+            this.latency = Math.max(latency, 1);
+            this.timer.reset();
+        }
+
+        Packet<?> getPacket() { return packet; }
+    }
+}
