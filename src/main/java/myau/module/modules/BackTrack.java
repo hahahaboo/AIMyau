@@ -86,6 +86,7 @@ public class BackTrack extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
+        if (!isEnabled()) return;
         if (event.getType() != EventType.PRE) return;
         if (mc.thePlayer == null) return;
 
@@ -127,11 +128,11 @@ public class BackTrack extends Module {
             return;
         }
 
-        // SMOOTH style - 已適配 AIMyau TimerUtil
+        // SMOOTH style - 適配 AIMyau TimerUtil
         while (!packetQueue.isEmpty()) {
             try {
                 TimedPacket tp = packetQueue.element();
-                if (tp.timer.hasTimeElapsed(tp.latency)) {  // 使用通用 hasTimeElapsed(long)
+                if (tp.timer.hasTimeElapsed(tp.latency)) {
                     Packet<?> packet = packetQueue.remove().getPacket();
                     skipPackets.add(packet);
                     receivePacket(packet);
@@ -148,8 +149,10 @@ public class BackTrack extends Module {
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (event.getType() != EventType.RECEIVE) {
-            if (event.getType() == EventType.SEND && event.getPacket() instanceof C02PacketUseEntity) {
+        if (!isEnabled()) return;
+
+        if (event.getType() == EventType.SEND) {
+            if (event.getPacket() instanceof C02PacketUseEntity) {
                 C02PacketUseEntity c02 = (C02PacketUseEntity) event.getPacket();
                 if (c02.getAction() == C02PacketUseEntity.Action.ATTACK) {
                     Entity ent = c02.getEntityFromWorld(mc.theWorld);
@@ -169,6 +172,8 @@ public class BackTrack extends Module {
             }
             return;
         }
+
+        if (event.getType() != EventType.RECEIVE) return;
 
         if (mc.thePlayer == null || mc.thePlayer.ticksExisted < 20) {
             packetQueue.clear();
@@ -225,12 +230,25 @@ public class BackTrack extends Module {
 
     @EventTarget
     public void onAttack(AttackEvent event) {
-        // 原有攻擊事件保留作為備用
+        if (!isEnabled()) return;
+        Entity ent = event.getTarget();
+        if (ent instanceof EntityPlayer) {
+            if (target == null || ent != target) {
+                vec3 = ent.getPositionVector();
+            }
+            target = (EntityPlayer) ent;
+
+            double distance = mc.thePlayer.getDistanceToEntity(target);
+            if (distance < distanceMin.getValue() || distance > distanceMax.getValue()) return;
+
+            currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
+            cycleTimer.reset();
+        }
     }
 
     @EventTarget
     public void onRender3D(Render3DEvent event) {
-        if (target == null || vec3 == null || target.isDead || currentLatency == 0) return;
+        if (!isEnabled() || target == null || vec3 == null || target.isDead || currentLatency == 0) return;
 
         int mode = espMode.getValue();
         if (mode == 0) return;
@@ -274,14 +292,14 @@ public class BackTrack extends Module {
         GL11.glDepthMask(false);
 
         switch (mode) {
-            case 1: // BOX
+            case 1:
                 GL11.glLineWidth(2.0F);
                 RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
                 break;
-            case 2: // FILLED
+            case 2:
                 RenderUtil.drawFilledBox(bb, color.getRed(), color.getGreen(), color.getBlue());
                 break;
-            case 4: // WIREFRAME
+            case 4:
                 GL11.glLineWidth(2.0F);
                 RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
                 break;
@@ -322,7 +340,7 @@ public class BackTrack extends Module {
             this.packet = packet;
             this.timer = new TimerUtil();
             this.latency = Math.max(latency, 1);
-            this.timer.reset();  // 確保從封包加入時開始計時（適配 AIMyau TimerUtil）
+            this.timer.reset();  // 確保 SMOOTH style 正常
         }
 
         Packet<?> getPacket() { return packet; }
