@@ -111,7 +111,7 @@ public class BackTrack extends Module {
             vec3 = null;
         }
 
-        if (releaseStyle.getValue() == 0) {
+        if (releaseStyle.getValue() == 0) { // PULSE
             if (!cycleTimer.hasTimeElapsed(currentLatency)) return;
             while (!packetQueue.isEmpty()) {
                 try {
@@ -127,9 +127,11 @@ public class BackTrack extends Module {
             return;
         }
 
+        // SMOOTH style - 已適配 AIMyau TimerUtil
         while (!packetQueue.isEmpty()) {
             try {
-                if (packetQueue.element().timer.hasTimeElapsed(packetQueue.element().latency)) {
+                TimedPacket tp = packetQueue.element();
+                if (tp.timer.hasTimeElapsed(tp.latency)) {  // 使用通用 hasTimeElapsed(long)
                     Packet<?> packet = packetQueue.remove().getPacket();
                     skipPackets.add(packet);
                     receivePacket(packet);
@@ -320,6 +322,7 @@ public class BackTrack extends Module {
             this.packet = packet;
             this.timer = new TimerUtil();
             this.latency = Math.max(latency, 1);
+            this.timer.reset();  // 確保從封包加入時開始計時（適配 AIMyau TimerUtil）
         }
 
         Packet<?> getPacket() { return packet; }
