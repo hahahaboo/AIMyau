@@ -16,6 +16,7 @@ import myau.util.RenderUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.Packet;
@@ -146,7 +147,6 @@ public class BackTrack extends Module {
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (event.getType() != EventType.RECEIVE) {
-            // 處理攻擊封包（AIMyau 兼容）
             if (event.getType() == EventType.SEND && event.getPacket() instanceof C02PacketUseEntity) {
                 C02PacketUseEntity c02 = (C02PacketUseEntity) event.getPacket();
                 if (c02.getAction() == C02PacketUseEntity.Action.ATTACK) {
@@ -223,7 +223,7 @@ public class BackTrack extends Module {
 
     @EventTarget
     public void onAttack(AttackEvent event) {
-        // 原有攻擊事件保留（作為備用）
+        // 原有攻擊事件保留作為備用
     }
 
     @EventTarget
@@ -272,16 +272,16 @@ public class BackTrack extends Module {
         GL11.glDepthMask(false);
 
         switch (mode) {
-            case 1:
+            case 1: // BOX
                 GL11.glLineWidth(2.0F);
-                RenderUtil.drawOutlinedBox(bb, color.getRGB());
+                RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
                 break;
-            case 2:
-                RenderUtil.drawFilledBox(bb, color.getRed(), color.getGreen(), color.getBlue(), 63);
+            case 2: // FILLED
+                RenderUtil.drawFilledBox(bb, color.getRed(), color.getGreen(), color.getBlue());
                 break;
-            case 4:
+            case 4: // WIREFRAME
                 GL11.glLineWidth(2.0F);
-                RenderUtil.drawOutlinedBox(bb, color.getRGB());
+                RenderGlobal.drawOutlinedBoundingBox(bb, color.getRed(), color.getGreen(), color.getBlue(), color.getAlpha());
                 break;
         }
 
