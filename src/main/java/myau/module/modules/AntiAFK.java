@@ -59,7 +59,7 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onTick(TickEvent e) {
-        if (mc.thePlayer == null || e.getType() != EventType.PRE) return;
+        if (!isEnabled() || mc.thePlayer == null || e.getType() != EventType.PRE) return;
 
         if (!isAFK) {
             if (afkTimer.hasTimeElapsed(time.getValue() * 1000L)) {
