@@ -648,7 +648,7 @@ public class KillAura extends Module {
                             } else {
                                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
                                 this.isBlocking = false;
-                                this.fakeBlockState = true;
+                                this.fakeBlockState = false;
                             }
                             break;
                         case 8: // FAKE
