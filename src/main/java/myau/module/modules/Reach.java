@@ -19,7 +19,7 @@ public class Reach extends Module {
     private static final DecimalFormat df = new DecimalFormat("0.0#", new DecimalFormatSymbols(Locale.US));
     public final FloatProperty range = new FloatProperty("range", 3.1F, 3.0F, 6.0F);
     public final PercentProperty chance = new PercentProperty("chance", 100);
-    private final Random theRandom = new Random();
+    private final Random randomChance = new Random();
     private boolean expanding = true;
 
     public Reach() {
@@ -43,7 +43,7 @@ public class Reach extends Module {
     @EventTarget
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
-            this.expanding = this.theRandom.nextDouble() <= (double) this.chance.getValue() / 100.0;
+            this.expanding = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
         }
     }
 

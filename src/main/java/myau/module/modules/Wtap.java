@@ -17,6 +17,7 @@ import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.MovingObjectPosition;
+import java.util.Random;
 
 public class Wtap extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -35,10 +36,8 @@ public class Wtap extends Module {
     private long delayTicks = 0L;
     private long durationTicks = 0L;
     private long initialDurationMs = 0L;
+    private final Random randomChance = new Random();
     
-    // chance 機制用計數器（與 JumpReset 完全一致）
-    private int chanceCounter = 0;
-
     public Wtap() {
         super("WTap", "WTap", Category.COMBAT, 0, false, false);
     }
@@ -83,12 +82,10 @@ public class Wtap extends Module {
                 return;
             }
 
-            // chance 機制（與 JumpReset 完全相同）
-            this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
-            if (this.chanceCounter < 100) {
+            boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
+            if (!applyThisTime) {
                 return;
             }
-            this.chanceCounter = 0;
 
             this.active = true;
             this.stopForward = false;

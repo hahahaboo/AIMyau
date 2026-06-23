@@ -20,16 +20,16 @@ import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.network.play.server.S19PacketEntityStatus;
 import net.minecraft.network.play.server.S27PacketExplosion;
 import net.minecraft.potion.Potion;
+import java.util.Random;
 
 public class Velocity extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    private int chanceCounter = 0;
-    private int delayChanceCounter = 0;
     private boolean pendingExplosion = false;
     private boolean allowNext = true;
     private boolean reverseFlag = false;
     private boolean delayActive = false;
+    private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "REVERSE"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
@@ -84,8 +84,8 @@ public class Velocity extends Module {
                 }
             } else {
                 if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
-                    this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
-                    if (this.chanceCounter >= 100) {
+                    boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
+                    if (applyThisTime) {
                         if (this.horizontal.getValue() > 0) {
                             event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
                             event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
@@ -164,8 +164,8 @@ public class Velocity extends Module {
                         && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())
                         && (!longJump.isEnabled() || !longJump.canStartJump())) {
 
-                    this.delayChanceCounter = this.delayChanceCounter % 100 + this.delayChance.getValue();
-                    if (this.delayChanceCounter >= 100) {
+                    boolean applyDelayThisTime = this.randomChance.nextDouble() <= (double) this.delayChance.getValue() / 100.0;
+                    if (applyDelayThisTime) {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
                         event.setCancelled(true);

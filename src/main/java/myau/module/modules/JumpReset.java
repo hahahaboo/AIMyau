@@ -12,6 +12,7 @@ import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.potion.Potion;
+import java.util.Random;
 
 public class JumpReset extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -20,7 +21,7 @@ public class JumpReset extends Module {
     public final BooleanProperty dbg = new BooleanProperty("debug", false);
 
     private boolean jumpFlag = false;
-    private int chanceCounter = 0;   // 新增，參考 Velocity 的 counter 機制
+    private final Random randomChance = new Random();
 
     public JumpReset() {
         super("JumpReset", "Jump reset on knockback", Category.COMBAT, 0, false, false);
@@ -43,8 +44,8 @@ public class JumpReset extends Module {
             this.jumpFlag = false;
             if (mc.thePlayer.onGround && mc.thePlayer.isSprinting() && !mc.thePlayer.isPotionActive(Potion.jump) && !this.isInLiquidOrWeb()) {
                 
-                this.chanceCounter = this.chanceCounter % 100 + this.chance.getValue();
-                if (this.chanceCounter >= 100) {
+                boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
+                if (applyThisTime) {
                     mc.thePlayer.movementInput.jump = true;
                     if (dbg.getValue()) {
                         ChatUtil.sendFormatted(Myau.clientName + "Jump");
