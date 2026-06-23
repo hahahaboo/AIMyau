@@ -345,9 +345,10 @@ public class Scaffold extends Module {
 
     private boolean shouldAirSneak() {
         return this.keepY.getValue() == 5 
-                && !mc.thePlayer.onGround 
-                && mc.thePlayer.motionY < 0.0 
-                && this.hasTouchedGround;
+                && !mc.thePlayer.onGround
+                && mc.thePlayer.motionY < 0.0
+                && this.hasTouchedGround
+                && !this.safeStuckActive;
     }
 
     private void updateAirSneak() {
