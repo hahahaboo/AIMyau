@@ -29,7 +29,7 @@ public class Velocity extends Module {
     private boolean allowNext = true;
     private boolean reverseFlag = false;
     private boolean delayActive = false;
-    private final Random RandomChance = new Random();
+    private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "REVERSE"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
