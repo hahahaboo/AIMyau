@@ -15,8 +15,8 @@ import java.awt.datatransfer.StringSelection;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Locale;
 
 public class DenickCommand extends Command {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -28,8 +28,8 @@ public class DenickCommand extends Command {
     @Override
     public void runCommand(ArrayList<String> args) {
         if (args.size() < 2) {
-            ChatUtil.sendFormatted(String.format("%sUsage: .%s <&oname&r> | .%s all&r", 
-                Myau.clientName, args.get(0).toLowerCase(Locale.ROOT), args.get(0).toLowerCase(Locale.ROOT)));
+            ChatUtil.sendFormatted(String.format("%sUsage: .%s <player> | .%s all&r", 
+                Myau.clientName, args.get(0).toLowerCase(), args.get(0).toLowerCase()));
             return;
         }
 
@@ -53,7 +53,7 @@ public class DenickCommand extends Command {
     }
 
     private void denickAllPlayers() {
-        var playerInfoMap = mc.getNetHandler().getPlayerInfoMap();
+        Collection<NetworkPlayerInfo> playerInfoMap = mc.getNetHandler().getPlayerInfoMap();
         if (playerInfoMap.isEmpty()) {
             ChatUtil.sendFormatted(String.format("%sNo players online&r", Myau.clientName));
             return;
@@ -86,9 +86,11 @@ public class DenickCommand extends Command {
                         )
                 );
 
-                // 僅在 single mode 時複製 UUID（all 模式不複製，避免覆蓋剪貼簿）
-                if (!uuid.isEmpty() && !uuid.equals("?") && !isAllMode()) {
-                    Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(uuid), null);
+                // Only copy UUID in single player mode
+                if (!uuid.isEmpty() && !uuid.equals("?")) {
+                    if (!isAllMode()) {
+                        Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(uuid), null);
+                    }
                 }
             } catch (Exception e) {
                 ChatUtil.sendRaw(ChatColors.formatColor(Myau.clientName + "&cError decoding textures for &o" + displayName));
@@ -105,7 +107,13 @@ public class DenickCommand extends Command {
     }
 
     private boolean isAllMode() {
-        // 簡易標記（實際上可透過 ThreadLocal 或 context 更優，但此處為簡單實現）
-        return Thread.currentThread().getStackTrace()[3].getMethodName().contains("denickAllPlayers");
+        // Simple stack trace check to avoid copying UUID for every player in 'all' mode
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        for (StackTraceElement element : stack) {
+            if (element.getMethodName().contains("denickAllPlayers")) {
+                return true;
+            }
+        }
+        return false;
     }
 }
