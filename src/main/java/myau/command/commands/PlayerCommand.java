@@ -14,7 +14,7 @@ public class PlayerCommand extends Command {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     public PlayerCommand() {
-        super(new ArrayList<>(Arrays.asList("playerlist", "players")));
+        super(new ArrayList<>(Arrays.asList("playerlist", "players", "player", "pl")));
     }
 
     @Override
