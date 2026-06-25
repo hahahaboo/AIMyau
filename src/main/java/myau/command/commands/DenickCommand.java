@@ -59,7 +59,7 @@ public class DenickCommand extends Command {
             return;
         }
 
-        ChatUtil.sendRaw(ChatColors.formatColor(Myau.clientName + "&fDenicking all players:"));
+        ChatUtil.sendFormatted(Myau.clientName + "&fDenicking all players:");
         for (NetworkPlayerInfo playerInfo : playerInfoMap) {
             denickPlayer(playerInfo);
         }
@@ -79,15 +79,12 @@ public class DenickCommand extends Command {
                 // 判斷是否需要紅色
                 boolean shouldRed = !displayName.equalsIgnoreCase(name) || name.equals("?");
 
-                String clientPrefix = ChatColors.formatColor(Myau.clientName);
+                String coloredDisplay = shouldRed ? "&c" + displayName + "&r" : displayName;
 
-                if (shouldRed) {
-                    // 使用兩個 sendRaw：前半部 + 紅色顯示名稱 + 後半部
-                    ChatUtil.sendRaw(clientPrefix + ChatColors.formatColor("&c" + displayName + "&r &f-> " + name + " (&o" + uuid + "&r)"));
-                } else {
-                    // 正常顏色：單一 sendRaw
-                    ChatUtil.sendRaw(clientPrefix + ChatColors.formatColor(displayName + "&r &f-> " + name + " (&o" + uuid + "&r)"));
-                }
+                // 使用 sendFormatted 輸出完整一行（顏色會被正確處理）
+                ChatUtil.sendFormatted(
+                    Myau.clientName + coloredDisplay + "&r &f-> " + name + " (&o" + uuid + "&r)"
+                );
 
                 // Only copy UUID in single player mode
                 if (!uuid.isEmpty() && !uuid.equals("?")) {
@@ -96,15 +93,11 @@ public class DenickCommand extends Command {
                     }
                 }
             } catch (Exception e) {
-                ChatUtil.sendRaw(ChatColors.formatColor(Myau.clientName + "&cError decoding textures for &o" + displayName));
+                ChatUtil.sendFormatted(Myau.clientName + "&cError decoding textures for &o" + displayName);
             }
         } else {
-            ChatUtil.sendRaw(
-                    String.format(
-                            ChatColors.formatColor("%sNo textures for entity with name &o%s&r"),
-                            ChatColors.formatColor(Myau.clientName),
-                            displayName
-                    )
+            ChatUtil.sendFormatted(
+                Myau.clientName + "&cNo textures for entity with name &o" + displayName
             );
         }
     }
