@@ -76,21 +76,18 @@ public class DenickCommand extends Command {
                 String name = code.contains("profileName\" : \"") ? code.split("profileName\" : \"")[1].split("\"")[0] : "?";
                 String uuid = code.contains("profileId\" : \"") ? code.split("profileId\" : \"")[1].split("\"")[0] : "?";
 
-                // 更新邏輯：如果顯示名稱與真實名稱不同，或真實名稱為 "?"，則將顯示名稱標記為紅色
-                String coloredDisplayName = displayName;
-                if (!displayName.equalsIgnoreCase(name) || name.equals("?")) {
-                    coloredDisplayName = "&c" + displayName + "&r";
-                }
+                // 判斷是否需要紅色
+                boolean shouldRed = !displayName.equalsIgnoreCase(name) || name.equals("?");
 
-                ChatUtil.sendRaw(
-                        String.format(
-                                ChatColors.formatColor("%s%s&r -> %s (&o%s&r)&r"),
-                                ChatColors.formatColor(Myau.clientName),
-                                coloredDisplayName,
-                                name,
-                                uuid
-                        )
-                );
+                String clientPrefix = ChatColors.formatColor(Myau.clientName);
+
+                if (shouldRed) {
+                    // 使用兩個 sendRaw：前半部 + 紅色顯示名稱 + 後半部
+                    ChatUtil.sendRaw(clientPrefix + ChatColors.formatColor("&c" + displayName + "&r &f-> " + name + " (&o" + uuid + "&r)"));
+                } else {
+                    // 正常顏色：單一 sendRaw
+                    ChatUtil.sendRaw(clientPrefix + ChatColors.formatColor(displayName + "&r &f-> " + name + " (&o" + uuid + "&r)"));
+                }
 
                 // Only copy UUID in single player mode
                 if (!uuid.isEmpty() && !uuid.equals("?")) {
@@ -113,7 +110,6 @@ public class DenickCommand extends Command {
     }
 
     private boolean isAllMode() {
-        // Simple stack trace check to avoid copying UUID for every player in 'all' mode
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
         for (StackTraceElement element : stack) {
             if (element.getMethodName().contains("denickAllPlayers")) {
