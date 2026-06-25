@@ -76,11 +76,17 @@ public class DenickCommand extends Command {
                 String name = code.contains("profileName\" : \"") ? code.split("profileName\" : \"")[1].split("\"")[0] : "?";
                 String uuid = code.contains("profileId\" : \"") ? code.split("profileId\" : \"")[1].split("\"")[0] : "?";
 
+                // 新增邏輯：如果顯示名稱與真實名稱不同，則將顯示名稱標記為紅色
+                String coloredDisplayName = displayName;
+                if (!displayName.equalsIgnoreCase(name) && !name.equals("?")) {
+                    coloredDisplayName = "&c" + displayName + "&r";
+                }
+
                 ChatUtil.sendRaw(
                         String.format(
                                 ChatColors.formatColor("%s%s&r -> %s (&o%s&r)&r"),
                                 ChatColors.formatColor(Myau.clientName),
-                                displayName,
+                                coloredDisplayName,
                                 name,
                                 uuid
                         )
