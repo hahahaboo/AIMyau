@@ -59,7 +59,7 @@ public class DenickCommand extends Command {
             return;
         }
 
-        ChatUtil.sendRaw(ChatColors.formatColor(Myau.clientName + "&fDenicking all players:"));
+        ChatUtil.sendFormatted(Myau.clientName + "&fDenicking all players:");
         for (NetworkPlayerInfo playerInfo : playerInfoMap) {
             denickPlayer(playerInfo);
         }
@@ -76,14 +76,14 @@ public class DenickCommand extends Command {
                 String name = code.contains("profileName\" : \"") ? code.split("profileName\" : \"")[1].split("\"")[0] : "?";
                 String uuid = code.contains("profileId\" : \"") ? code.split("profileId\" : \"")[1].split("\"")[0] : "?";
 
-                ChatUtil.sendRaw(
-                        String.format(
-                                ChatColors.formatColor("%s%s&r -> %s (&o%s&r)&r"),
-                                ChatColors.formatColor(Myau.clientName),
-                                displayName,
-                                name,
-                                uuid
-                        )
+                // 判斷是否需要紅色
+                boolean shouldRed = !displayName.equalsIgnoreCase(name) || name.equals("?");
+
+                String coloredDisplay = shouldRed ? "&c" + displayName + "&r" : displayName;
+
+                // 使用 sendFormatted 輸出完整一行（顏色會被正確處理）
+                ChatUtil.sendFormatted(
+                    Myau.clientName + coloredDisplay + "&r &f-> " + name + " (&o" + uuid + "&r)"
                 );
 
                 // Only copy UUID in single player mode
@@ -93,21 +93,16 @@ public class DenickCommand extends Command {
                     }
                 }
             } catch (Exception e) {
-                ChatUtil.sendRaw(ChatColors.formatColor(Myau.clientName + "&cError decoding textures for &o" + displayName));
+                ChatUtil.sendFormatted(Myau.clientName + "&cError decoding textures for &o" + displayName);
             }
         } else {
-            ChatUtil.sendRaw(
-                    String.format(
-                            ChatColors.formatColor("%sNo textures for entity with name &o%s&r"),
-                            ChatColors.formatColor(Myau.clientName),
-                            displayName
-                    )
+            ChatUtil.sendFormatted(
+                Myau.clientName + "&cNo textures for entity with name &o" + displayName
             );
         }
     }
 
     private boolean isAllMode() {
-        // Simple stack trace check to avoid copying UUID for every player in 'all' mode
         StackTraceElement[] stack = Thread.currentThread().getStackTrace();
         for (StackTraceElement element : stack) {
             if (element.getMethodName().contains("denickAllPlayers")) {
