@@ -8,6 +8,7 @@ import myau.events.TickEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.util.ChatUtil;
+import myau.util.TeamUtil;
 import myau.util.TimerUtil;
 import net.minecraft.network.play.server.S38PacketPlayerListItem;
 
@@ -17,13 +18,13 @@ import java.util.List;
 public class PartyTracker extends Module {
     private final TimerUtil timer = new TimerUtil();
     private final List<String> recentJoins = new ArrayList<>();
-    private static final long PARTY_WINDOW_MS = 50;  // 已改為 1 tick (50ms)
+    private static final long PARTY_WINDOW_MS = 50;  // 1 tick
 
     private boolean justJoined = false;
     private int joinTickCounter = 0;
 
     public PartyTracker() {
-        super("PartyTracker", "Detects when multiple players join at the same time and announces party size.", Category.MISC, 0, false, false);
+        super("PartyTracker", "Detects when multiple real players join at the same time and announces party size (with bot check).", Category.MISC, 0, true, false);  // 預設開啟
     }
 
     @EventTarget
@@ -66,8 +67,11 @@ public class PartyTracker extends Module {
                             S38PacketPlayerListItem.AddPlayerData data = (S38PacketPlayerListItem.AddPlayerData) dataObj;
                             String name = data.getProfile().getName();
                             if (name != null && !recentJoins.contains(name)) {
-                                recentJoins.add(name);
-                                timer.reset();
+                                // 整合 LagRange 的 Bot Check (只計入非 bot)
+                                if (!TeamUtil.isBotByName(name)) {  // 使用 TeamUtil 的 bot 檢查
+                                    recentJoins.add(name);
+                                    timer.reset();
+                                }
                             }
                         }
                     }
