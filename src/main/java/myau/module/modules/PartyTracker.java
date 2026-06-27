@@ -1,6 +1,5 @@
 package myau.module.modules;
 
-import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.PacketEvent;
@@ -16,10 +15,10 @@ import java.util.List;
 public class PartyTracker extends Module {
     private final TimerUtil timer = new TimerUtil();
     private final List<String> recentJoins = new ArrayList<>();
-    private static final long PARTY_WINDOW_MS = 50; // 短時間視窗，調整可偵測 "simultaneously"
+    private static final long PARTY_WINDOW_MS = 50; // 可調整同時加入的偵測視窗（毫秒）
 
     public PartyTracker() {
-        super("PartyTracker", "Detects when multiple players join at the same time and announces party size.", Category.MISC, 0, false, false);
+        super("PartyTracker", "Detects when multiple players join at the same time and announces party size.", Category.MISC, 0, false, true);
     }
 
     @EventTarget
@@ -28,18 +27,21 @@ public class PartyTracker extends Module {
 
         if (event.getPacket() instanceof S38PacketPlayerListItem) {
             S38PacketPlayerListItem packet = (S38PacketPlayerListItem) event.getPacket();
-            if (packet.func_179767_a() == S38PacketPlayerListItem.Action.ADD_PLAYER) {  // ADD_PLAYER
-                for (S38PacketPlayerListItem.AddPlayerData data : packet.func_179767_a()) {  // 注意：1.8.9 方法名
+            
+            // 1.8.9 正確方法：func_179768_b() 取得 Action
+            if (packet.func_179768_b() == S38PacketPlayerListItem.Action.ADD_PLAYER) {
+                // func_179767_a() 取得玩家資料列表
+                for (S38PacketPlayerListItem.AddPlayerData data : packet.func_179767_a()) {
                     String name = data.getProfile().getName();
                     if (name != null && !recentJoins.contains(name)) {
                         recentJoins.add(name);
-                        timer.reset();
+                        timer.reset();  // 重置計時器
                     }
                 }
             }
         }
 
-        // 檢查是否達到 party 門檻
+        // 檢查是否達到 "simultaneously" 門檻
         if (!recentJoins.isEmpty() && timer.hasTimeElapsed(PARTY_WINDOW_MS)) {
             int n = recentJoins.size();
             if (n >= 2) {  // n 個玩家同時加入
