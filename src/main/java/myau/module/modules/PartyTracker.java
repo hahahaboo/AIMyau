@@ -24,7 +24,7 @@ public class PartyTracker extends Module {
     private int joinTickCounter = 0;
 
     public PartyTracker() {
-        super("PartyTracker", "Detects when multiple real players join at the same time and announces party size (with bot check).", Category.MISC, 0, true, false);  // 預設開啟
+        super("PartyTracker", "Detects when multiple real players join at the same time (with bot check from LagRange).", Category.MISC, 0, false, true);  // 預設開啟
     }
 
     @EventTarget
@@ -67,8 +67,8 @@ public class PartyTracker extends Module {
                             S38PacketPlayerListItem.AddPlayerData data = (S38PacketPlayerListItem.AddPlayerData) dataObj;
                             String name = data.getProfile().getName();
                             if (name != null && !recentJoins.contains(name)) {
-                                // 整合 LagRange 的 Bot Check (只計入非 bot)
-                                if (!TeamUtil.isBotByName(name)) {  // 使用 TeamUtil 的 bot 檢查
+                                // 整合 LagRange Bot Check (name-based 簡化版)
+                                if (!isBot(name)) {
                                     recentJoins.add(name);
                                     timer.reset();
                                 }
@@ -90,6 +90,13 @@ public class PartyTracker extends Module {
             }
             recentJoins.clear();
         }
+    }
+
+    // LagRange-style Bot Check (簡化版，適用 packet name)
+    private boolean isBot(String name) {
+        if (name == null) return true;
+        return name.startsWith("§k") || name.length() < 3 || name.contains("Bot") || name.matches(".*\\d{4}.*");  // 常見 bot 特徵
+        // 可擴展為 TeamUtil.isBot 如果有 Entity
     }
 
     @Override
