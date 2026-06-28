@@ -108,6 +108,7 @@ public class Myau {
         moduleManager.modules.put(NoSlow.class, new NoSlow());
         moduleManager.modules.put(NotificationModule.class, new NotificationModule());
         moduleManager.modules.put(MurderMystery.class, new MurderMystery());
+        moduleManager.modules.put(PartyTracker.class, new PartyTracker());
         moduleManager.modules.put(Parkour.class, new Parkour());
         moduleManager.modules.put(Reach.class, new Reach());
         moduleManager.modules.put(SafeWalk.class, new SafeWalk());
