@@ -30,21 +30,25 @@ public class AutoClicker extends Module {
     public final BooleanProperty blockHit = new BooleanProperty("block-hit", false);
     public final FloatProperty blockHitMinTicks = new FloatProperty("block-min-ticks", 1.0F, 1.0F, 20.0F, this.blockHit::getValue);
     public final FloatProperty blockHitMaxTicks = new FloatProperty("block-max-ticks", 2.0F, 1.0F, 20.0F, this.blockHit::getValue);
-    public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
-    public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
-    public final PercentProperty failChance = new PercentProperty("fail-chance", 50, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
-    public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
-    public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
+    
+    // New fail-click properties
+    public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
+    public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
+    public final PercentProperty failChance = new PercentProperty("fail-chance", 50, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
 
-    private final Random randomChance = new Random();
+    // Block fail properties (條件：blockHit + failClick 相關)
+    public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+
+    private final Random randomChance = new Random();  // 參考 Reach chance 實作
     private final TimerUtil failTimer = new TimerUtil();
-    private long failTime = 0L;        // attack fail time mode
+    private long failTime = 0L;  // time mode 用的隨機間隔 (ms)
     private long blockFailTime = 0L;   // block fail time mode
 
     private boolean clickPending = false;
@@ -129,7 +133,7 @@ public class AutoClicker extends Module {
 
                             if (shouldFailThisClick) {
                                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-                                continue;
+                                continue;  // 保留：繼續 while 迴圈進行下一次嘗試
                             }
 
                             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
@@ -137,7 +141,7 @@ public class AutoClicker extends Module {
                         }
                     }
 
-                    // BlockHit 部分
+                    // BlockHit 部分 + block-fail
                     if (this.blockHit.getValue()
                             && this.blockHitDelay <= 0L
                             && mc.gameSettings.keyBindUseItem.isKeyDown()
@@ -146,7 +150,7 @@ public class AutoClicker extends Module {
                         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
 
                         if (!mc.thePlayer.isUsingItem()) {
-                            // Block Fail 邏輯 (與 attack fail 相同機制)
+                            // Block Fail 邏輯
                             boolean shouldBlockFailThisClick = false;
                             if (this.failClick.getValue()) {
                                 if (this.failMode.getValue() == 0) {  // chance
@@ -164,13 +168,11 @@ public class AutoClicker extends Module {
                             }
 
                             if (shouldBlockFailThisClick) {
-                                // Fail block-hit: 取消本次 useItem 並讓 delay 繼續
-                                this.blockHitPending = false;  // 取消 pending
-                                continue;  // 或直接 return 視需求
+                                this.blockHitPending = false;  // 取消本次 block
+                            } else {
+                                this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
+                                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
                             }
-
-                            this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
-                            KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
                         }
                     }
                 }
