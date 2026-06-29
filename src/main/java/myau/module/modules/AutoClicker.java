@@ -167,12 +167,10 @@ public class AutoClicker extends Module {
                                 }
                             }
 
-                            if (shouldBlockFailThisClick) {
-                                this.blockHitPending = false;  // 取消本次 block
-                            } else {
+                            if (!shouldBlockFailThisClick) {
                                 this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
                                 KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                            }
+                            } 
                         }
                     }
                 }
