@@ -33,23 +33,27 @@ public class AutoClicker extends Module {
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
-    
+   
     // New fail-click properties
     public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
     public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
     public final PercentProperty failChance = new PercentProperty("fail-chance", 50, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
     public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
     public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-
-    // Block fail properties (條件：blockHit + failClick 相關)
+    
+    // Block fail properties
     public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
     public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
     public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
 
-    private final Random randomChance = new Random();  // 參考 Reach chance 實作
+    // Time mode 專用：這次 fail 後下一次也 fail 的機率
+    public final PercentProperty nextFailChance = new PercentProperty("next-fail-chance", 0, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+
+    private final Random randomChance = new Random();
     private final TimerUtil failTimer = new TimerUtil();
-    private long failTime = 0L;  // time mode 用的隨機間隔 (ms)
-    private long blockFailTime = 0L;   // block fail time mode
+    private long failTime = 0L;
+    private long blockFailTime = 0L;
+    private boolean nextFailPending = false;  // 下一次是否強制 fail
 
     private boolean clickPending = false;
     private long clickDelay = 0L;
@@ -115,11 +119,11 @@ public class AutoClicker extends Module {
                             this.clickDelay = this.clickDelay + this.getNextClickDelay();
 
                             // Fail-Click 邏輯 (attack)
-                            boolean shouldFailThisClick = false;
-                            if (this.failClick.getValue()) {
-                                if (this.failMode.getValue() == 0) {  // chance
+                            boolean shouldFailThisClick = this.nextFailPending;
+                            if (!shouldFailThisClick && this.failClick.getValue()) {
+                                if (this.failMode.getValue() == 0) { // chance
                                     shouldFailThisClick = this.randomChance.nextDouble() <= (double) this.failChance.getValue() / 100.0;
-                                } else if (this.failMode.getValue() == 1) {  // time
+                                } else if (this.failMode.getValue() == 1) { // time
                                     if (this.failTime <= 0L) {
                                         this.failTime = (long) (RandomUtil.nextFloat(this.failMinTime.getValue(), this.failMaxTime.getValue()) * 1000L);
                                         this.failTimer.reset();
@@ -132,9 +136,15 @@ public class AutoClicker extends Module {
                             }
 
                             if (shouldFailThisClick) {
+                                if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
+                                    this.nextFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
+                                } else {
+                                    this.nextFailPending = false;
+                                }
                                 KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
-                                continue;  // 保留：繼續 while 迴圈進行下一次嘗試
+                                continue;
                             }
+                            this.nextFailPending = false;
 
                             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
                             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
@@ -150,12 +160,11 @@ public class AutoClicker extends Module {
                         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
 
                         if (!mc.thePlayer.isUsingItem()) {
-                            // Block Fail 邏輯
-                            boolean shouldBlockFailThisClick = false;
-                            if (this.failClick.getValue()) {
-                                if (this.failMode.getValue() == 0) {  // chance
+                            boolean shouldBlockFailThisClick = this.nextFailPending;  // 共用 nextFailPending（或可獨立）
+                            if (!shouldBlockFailThisClick && this.failClick.getValue()) {
+                                if (this.failMode.getValue() == 0) {
                                     shouldBlockFailThisClick = this.randomChance.nextDouble() <= (double) this.blockFailChance.getValue() / 100.0;
-                                } else if (this.failMode.getValue() == 1) {  // time
+                                } else if (this.failMode.getValue() == 1) {
                                     if (this.blockFailTime <= 0L) {
                                         this.blockFailTime = (long) (RandomUtil.nextFloat(this.blockFailMinTime.getValue(), this.blockFailMaxTime.getValue()) * 1000L);
                                         this.failTimer.reset();
@@ -167,10 +176,18 @@ public class AutoClicker extends Module {
                                 }
                             }
 
-                            if (!shouldBlockFailThisClick) {
+                            if (shouldBlockFailThisClick) {
+                                if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
+                                    this.nextFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
+                                } else {
+                                    this.nextFailPending = false;
+                                }
+                                this.blockHitPending = false;
+                            } else {
                                 this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
                                 KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                            } 
+                                this.nextFailPending = false;
+                            }
                         }
                     }
                 }
@@ -193,11 +210,13 @@ public class AutoClicker extends Module {
         this.blockHitDelay = 0L;
         this.failTime = 0L;
         this.blockFailTime = 0L;
+        this.nextFailPending = false;
         this.failTimer.reset();
     }
 
     @Override
     public void verifyValue(String mode) {
+        // ... (原有 + block fail min/max 保持不變)
         if (this.minCPS.getName().equals(mode)) {
             if (this.minCPS.getValue() > this.maxCPS.getValue()) {
                 this.maxCPS.setValue(this.minCPS.getValue());
