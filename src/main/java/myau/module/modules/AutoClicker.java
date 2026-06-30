@@ -211,6 +211,7 @@ public class AutoClicker extends Module {
         this.failTime = 0L;
         this.blockFailTime = 0L;
         this.nextFailPending = false;
+        this.nextBlockFailPending = false;
         this.failTimer.reset();
     }
 
