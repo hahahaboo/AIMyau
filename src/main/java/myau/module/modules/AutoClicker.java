@@ -10,14 +10,18 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
+import myau.property.properties.ModeProperty;
+import myau.property.properties.PercentProperty;
 import myau.util.ItemUtil;
 import myau.util.KeyBindUtil;
 import myau.util.RandomUtil;
+import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.WorldSettings.GameType;
 
 import java.util.Objects;
+import java.util.Random;
 
 public class AutoClicker extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -26,9 +30,27 @@ public class AutoClicker extends Module {
     public final BooleanProperty blockHit = new BooleanProperty("block-hit", false);
     public final FloatProperty blockHitMinTicks = new FloatProperty("block-min-ticks", 1.0F, 1.0F, 20.0F, this.blockHit::getValue);
     public final FloatProperty blockHitMaxTicks = new FloatProperty("block-max-ticks", 2.0F, 1.0F, 20.0F, this.blockHit::getValue);
+    public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
+    public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
+    public final PercentProperty failChance = new PercentProperty("fail-chance", 10, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final PercentProperty nextFailChance = new PercentProperty("next-fail-chance", 0, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final PercentProperty nextBlockFailChance = new PercentProperty("next-block-fail-chance", 0, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
+
+    private final Random randomChance = new Random();
+    private final TimerUtil failTimer = new TimerUtil();
+    private long failTime = 0L;
+    private long blockFailTime = 0L;
+    private boolean nextFailPending = false;
+    private boolean nextBlockFailPending = false;
+
     private boolean clickPending = false;
     private long clickDelay = 0L;
     private boolean blockHitPending = false;
@@ -91,19 +113,76 @@ public class AutoClicker extends Module {
                         while (this.clickDelay <= 0L) {
                             this.clickPending = true;
                             this.clickDelay = this.clickDelay + this.getNextClickDelay();
+
+                            // Fail-Click 邏輯 (attack)
+                            boolean shouldFailThisClick = this.nextFailPending;
+                            if (!shouldFailThisClick && this.failClick.getValue()) {
+                                if (this.failMode.getValue() == 0) { // chance
+                                    shouldFailThisClick = this.randomChance.nextDouble() <= (double) this.failChance.getValue() / 100.0;
+                                } else if (this.failMode.getValue() == 1) { // time
+                                    if (this.failTime <= 0L) {
+                                        this.failTime = (long) (RandomUtil.nextFloat(this.failMinTime.getValue(), this.failMaxTime.getValue()) * 1000L);
+                                        this.failTimer.reset();
+                                    }
+                                    if (this.failTimer.hasTimeElapsed(this.failTime)) {
+                                        shouldFailThisClick = true;
+                                        this.failTime = 0L;
+                                    }
+                                }
+                            }
+
+                            if (shouldFailThisClick) {
+                                if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
+                                    this.nextFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
+                                } else {
+                                    this.nextFailPending = false;
+                                }
+                                KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
+                                continue;
+                            }
+                            this.nextFailPending = false;
+
                             KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindAttack.getKeyCode(), false);
                             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
                         }
                     }
+
+                    // BlockHit 部分 + block-fail
                     if (this.blockHit.getValue()
                             && this.blockHitDelay <= 0L
                             && mc.gameSettings.keyBindUseItem.isKeyDown()
                             && ItemUtil.isHoldingSword()) {
                         this.blockHitPending = true;
                         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
+
                         if (!mc.thePlayer.isUsingItem()) {
-                            this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
-                            KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
+                            boolean shouldBlockFailThisClick = this.nextBlockFailPending;  // 共用 nextFailPending（或可獨立）
+                            if (!shouldBlockFailThisClick && this.failClick.getValue()) {
+                                if (this.failMode.getValue() == 0) {
+                                    shouldBlockFailThisClick = this.randomChance.nextDouble() <= (double) this.blockFailChance.getValue() / 100.0;
+                                } else if (this.failMode.getValue() == 1) {
+                                    if (this.blockFailTime <= 0L) {
+                                        this.blockFailTime = (long) (RandomUtil.nextFloat(this.blockFailMinTime.getValue(), this.blockFailMaxTime.getValue()) * 1000L);
+                                        this.failTimer.reset();
+                                    }
+                                    if (this.failTimer.hasTimeElapsed(this.blockFailTime)) {
+                                        shouldBlockFailThisClick = true;
+                                        this.blockFailTime = 0L;
+                                    }
+                                }
+                            }
+
+                            if (shouldBlockFailThisClick) {
+                                if (this.failMode.getValue() == 1 && this.nextBlockFailChance.getValue() > 0) {
+                                    this.nextBlockFailPending = this.randomChance.nextDouble() <= (double) this.nextBlockFailChance.getValue() / 100.0;
+                                } else {
+                                    this.nextBlockFailPending = false;
+                                }
+                            } else {
+                                this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
+                                KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
+                                this.nextBlockFailPending = false;
+                            }
                         }
                     }
                 }
@@ -124,18 +203,34 @@ public class AutoClicker extends Module {
     public void onEnabled() {
         this.clickDelay = 0L;
         this.blockHitDelay = 0L;
+        this.failTime = 0L;
+        this.blockFailTime = 0L;
+        this.nextFailPending = false;
+        this.nextBlockFailPending = false;
+        this.failTimer.reset();
     }
 
     @Override
     public void verifyValue(String mode) {
+        // ... (原有 + block fail min/max 保持不變)
         if (this.minCPS.getName().equals(mode)) {
             if (this.minCPS.getValue() > this.maxCPS.getValue()) {
                 this.maxCPS.setValue(this.minCPS.getValue());
             }
-        } else {
-            if (this.maxCPS.getName().equals(mode) && this.minCPS.getValue() > this.maxCPS.getValue()) {
-                this.minCPS.setValue(this.maxCPS.getValue());
+        } else if (this.maxCPS.getName().equals(mode) && this.minCPS.getValue() > this.maxCPS.getValue()) {
+            this.minCPS.setValue(this.maxCPS.getValue());
+        } else if (this.failMinTime.getName().equals(mode)) {
+            if (this.failMinTime.getValue() > this.failMaxTime.getValue()) {
+                this.failMaxTime.setValue(this.failMinTime.getValue());
             }
+        } else if (this.failMaxTime.getName().equals(mode) && this.failMinTime.getValue() > this.failMaxTime.getValue()) {
+            this.failMinTime.setValue(this.failMaxTime.getValue());
+        } else if (this.blockFailMinTime.getName().equals(mode)) {
+            if (this.blockFailMinTime.getValue() > this.blockFailMaxTime.getValue()) {
+                this.blockFailMaxTime.setValue(this.blockFailMinTime.getValue());
+            }
+        } else if (this.blockFailMaxTime.getName().equals(mode) && this.blockFailMinTime.getValue() > this.blockFailMaxTime.getValue()) {
+            this.blockFailMinTime.setValue(this.blockFailMaxTime.getValue());
         }
     }
 
