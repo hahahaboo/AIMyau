@@ -181,12 +181,12 @@ public class AutoClicker extends Module {
                                 if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
                                     this.nextBlockFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
                                 } else {
-                                    this.nextblockFailPending = false;
+                                    this.nextBlockFailPending = false;
                                 }
                             } else {
                                 this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
                                 KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                                this.nextblockFailPending = false;
+                                this.nextBlockFailPending = false;
                             }
                         }
                     }
