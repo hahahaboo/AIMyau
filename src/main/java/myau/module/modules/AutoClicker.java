@@ -48,6 +48,7 @@ public class AutoClicker extends Module {
 
     // Time mode 專用：這次 fail 後下一次也 fail 的機率
     public final PercentProperty nextFailChance = new PercentProperty("next-fail-chance", 0, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final PercentProperty nextBlockFailChance = new PercentProperty("next-block-fail-chance", 0, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
 
     private final Random randomChance = new Random();
     private final TimerUtil failTimer = new TimerUtil();
@@ -178,8 +179,8 @@ public class AutoClicker extends Module {
                             }
 
                             if (shouldBlockFailThisClick) {
-                                if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
-                                    this.nextBlockFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
+                                if (this.failMode.getValue() == 1 && this.nextBlockFailChance.getValue() > 0) {
+                                    this.nextBlockFailPending = this.randomChance.nextDouble() <= (double) this.nextBlockFailChance.getValue() / 100.0;
                                 } else {
                                     this.nextBlockFailPending = false;
                                 }
