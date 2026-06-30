@@ -182,7 +182,6 @@ public class AutoClicker extends Module {
                                 } else {
                                     this.nextFailPending = false;
                                 }
-                                this.blockHitPending = false;
                             } else {
                                 this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
                                 KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
