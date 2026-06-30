@@ -54,6 +54,7 @@ public class AutoClicker extends Module {
     private long failTime = 0L;
     private long blockFailTime = 0L;
     private boolean nextFailPending = false;  // 下一次是否強制 fail
+    private boolean nextBlockFailPending = false;
 
     private boolean clickPending = false;
     private long clickDelay = 0L;
@@ -160,7 +161,7 @@ public class AutoClicker extends Module {
                         KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindUseItem.getKeyCode(), false);
 
                         if (!mc.thePlayer.isUsingItem()) {
-                            boolean shouldBlockFailThisClick = this.nextFailPending;  // 共用 nextFailPending（或可獨立）
+                            boolean shouldBlockFailThisClick = this.nextBlockFailPending;  // 共用 nextFailPending（或可獨立）
                             if (!shouldBlockFailThisClick && this.failClick.getValue()) {
                                 if (this.failMode.getValue() == 0) {
                                     shouldBlockFailThisClick = this.randomChance.nextDouble() <= (double) this.blockFailChance.getValue() / 100.0;
@@ -178,14 +179,14 @@ public class AutoClicker extends Module {
 
                             if (shouldBlockFailThisClick) {
                                 if (this.failMode.getValue() == 1 && this.nextFailChance.getValue() > 0) {
-                                    this.nextFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
+                                    this.nextBlockFailPending = this.randomChance.nextDouble() <= (double) this.nextFailChance.getValue() / 100.0;
                                 } else {
-                                    this.nextFailPending = false;
+                                    this.nextblockFailPending = false;
                                 }
                             } else {
                                 this.blockHitDelay = this.blockHitDelay + this.getBlockHitDelay();
                                 KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindUseItem.getKeyCode());
-                                this.nextFailPending = false;
+                                this.nextblockFailPending = false;
                             }
                         }
                     }
