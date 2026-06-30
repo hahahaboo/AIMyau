@@ -30,31 +30,25 @@ public class AutoClicker extends Module {
     public final BooleanProperty blockHit = new BooleanProperty("block-hit", false);
     public final FloatProperty blockHitMinTicks = new FloatProperty("block-min-ticks", 1.0F, 1.0F, 20.0F, this.blockHit::getValue);
     public final FloatProperty blockHitMaxTicks = new FloatProperty("block-max-ticks", 2.0F, 1.0F, 20.0F, this.blockHit::getValue);
+    public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
+    public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
+    public final PercentProperty failChance = new PercentProperty("fail-chance", 10, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
+    public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final PercentProperty nextFailChance = new PercentProperty("next-fail-chance", 0, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
+    public final PercentProperty nextBlockFailChance = new PercentProperty("next-block-fail-chance", 0, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
-   
-    // New fail-click properties
-    public final BooleanProperty failClick = new BooleanProperty("fail-click", false);
-    public final ModeProperty failMode = new ModeProperty("fail-mode", 0, new String[]{"chance", "time"}, this.failClick::getValue);
-    public final PercentProperty failChance = new PercentProperty("fail-chance", 50, () -> this.failClick.getValue() && this.failMode.getValue() == 0);
-    public final FloatProperty failMinTime = new FloatProperty("fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final FloatProperty failMaxTime = new FloatProperty("fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-    
-    // Block fail properties
-    public final PercentProperty blockFailChance = new PercentProperty("block-fail-chance", 50, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 0);
-    public final FloatProperty blockFailMinTime = new FloatProperty("block-fail-min-time", 0.5F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final FloatProperty blockFailMaxTime = new FloatProperty("block-fail-max-time", 1.0F, 0.1F, 5.0F, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
-
-    // Time mode 專用：這次 fail 後下一次也 fail 的機率
-    public final PercentProperty nextFailChance = new PercentProperty("next-fail-chance", 0, () -> this.failClick.getValue() && this.failMode.getValue() == 1);
-    public final PercentProperty nextBlockFailChance = new PercentProperty("next-block-fail-chance", 0, () -> this.blockHit.getValue() && this.failClick.getValue() && this.failMode.getValue() == 1);
 
     private final Random randomChance = new Random();
     private final TimerUtil failTimer = new TimerUtil();
     private long failTime = 0L;
     private long blockFailTime = 0L;
-    private boolean nextFailPending = false;  // 下一次是否強制 fail
+    private boolean nextFailPending = false;
     private boolean nextBlockFailPending = false;
 
     private boolean clickPending = false;
