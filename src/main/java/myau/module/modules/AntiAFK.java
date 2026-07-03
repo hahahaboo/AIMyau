@@ -12,6 +12,9 @@ import myau.util.ChatUtil;
 import myau.util.KeyBindUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.client.gui.inventory.GuiContainerCreative;
+import myau.module.modules.InvWalk;
 
 public class AntiAFK extends Module {
 
@@ -19,6 +22,7 @@ public class AntiAFK extends Module {
 
     private final IntProperty time = new IntProperty("Time", 30, 10, 300);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
+    public final BooleanProperty invCheck = new BooleanProperty("inv-check", true);
 
     private final TimerUtil afkTimer = new TimerUtil();
     private final TimerUtil action1Timer = new TimerUtil();
@@ -57,16 +61,39 @@ public class AntiAFK extends Module {
         lastStrafe = 0f;
     }
 
+    private boolean shouldPerformActions() {
+        if (!invCheck.getValue()) {
+            return true;
+        }
+        boolean inInventory = mc.currentScreen instanceof GuiContainer && !(mc.currentScreen instanceof GuiContainerCreative);
+        if (!inInventory) {
+            return true;
+        }
+        // In inventory
+        InvWalk invWalk = (InvWalk) Myau.moduleManager.getModule("InvWalk");
+        return invWalk != null && invWalk.isEnabled();
+    }
+
     @EventTarget
     public void onTick(TickEvent e) {
-        if (!isEnabled() || mc.thePlayer == null || e.getType() != EventType.PRE) return;
+        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null || e.getType() != EventType.PRE) return;
 
         if (!isAFK) {
             if (afkTimer.hasTimeElapsed(time.getValue() * 1000L)) {
                 enterAFK();
             }
         } else {
-            handleAFKActions();
+            if (shouldPerformActions()) {
+                handleAFKActions();
+            }
+        }
+    }
+
+    @EventTarget
+    public void onLoadWorld(LoadWorldEvent e) {
+        resetAll();
+        if (debugLog.getValue()) {
+            ChatUtil.sendFormatted(String.format("%sAntiAFK: World loaded, timer reset", Myau.clientName));
         }
     }
 
