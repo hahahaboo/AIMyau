@@ -139,7 +139,9 @@ public class AntiAFK extends Module {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: Enter AFK (tick: %d)", 
                 Myau.clientName, mc.thePlayer.ticksExisted));
         }
-        performAction1();
+        if (shouldPerformActions()) {
+            performAction1();
+        }
     }
 
     private void exitAFK() {
