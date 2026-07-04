@@ -91,6 +91,8 @@ public class AntiAFK extends Module {
 
     @EventTarget
     public void onLoadWorld(LoadWorldEvent e) {
+        if (!isEnabled() || mc.thePlayer == null || mc.theWorld == null) return;
+
         resetAll();
         if (debugLog.getValue()) {
             ChatUtil.sendFormatted(String.format("%sAntiAFK: World loaded, timer reset", Myau.clientName));
