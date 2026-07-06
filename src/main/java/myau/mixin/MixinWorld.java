@@ -53,7 +53,7 @@ public abstract class MixinWorld {
     // ==================== 新增：Ambience Weather 支援 ====================
     @Inject(method = "getRainStrength", at = @At("HEAD"), cancellable = true)
     private void onGetRainStrength(float partialTicks, CallbackInfoReturnable<Float> cir) {
-        Ambience ambience = (Ambience) ModuleManager.getModule(Ambience.class);
+        Ambience ambience = (Ambience) Myau.moduleManager.modules.get(Ambience.class);
         if (ambience != null && ambience.isEnabled()) {
             String mode = ambience.weather.getModeString();
             if ("Heavy Snow".equals(mode) || "Light Snow".equals(mode) || "Nether Particles".equals(mode)) {
