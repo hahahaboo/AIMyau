@@ -39,7 +39,7 @@ public final class Ambience extends Module {
                                     && !weather.getModeString().equals("Light Snow"));
 
     public Ambience() {
-        super("Ambience", false);
+        super("Ambience", "改變玩家端的天空時間 (client-side only)", Category.RENDER, 0, false, true);
     }
 
     @Override
