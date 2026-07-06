@@ -66,6 +66,7 @@ public class Myau {
         moduleManager.modules.put(AntiFireball.class, new AntiFireball());
         moduleManager.modules.put(AntiObfuscate.class, new AntiObfuscate());
         moduleManager.modules.put(AntiVoid.class, new AntiVoid());
+        moduleManager.modules.put(Ambience.class, new Ambience());
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
@@ -124,7 +125,6 @@ public class Myau {
         moduleManager.modules.put(Velocity.class, new Velocity());
         moduleManager.modules.put(ViewClip.class, new ViewClip());
         moduleManager.modules.put(WaterMark.class, new WaterMark());
-        moduleManager.modules.put(WorldTime.class, new WorldTime());
         moduleManager.modules.put(Wtap.class, new Wtap());
 
         commandManager.commands.add(new BindCommand());
