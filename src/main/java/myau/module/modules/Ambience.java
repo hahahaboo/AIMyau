@@ -7,6 +7,7 @@ import myau.events.Render3DEvent;
 import myau.events.UpdateEvent;
 import myau.event.types.EventType;
 import myau.module.Module;
+import myau.module.Category;
 import myau.property.properties.ColorProperty;
 import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
