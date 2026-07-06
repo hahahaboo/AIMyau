@@ -4,7 +4,7 @@ import myau.event.EventTarget;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.module.Module;
-import myau.module,Category;
+import myau.module.Category;
 import myau.property.properties.IntProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.play.server.S03PacketTimeUpdate;
