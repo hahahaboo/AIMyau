@@ -1,5 +1,6 @@
 package myau.mixin;
 
+import myau.Myau;
 import myau.module.ModuleManager;
 import myau.module.modules.Ambience;
 import net.minecraft.util.BlockPos;
