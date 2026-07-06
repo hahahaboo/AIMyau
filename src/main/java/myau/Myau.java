@@ -60,6 +60,7 @@ public class Myau {
         EventManager.register(rotationManager);
 
         moduleManager.modules.put(AimAssist.class, new AimAssist());
+        moduleManager.modules.put(Ambience.class, new Ambience());
         moduleManager.modules.put(Animations.class, new Animations());
         moduleManager.modules.put(AntiAFK.class, new AntiAFK());
         moduleManager.modules.put(AntiDebuff.class, new AntiDebuff());
@@ -124,7 +125,6 @@ public class Myau {
         moduleManager.modules.put(Velocity.class, new Velocity());
         moduleManager.modules.put(ViewClip.class, new ViewClip());
         moduleManager.modules.put(WaterMark.class, new WaterMark());
-        moduleManager.modules.put(WorldTime.class, new WorldTime());
         moduleManager.modules.put(Wtap.class, new Wtap());
 
         commandManager.commands.add(new BindCommand());
