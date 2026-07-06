@@ -159,11 +159,11 @@ public class AntiAFK extends Module {
     }
 
     private void handleAFKActions() {
-        if (action1Timer.hasTimeElapsed(15000)) {
+        if (action1Timer.hasTimeElapsed(5000)) {
             performAction1();
             action1Timer.reset();
         }
-        if (action2Timer.hasTimeElapsed(40000)) {   // 每20秒跳躍一次
+        if (action2Timer.hasTimeElapsed(7500)) {
             performAction2();
             action2Timer.reset();
         }
