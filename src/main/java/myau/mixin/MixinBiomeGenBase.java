@@ -14,7 +14,7 @@ public abstract class MixinBiomeGenBase {
 
     @Inject(method = "getFloatTemperature", at = @At("HEAD"), cancellable = true)
     private void onGetFloatTemperature(BlockPos pos, CallbackInfoReturnable<Float> cir) {
-        Ambience ambience = (Ambience) ModuleManager.getModule(Ambience.class);
+        Ambience ambience = (Ambience) Myau.moduleManager.modules.get(Ambience.class);
         if (ambience != null && ambience.isEnabled()) {
             cir.setReturnValue(ambience.getFloatTemperature(pos, (BiomeGenBase) (Object) this));
         }
