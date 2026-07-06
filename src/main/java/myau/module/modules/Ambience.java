@@ -12,7 +12,7 @@ import net.minecraft.network.play.server.S03PacketTimeUpdate;
 public final class Ambience extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    public final IntProperty time = new IntProperty("Time", 0, 0, 22999);
+    public final IntProperty time = new IntProperty("Time", 0, 0, 24000);
     public final IntProperty speed = new IntProperty("Time Speed", 0, 0, 20);
 
     public Ambience() {
