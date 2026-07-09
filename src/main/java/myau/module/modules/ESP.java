@@ -23,6 +23,9 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.scoreboard.Score;
+import net.minecraft.scoreboard.ScoreObjective;
+import net.minecraft.scoreboard.Scoreboard;
 
 import javax.vecmath.Vector4d;
 import java.awt.*;
@@ -33,6 +36,7 @@ public class ESP extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final ModeProperty mode = new ModeProperty("mode", 2, new String[]{"NONE", "2D", "3D", "OUTLINE"});
     public final ModeProperty color = new ModeProperty("color", 0, new String[]{"DEFAULT", "TEAMS", "HUD"});
+    public final ModeProperty healthMode = new ModeProperty("health-mode", 0, new String[]{"HP", "TAB"});
     public final ModeProperty healthBar = new ModeProperty("health-bar", 0, new String[]{"NONE", "2D", "RAVEN"});
     public final BooleanProperty players = new BooleanProperty("players", true);
     public final BooleanProperty friends = new BooleanProperty("friends", true);
@@ -90,6 +94,28 @@ public class ESP extends Module {
         }
     }
 
+    // 新增方法：統一處理 health-mode (HP / TAB)
+    private float getHealthForESP(EntityPlayer player) {
+        if (this.healthMode.getValue() == 0) { // HP mode - 與原本相同
+            return player.getHealth() + player.getAbsorptionAmount();
+        } else { // TAB mode
+            if (player instanceof EntityPlayer) {
+                Scoreboard scoreboard = mc.theWorld.getScoreboard();
+                if (scoreboard != null) {
+                    ScoreObjective objective = scoreboard.getObjectiveInDisplaySlot(2);
+                    if (objective != null) {
+                        Score score = scoreboard.getValueFromObjective(player.getName(), objective);
+                        if (score != null) {
+                            return (float) score.getScorePoints();
+                        }
+                    }
+                }
+            }
+            // TAB 失敗時 fallback 到 HP
+            return player.getHealth() + player.getAbsorptionAmount();
+        }
+    }
+
     public boolean isOutlineEnabled() {
         return this.outline;
     }
@@ -112,6 +138,7 @@ public class ESP extends Module {
             List<EntityPlayer> renderedEntities = TeamUtil.getLoadedEntitiesSorted().stream().filter(entity -> entity instanceof EntityPlayer && this.shouldRenderPlayer((EntityPlayer) entity)).map(EntityPlayer.class::cast).collect(Collectors.toList());
             if (!renderedEntities.isEmpty()) {
                 if (this.mode.getValue() == 3) {
+                    // ... (OUTLINE 模式保持不變)
                     GlStateManager.pushMatrix();
                     GlStateManager.pushAttrib();
                     if (this.framebuffer == null) {
@@ -168,7 +195,8 @@ public class ESP extends Module {
                                 RenderUtil.drawOutlineRect(x, y, z, w, 1.5F, 0, color);
                             }
                             if (this.healthBar.getValue() == 1) {
-                                float heal = player.getHealth() + player.getAbsorptionAmount();
+                                // 修改處：使用 getHealthForESP
+                                float heal = this.getHealthForESP(player);
                                 float percent = Math.min(Math.max(heal / player.getMaxHealth(), 0.0F), 1.0F);
                                 float box = (z - x) * 0.08F;
                                 Color healthColor = ColorUtil.getHealthBlend(percent);
@@ -206,7 +234,8 @@ public class ESP extends Module {
                         GlStateManager.pushMatrix();
                         GlStateManager.translate(x, y, z);
                         GlStateManager.rotate(mc.getRenderManager().playerViewY * -1.0F, 0.0F, 1.0F, 0.0F);
-                        float heal = player.getHealth() + player.getAbsorptionAmount();
+                        // 修改處：使用 getHealthForESP
+                        float heal = this.getHealthForESP(player);
                         float percent = Math.min(Math.max(heal / player.getMaxHealth(), 0.0F), 1.0F);
                         Color healthColor = ColorUtil.getHealthBlend(percent);
                         float height = player.height + 0.2F;
