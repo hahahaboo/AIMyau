@@ -431,7 +431,7 @@ public class KillAura extends Module {
             }
             
             // 使用較低 priority 讓它平滑淡出
-            event.setRotation(yaw, pitch, 0.35F);
+            event.setRotation(yaw, pitch, 0);
         }
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.attackDelayMS > 0L) {
@@ -994,7 +994,7 @@ public class KillAura extends Module {
                 pitch = complied[1];
             }
             
-            Myau.rotationManager.setRotation(yaw, pitch, 0.0F, false);
+            Myau.rotationManager.setRotation(yaw, pitch, 0, false);
         }
     }
 
