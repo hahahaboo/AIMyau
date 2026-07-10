@@ -84,6 +84,7 @@ public class KillAura extends Module {
     public final PercentProperty smoothing;
     public final IntProperty angleStep;
     public final BooleanProperty gcdFix;
+    public final BooleanProperty smoothBack;
     public final BooleanProperty throughWalls;
     public final BooleanProperty requirePress;
     public final BooleanProperty allowMining;
@@ -342,6 +343,7 @@ public class KillAura extends Module {
         this.smoothing = new PercentProperty("smoothing", 0);
         this.angleStep = new IntProperty("angle-step", 90, 30, 180);
         this.gcdFix = new BooleanProperty("gcd-fix", false);
+        this.smoothBack = new BooleanProperty("smooth-back", true);
         this.throughWalls = new BooleanProperty("through-walls", true);
         this.requirePress = new BooleanProperty("require-press", false);
         this.allowMining = new BooleanProperty("allow-mining", true);
@@ -402,6 +404,34 @@ public class KillAura extends Module {
             this.blinkReset = false;
             Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
             Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+        }
+        if (!this.isEnabled() && this.smoothBack.getValue() && RotationState.isActived()) {
+            // 使用與 rotations 相同的 smoothing + angle-step + gcdfix 邏輯
+            float[] targetRot = RotationUtil.getRotationsToBox(
+                mc.thePlayer.getEntityBoundingBox(),
+                event.getYaw(),
+                event.getPitch(),
+                (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                (float) this.smoothing.getValue() / 100.0F
+            );
+            
+            float yaw = targetRot[0];
+            float pitch = targetRot[1];
+            
+            // 配合 gcd-fix（如果已開啟）
+            if (this.gcdFix.getValue()) {
+                float[] complied = RotationUtil.GCDfix(
+                    yaw,
+                    pitch,
+                    event.getYaw(),
+                    event.getPitch()
+                );
+                yaw = complied[0];
+                pitch = complied[1];
+            }
+            
+            // 使用較低 priority 讓它平滑淡出
+            event.setRotation(yaw, pitch, 0.35F);
         }
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.attackDelayMS > 0L) {
@@ -950,6 +980,22 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        
+        // 新增：smooth-back 平滑回正
+        if (this.smoothBack.getValue()) {
+            // 使用與 rotations 相同的邏輯逐漸回正
+            float yaw = mc.thePlayer.rotationYaw;
+            float pitch = mc.thePlayer.rotationPitch;
+            
+            // 可與 gcd-fix 配合
+            if (this.gcdFix.getValue()) {
+                float[] complied = RotationUtil.GCDfix(yaw, pitch, yaw, pitch);
+                yaw = complied[0];
+                pitch = complied[1];
+            }
+            
+            Myau.rotationManager.setRotation(yaw, pitch, 0.0F, false);
+        }
     }
 
     @Override
