@@ -83,6 +83,7 @@ public class KillAura extends Module {
     public final ModeProperty moveFix;
     public final PercentProperty smoothing;
     public final IntProperty angleStep;
+    public final BooleanProperty gcdFix;
     public final BooleanProperty throughWalls;
     public final BooleanProperty requirePress;
     public final BooleanProperty allowMining;
@@ -340,6 +341,7 @@ public class KillAura extends Module {
         this.moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT", "STRICT"});
         this.smoothing = new PercentProperty("smoothing", 0);
         this.angleStep = new IntProperty("angle-step", 90, 30, 180);
+        this.gcdFix = new BooleanProperty("gcd-fix", false);
         this.throughWalls = new BooleanProperty("through-walls", true);
         this.requirePress = new BooleanProperty("require-press", false);
         this.allowMining = new BooleanProperty("allow-mining", true);
@@ -717,12 +719,27 @@ public class KillAura extends Module {
                                 (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
                                 (float) this.smoothing.getValue() / 100.0F
                         );
-                        event.setRotation(rotations[0], rotations[1], 1);
+                        
+                        float yaw = rotations[0];
+                        float pitch = rotations[1];
+                        
+                        if (this.gcdFix.getValue()) {
+                            float[] complied = RotationUtil.GCDfix(
+                                yaw,
+                                pitch,
+                                mc.thePlayer.rotationYaw,
+                                mc.thePlayer.rotationPitch
+                            );
+                            yaw = complied[0];
+                            pitch = complied[1];
+                        }
+                        
+                        event.setRotation(yaw, pitch, 1);
                         if (this.rotations.getValue() == 3) {
-                            Myau.rotationManager.setRotation(rotations[0], rotations[1], 1, true);
+                            Myau.rotationManager.setRotation(yaw, pitch, 1, true);
                         }
                         if (this.moveFix.getValue() != 0 || this.rotations.getValue() == 3) {
-                            event.setPervRotation(rotations[0], 1);
+                            event.setPervRotation(yaw, 1);
                         }
                     }
                     if (attack) {
