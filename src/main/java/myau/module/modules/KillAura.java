@@ -713,7 +713,7 @@ public class KillAura extends Module {
                 boolean attacked = false;
             
                 // === 原有 target 存在時的 rotation 處理 ===
-                if (this.target != null && this.isBoxInSwingRange(this.target.getBox())) {
+                if (this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
@@ -735,7 +735,7 @@ public class KillAura extends Module {
                     }
                 } 
                 // === 新增：smooth-back 功能（當失去 target 時平滑回正）===
-                else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
+                else if (this.target = null && this.smoothBack.getValue() && this.rotations.getValue() != 0) {
                     // 使用玩家自身 bounding box 作為目標點，實現平滑回正
                     AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox();
                     float[] resetRotations = RotationUtil.getRotationsToBox(
