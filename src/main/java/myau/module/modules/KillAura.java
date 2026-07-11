@@ -766,6 +766,23 @@ public class KillAura extends Module {
                     Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
                 }
             }
+                else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
+                AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox();
+                float[] resetRotations = RotationUtil.getRotationsToBox(
+                        playerBox,
+                        event.getYaw(),
+                        event.getPitch(),
+                        (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                        (float) this.smoothing.getValue() / 100.0F
+                );
+                event.setRotation(resetRotations[0], resetRotations[1], 1);
+                if (this.rotations.getValue() == 3) {
+                    Myau.rotationManager.setRotation(resetRotations[0], resetRotations[1], 1, true);
+                }
+                if (this.moveFix.getValue() != 0 || this.rotations.getValue() == 3) {
+                    event.setPervRotation(resetRotations[0], 1);
+                }
+            }
         }
     }
 
