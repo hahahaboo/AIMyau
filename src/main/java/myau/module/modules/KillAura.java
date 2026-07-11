@@ -396,7 +396,7 @@ public class KillAura extends Module {
         return (mc.thePlayer.isUsingItem() || this.blockingState) && ItemUtil.isHoldingSword();
     }
 
-    @EventTarget(Priority.LOW)
+   @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST && this.blinkReset) {
             this.blinkReset = false;
@@ -416,13 +416,14 @@ public class KillAura extends Module {
                 this.blockTick = 0;
                 this.hypixel3Asw = 0;
             }
+        
             if (attack) {
                 boolean swap = false;
                 boolean blocked = false;
                 if (block) {
                     switch (this.autoBlock.getValue()) {
                         case 0: // NONE
-                            if (PlayerUtil.isUsingItem()) {
+                        if (PlayerUtil.isUsingItem()) {
                                 this.isBlocking = true;
                                 if (!this.isPlayerBlocking() && !Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
                                     swap = true;
@@ -520,7 +521,7 @@ public class KillAura extends Module {
                                 if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
                                     switch (this.blockTick) {
                                         case 0:
-                                            if (!this.isPlayerBlocking()) {
+                                               if (!this.isPlayerBlocking()) {
                                                 swap = true;
                                             }
                                             this.blinkReset = true;
@@ -569,9 +570,9 @@ public class KillAura extends Module {
                                             if (this.attackDelayMS <= 50L) {
                                                 this.blockTick = 0;
                                             }
-                                            break;
+                                        break;
                                         default:
-                                            this.blockTick = 0;
+                                        this.blockTick = 0;
                                     }
                                 }
                                 this.isBlocking = true;
@@ -590,8 +591,8 @@ public class KillAura extends Module {
                                         case 0:
                                             int slot = this.findSwordSlot(item);
                                             if (slot != -1) {
-                                                if (!this.isPlayerBlocking()) {
-                                                    swap = true;
+                                            if (!this.isPlayerBlocking()) {
+                                                swap = true;
                                                 }
                                                 this.blockTick = 1;
                                             }
@@ -707,12 +708,10 @@ public class KillAura extends Module {
                                     && !Myau.playerStateManager.placing) {
                                 swap = true;
                             }
-                    }
+                        }
                 }
             
                 boolean attacked = false;
-            
-                // === 原有 target 存在時的 rotation 處理 ===
                 if (this.target != null && this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
                         float[] rotations = RotationUtil.getRotationsToBox(
@@ -733,27 +732,8 @@ public class KillAura extends Module {
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
                     }
-                } 
-                // === 新增：smooth-back 功能（當失去 target 時平滑回正）===
-                else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
-                    // 使用玩家自身 bounding box 作為目標點，實現平滑回正
-                    AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox();
-                    float[] resetRotations = RotationUtil.getRotationsToBox(
-                            playerBox,
-                            event.getYaw(),
-                            event.getPitch(),
-                            (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
-                            (float) this.smoothing.getValue() / 100.0F
-                    );
-                    event.setRotation(resetRotations[0], resetRotations[1], 1);
-                    if (this.rotations.getValue() == 3) {
-                        Myau.rotationManager.setRotation(resetRotations[0], resetRotations[1], 1, true);
-                    }
-                    if (this.moveFix.getValue() != 0 || this.rotations.getValue() == 3) {
-                        event.setPervRotation(resetRotations[0], 1);
-                    }
                 }
-                
+            
                 if (swap) {
                     if (attacked) {
                         this.interactAttack(event.getNewYaw(), event.getNewPitch());
@@ -765,16 +745,22 @@ public class KillAura extends Module {
                     Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
                     Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
                 }
-            }
-                else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
-                AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox();
-                float[] resetRotations = RotationUtil.getRotationsToBox(
-                        playerBox,
+            } 
+            // === smooth-back 只保留這裡（當失去 target 時執行）===
+            else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
+                float targetYaw = mc.thePlayer.rotationYaw;
+                float targetPitch = mc.thePlayer.rotationPitch;
+
+                float[] resetRotations = RotationUtil.getRotations(
+                        0, 0, 0,
                         event.getYaw(),
                         event.getPitch(),
-                        (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                        (float) this.angleStep.getValue() + RandomUtil.nextFloat(-3.0F, 3.0F),
                         (float) this.smoothing.getValue() / 100.0F
                 );
+                resetRotations[0] = targetYaw;
+                resetRotations[1] = targetPitch;
+                
                 event.setRotation(resetRotations[0], resetRotations[1], 1);
                 if (this.rotations.getValue() == 3) {
                     Myau.rotationManager.setRotation(resetRotations[0], resetRotations[1], 1, true);
