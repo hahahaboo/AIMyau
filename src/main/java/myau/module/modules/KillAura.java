@@ -80,6 +80,7 @@ public class KillAura extends Module {
     public final IntProperty maxCPS;
     public final IntProperty switchDelay;
     public final ModeProperty rotations;
+    public final BooleanProperty smoothBack;
     public final ModeProperty moveFix;
     public final PercentProperty smoothing;
     public final IntProperty angleStep;
@@ -337,6 +338,7 @@ public class KillAura extends Module {
         this.maxCPS = new IntProperty("max-aps", 14, 1, 20);
         this.switchDelay = new IntProperty("switch-delay", 0, 0, 1000);
         this.rotations = new ModeProperty("rotations", 2, new String[]{"NONE", "LEGIT", "SILENT", "LOCK_VIEW"});
+        this.smoothBack = new BooleanProperty("smooth-back", false);
         this.moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT", "STRICT"});
         this.smoothing = new PercentProperty("smoothing", 0);
         this.angleStep = new IntProperty("angle-step", 90, 30, 180);
@@ -707,8 +709,11 @@ public class KillAura extends Module {
                             }
                     }
                 }
+            
                 boolean attacked = false;
-                if (this.isBoxInSwingRange(this.target.getBox())) {
+            
+                // === 原有 target 存在時的 rotation 處理 ===
+                if (this.target != null && this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
@@ -728,7 +733,27 @@ public class KillAura extends Module {
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
                     }
+                } 
+                // === 新增：smooth-back 功能（當失去 target 時平滑回正）===
+                else if (this.smoothBack.getValue() && this.rotations.getValue() != 0) {
+                    // 使用玩家自身 bounding box 作為目標點，實現平滑回正
+                    AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox();
+                    float[] resetRotations = RotationUtil.getRotationsToBox(
+                            playerBox,
+                            event.getYaw(),
+                            event.getPitch(),
+                            (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                            (float) this.smoothing.getValue() / 100.0F
+                    );
+                    event.setRotation(resetRotations[0], resetRotations[1], 1);
+                    if (this.rotations.getValue() == 3) {
+                        Myau.rotationManager.setRotation(resetRotations[0], resetRotations[1], 1, true);
+                    }
+                    if (this.moveFix.getValue() != 0 || this.rotations.getValue() == 3) {
+                        event.setPervRotation(resetRotations[0], 1);
+                    }
                 }
+                
                 if (swap) {
                     if (attacked) {
                         this.interactAttack(event.getNewYaw(), event.getNewPitch());
