@@ -86,7 +86,7 @@ public class AimAssist extends Module {
         if ((Boolean)this.breakBlock.getValue()){
             return mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK;
         } else { 
-            return false
+            return false;
         }
     }
     
