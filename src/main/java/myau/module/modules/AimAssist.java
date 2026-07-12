@@ -38,7 +38,7 @@ public class AimAssist extends Module {
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty clickAim = new BooleanProperty("require-mouse", true);
-    public final BooleanProperty breakBlock = new BooleanProperty("allow-breaking", true);
+    public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
@@ -83,7 +83,7 @@ public class AimAssist extends Module {
     }
 
     private boolean isLookingAtBlock() {
-        if ((Boolean)this.breakBlock.getValue()){
+        if ((Boolean)this.breakBlocks.getValue()){
             return mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK;
         } else { 
             return false;
