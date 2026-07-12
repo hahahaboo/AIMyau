@@ -112,7 +112,7 @@ public class AimAssist extends Module {
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
-                boolean attacking = PlayerUtil.isAttacking() || (Boolean) this.clickAim.getValue();
+                boolean attacking = PlayerUtil.isAttacking() || !(Boolean) this.clickAim.getValue();
                 if (!attacking || !this.isLookingAtBlock()) {
                     if (attacking || !this.timer.hasTimeElapsed(350L)) {
                         List<EntityPlayer> inRange = mc.theWorld
