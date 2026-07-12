@@ -37,6 +37,7 @@ public class AimAssist extends Module {
     public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
+    public final BooleanProperty clickAim = new BooleanProperty("require-mouse", true);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
@@ -211,6 +212,7 @@ public class AimAssist extends Module {
 
     @EventTarget
     public void onPress(KeyEvent event) {
+        if (!(Boolean) this.clickAim.getValue()) return
         if (event.getKey() == mc.gameSettings.keyBindAttack.getKeyCode() && !Myau.moduleManager.modules.get(AutoClicker.class).isEnabled()) {
             this.timer.reset();
         }
