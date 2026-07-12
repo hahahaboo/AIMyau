@@ -37,6 +37,7 @@ public class AimAssist extends Module {
     public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
+    public final BooleanProperty clickAim = new BooleanProperty("require-mouse", true);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
     public final BooleanProperty botChecks = new BooleanProperty("bot-check", true);
@@ -111,7 +112,7 @@ public class AimAssist extends Module {
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
-                boolean attacking = PlayerUtil.isAttacking();
+                boolean attacking = PlayerUtil.isAttacking() || !(Boolean) this.clickAim.getValue();
                 if (!attacking || !this.isLookingAtBlock()) {
                     if (attacking || !this.timer.hasTimeElapsed(350L)) {
                         List<EntityPlayer> inRange = mc.theWorld
