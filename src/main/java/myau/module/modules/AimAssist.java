@@ -112,7 +112,7 @@ public class AimAssist extends Module {
             if (!(Boolean) this.weaponOnly.getValue()
                     || ItemUtil.hasRawUnbreakingEnchant()
                     || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
-                boolean attacking = PlayerUtil.isAttacking();
+                boolean attacking = PlayerUtil.isAttacking() || (Boolean) this.clickAim.getValue();
                 if (!attacking || !this.isLookingAtBlock()) {
                     if (attacking || !this.timer.hasTimeElapsed(350L)) {
                         List<EntityPlayer> inRange = mc.theWorld
@@ -212,7 +212,6 @@ public class AimAssist extends Module {
 
     @EventTarget
     public void onPress(KeyEvent event) {
-        if (!(Boolean) this.clickAim.getValue()) return
         if (event.getKey() == mc.gameSettings.keyBindAttack.getKeyCode() && !Myau.moduleManager.modules.get(AutoClicker.class).isEnabled()) {
             this.timer.reset();
         }
