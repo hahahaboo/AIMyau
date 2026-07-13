@@ -83,6 +83,7 @@ public class Scaffold extends Module {
         public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
         public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
         public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
+        public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 7);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -641,8 +642,8 @@ public class Scaffold extends Module {
                             MovingObjectPosition snapMop = this.getPlacementMop(blockData, this.yaw, this.pitch);
                             hitVec = snapMop != null ? snapMop.hitVec : currentMop.hitVec;
                             this.snapRotating = true;
-                            if (this.rotationTick > 1) {
-                                this.rotationTick = 1;
+                            if (this.rotationTick > this.snapDelay.getValue()) {
+                                this.rotationTick = this.snapDelay.getValue();
                             }
                         }
                     } else if (hitVec != null && this.canRotate) {
@@ -658,8 +659,8 @@ public class Scaffold extends Module {
                                 hitVec = snapMop.hitVec;
                             }
                             this.snapRotating = true;
-                            if (this.rotationTick > 1) {
-                                this.rotationTick = 1;
+                            if (this.rotationTick > this.snapDelay.getValue()) {
+                                this.rotationTick = this.snapDelay.getValue();
                             }
                         }
                     }
