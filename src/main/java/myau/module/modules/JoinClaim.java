@@ -25,7 +25,7 @@ public class JoinClaim extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.PRE) return;
+        if (event.getType() != EventType.PRE || !this.isEnabled()) return;
 
         if (mc.thePlayer == null || mc.theWorld == null || mc.isSingleplayer())
             return;
