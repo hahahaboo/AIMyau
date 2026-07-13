@@ -48,7 +48,7 @@ public class ChestAura extends Module {
 
     @Override
     public void onEnabled() {
-        Scaffold scaffold = (Scaffold) Myau.moduleManager.getModule(Scaffold.class);
+        Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
         if (scaffold != null && scaffold.isEnabled()) {
             scaffoldWasEnabled = true;
             scaffold.setEnabled(false);
@@ -59,7 +59,7 @@ public class ChestAura extends Module {
     @Override
     public void onDisabled() {
         if (scaffoldWasEnabled) {
-            Scaffold scaffold = (Scaffold) Myau.moduleManager.getModule(Scaffold.class);
+            Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
             if (scaffold != null) {
                 scaffold.setEnabled(true);
             }
@@ -113,7 +113,7 @@ public class ChestAura extends Module {
         if (!isEnabled()) return;
         if (event.getType() != EventType.PRE) return;
 
-        KillAura killAura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
+        KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
         if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null) {
             targetChest = null;
             isRotating = false;
@@ -172,7 +172,7 @@ public class ChestAura extends Module {
     public void onMove(MoveInputEvent event) {
         if (!isEnabled()) return;
 
-        KillAura killAura = (KillAura) Myau.moduleManager.getModule(KillAura.class);
+        KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
         if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null) return;
 
         if (isRotating && targetChest != null) {
