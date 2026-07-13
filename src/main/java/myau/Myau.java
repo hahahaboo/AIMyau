@@ -67,6 +67,7 @@ public class Myau {
         moduleManager.modules.put(AntiFireball.class, new AntiFireball());
         moduleManager.modules.put(AntiObfuscate.class, new AntiObfuscate());
         moduleManager.modules.put(AntiVoid.class, new AntiVoid());
+        moduleManager.modules.put(AutoAuth.class, new AutoAuth());
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
@@ -76,6 +77,7 @@ public class Myau {
         moduleManager.modules.put(BedNuker.class, new BedNuker());
         moduleManager.modules.put(Blink.class, new Blink());
         moduleManager.modules.put(Chams.class, new Chams());
+        moduleManager.modules.put(ChestAura.class, new ChestAura());
         moduleManager.modules.put(ChestESP.class, new ChestESP());
         moduleManager.modules.put(ChestStealer.class, new ChestStealer());
         moduleManager.modules.put(ClickGUIModule.class, new ClickGUIModule());
