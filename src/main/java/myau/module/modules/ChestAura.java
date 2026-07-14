@@ -4,11 +4,13 @@ import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.*;
+import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.MoveUtil;
+import myau.util.TimerUtil;
 import net.minecraft.block.BlockChest;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -19,31 +21,30 @@ import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.Vec3;
-
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// 为了防止某个叫秋窈的狗来狗叫，我特定说明这个ChestAura是来自某个魔水的，而不是你那坨狗屎Eternity里面还是我搞上去的ChestAura
-// 你那个端里的ChestAura还是我弄上去的，你有什么资格来狗叫我
+// 為了防止某個叫秋窈的狗來狗叫，我特定說明這個ChestAura是來自某個魔水的，而不是你那坨狗屎Eternity裡面還是我搞上去的ChestAura
+// 你那個端裡的ChestAura還是我弄上去的，你有什麼資格來狗叫我
 public class ChestAura extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final DecimalFormat df = new DecimalFormat("0.0");
-
     public final FloatProperty range = new FloatProperty("Range", 4.0f, 1.0f, 6.0f);
     public final BooleanProperty throughWalls = new BooleanProperty("Through Walls", true);
     public final ModeProperty moveFix = new ModeProperty("Move Fix", 1, new String[]{"None", "Silent", "Strict"});
-
+    public final FloatProperty chestDelay = new FloatProperty("Chest Delay", 0.0f, 0.0f, 5.0f);
     private final List<BlockPos> openedChests = new ArrayList<>();
+    private final TimerUtil chestTimer = new TimerUtil();
     private TileEntityChest targetChest;
     private float[] rotations;
     private boolean isRotating;
     private boolean scaffoldWasEnabled = false;
 
     public ChestAura() {
-        super("ChestAura", false);
+        super("ChestAura", "", Category.PLAYER, 0, false, false);
     }
 
     @Override
@@ -54,6 +55,7 @@ public class ChestAura extends Module {
             scaffold.setEnabled(false);
         }
         openedChests.clear();
+        chestTimer.reset();
     }
 
     @Override
@@ -73,6 +75,7 @@ public class ChestAura extends Module {
     public void onWorldLoad(LoadWorldEvent event) {
         openedChests.clear();
         scaffoldWasEnabled = false;
+        chestTimer.reset();
     }
 
     private void addOpenedChest(BlockPos pos) {
@@ -94,7 +97,7 @@ public class ChestAura extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{df.format(range.getValue())};
+        return new String[]{df.format(range.getValue()) + " | " + df.format(chestDelay.getValue()) + "s"};
     }
 
     @EventTarget
@@ -135,35 +138,37 @@ public class ChestAura extends Module {
             }
         }
 
+        // Chest Delay 邏輯：如果設定了延遲，則等待時間到才繼續
+        if (chestDelay.getValue() > 0 && !chestTimer.hasTimeElapsed((long) (chestDelay.getValue() * 1000))) {
+            targetChest = null;
+            isRotating = false;
+            return;
+        }
+
         targetChest = getClosestChest();
         isRotating = false;
-
         if (targetChest != null) {
             double x = targetChest.getPos().getX() + 0.5 - mc.thePlayer.posX;
             double y = targetChest.getPos().getY() + 0.5 - mc.thePlayer.posY - mc.thePlayer.getEyeHeight();
             double z = targetChest.getPos().getZ() + 0.5 - mc.thePlayer.posZ;
             double dist = Math.sqrt(x * x + z * z);
-
             float yaw = (float) (Math.atan2(z, x) * 180.0 / Math.PI) - 90.0f;
             float pitch = (float) -(Math.atan2(y, dist) * 180.0 / Math.PI);
-
             rotations = new float[]{yaw, pitch};
-
             event.setRotation(rotations[0], rotations[1], 1);
             mc.thePlayer.rotationYawHead = rotations[0];
             mc.thePlayer.renderYawOffset = rotations[0];
             isRotating = true;
-
             if (this.moveFix.getValue() != 0) {
                 event.setPervRotation(rotations[0], 1);
             }
-
             if (mc.playerController.onPlayerRightClick(mc.thePlayer, mc.theWorld,
                     mc.thePlayer.inventory.getCurrentItem(),
                     targetChest.getPos(), EnumFacing.UP,
                     new Vec3(targetChest.getPos().getX(), targetChest.getPos().getY(), targetChest.getPos().getZ()))) {
                 mc.thePlayer.swingItem();
                 addOpenedChest(targetChest.getPos());
+                chestTimer.reset();  // 成功開箱後重置計時器，開始下次延遲
             }
         }
     }
@@ -171,10 +176,8 @@ public class ChestAura extends Module {
     @EventTarget
     public void onMove(MoveInputEvent event) {
         if (!isEnabled()) return;
-
         KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
         if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null) return;
-
         if (isRotating && targetChest != null) {
             if (this.moveFix.getValue() == 1 && MoveUtil.isForwardPressed()) {
                 MoveUtil.fixStrafe(rotations[0]);
@@ -192,7 +195,6 @@ public class ChestAura extends Module {
                         new net.minecraft.entity.item.EntityItem(mc.theWorld, e.getPos().getX(), e.getPos().getY(), e.getPos().getZ())))
                 .sorted(Comparator.comparingDouble(e -> mc.thePlayer.getDistanceSq(e.getPos())))
                 .collect(Collectors.toList());
-
         return chests.isEmpty() ? null : chests.get(0);
     }
 }
