@@ -27,15 +27,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-// 為了防止某個叫秋窈的狗來狗叫，我特定說明這個ChestAura是來自某個魔水的，而不是你那坨狗屎Eternity裡面還是我搞上去的ChestAura
-// 你那個端裡的ChestAura還是我弄上去的，你有什麼資格來狗叫我
 public class ChestAura extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final DecimalFormat df = new DecimalFormat("0.0");
     public final FloatProperty range = new FloatProperty("Range", 4.0f, 1.0f, 6.0f);
+    public final FloatProperty chestDelay = new FloatProperty("Chest Delay", 0.0f, 0.0f, 5.0f);
     public final BooleanProperty throughWalls = new BooleanProperty("Through Walls", true);
     public final ModeProperty moveFix = new ModeProperty("Move Fix", 1, new String[]{"None", "Silent", "Strict"});
-    public final FloatProperty chestDelay = new FloatProperty("Chest Delay", 0.0f, 0.0f, 5.0f);
     private final List<BlockPos> openedChests = new ArrayList<>();
     private final TimerUtil chestTimer = new TimerUtil();
     private TileEntityChest targetChest;
