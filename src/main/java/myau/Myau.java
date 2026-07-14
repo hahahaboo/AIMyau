@@ -67,7 +67,6 @@ public class Myau {
         moduleManager.modules.put(AntiFireball.class, new AntiFireball());
         moduleManager.modules.put(AntiObfuscate.class, new AntiObfuscate());
         moduleManager.modules.put(AntiVoid.class, new AntiVoid());
-        moduleManager.modules.put(AutoAuth.class, new AutoAuth());
         moduleManager.modules.put(AutoBlockIn.class, new AutoBlockIn());
         moduleManager.modules.put(AutoClicker.class, new AutoClicker());
         moduleManager.modules.put(AutoTool.class, new AutoTool());
