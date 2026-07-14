@@ -55,7 +55,6 @@ public class ChestAura extends Module {
             scaffold.setEnabled(false);
         }
         openedChests.clear();
-        chestTimer.reset();
     }
 
     @Override
@@ -75,7 +74,6 @@ public class ChestAura extends Module {
     public void onWorldLoad(LoadWorldEvent event) {
         openedChests.clear();
         scaffoldWasEnabled = false;
-        chestTimer.reset();
     }
 
     private void addOpenedChest(BlockPos pos) {
