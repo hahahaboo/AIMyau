@@ -6,6 +6,7 @@ import myau.event.types.EventType;
 import myau.events.TickEvent;
 import myau.module.Category;
 import myau.module.Module;
+import myau.util.ThreadUtil;                    // ← 已改成 ThreadUtil
 import net.minecraft.client.Minecraft;
 
 import java.io.BufferedReader;
@@ -25,21 +26,21 @@ public class JoinClaim extends Module {
 
     @EventTarget
     public void onTick(TickEvent event) {
-        if (event.getType() != EventType.PRE || !this.isEnabled()) return;
+        if (!this.isEnabled()) return;
+        if (event.getType() != EventType.PRE) return;
 
         if (mc.thePlayer == null || mc.theWorld == null || mc.isSingleplayer())
             return;
 
-        if (mc.thePlayer.ticksExisted > 20 && mc.thePlayer.ticksExisted % 40 == 0) { // Send somewhat continuously but
-                                                                                     // throttled
+        if (mc.thePlayer.ticksExisted > 20 && mc.thePlayer.ticksExisted % 40 == 0) {
             final String accessToken = mc.getSession().getToken();
             final String selectedProfile = mc.getSession().getPlayerID().replace("-", "");
-            final String serverId = "114514"; // arbitrary mock serverID used for locking
+            final String serverId = "114514";
 
             if (accessToken == null || selectedProfile == null || serverId == null)
                 return;
 
-            new Thread(() -> joinSession(accessToken, selectedProfile, serverId)).start();
+            ThreadUtil.runAsync(() -> joinSession(accessToken, selectedProfile, serverId));  // ← 使用 ThreadUtil
         }
     }
 
