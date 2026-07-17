@@ -37,7 +37,8 @@ import java.util.stream.Collectors;
 public class LagRange extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final IntProperty delay = new IntProperty("delay", 150, 0, 1000);
-    public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 100.0F);
+    public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 50.0F);
+    public final FloatProperty releaseRange = new FloatProperty("release-range", 0.0F, 0.0F, 5.0F);
     public final BooleanProperty aggressive = new BooleanProperty("aggressive", false);
     public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
@@ -116,6 +117,9 @@ public class LagRange extends Module {
                             for (EntityPlayer player : players) {
                                 double distance = RotationUtil.distanceToBox(player, playerEyePosition);
                                 if (!(distance > (double) this.range.getValue())) {
+                                    if (this.releaseRange.getValue() != 0.0F && distance < (double) this.releaseRange.getValue()){
+                                        return;
+                                    }
                                     double targetDist = RotationUtil.distanceToBox(player, targetEyePosition);
                                     double eyeDist = RotationUtil.distanceToBox(player, eyePosition);
                                     if (this.aggressive.getValue() || distance < targetDist || distance < eyeDist) {
