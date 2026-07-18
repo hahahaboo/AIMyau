@@ -1,46 +1,48 @@
 package myau.module.modules;
 
 import myau.Myau;
-import myau.enums.DelayModules;
 import myau.event.EventTarget;
-import myau.event.types.EventType;
 import myau.events.*;
-import myau.mixin.IAccessorEntity;
-import myau.module.Module;
 import myau.module.Category;
-import myau.property.properties.BooleanProperty;
-import myau.property.properties.IntProperty;
+import myau.module.Module;
+import myau.module.modules.combat.velocity.VelocityMode;
+import myau.module.modules.combat.velocity.VanillaVelocity;
+import myau.module.modules.combat.velocity.DelayVelocity;
+import myau.module.modules.combat.velocity.ReverseVelocity;
+import myau.property.Property;
 import myau.property.properties.ModeProperty;
-import myau.property.properties.PercentProperty;
-import myau.util.ChatUtil;
-import myau.util.MoveUtil;
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.play.server.S12PacketEntityVelocity;
-import net.minecraft.network.play.server.S19PacketEntityStatus;
-import net.minecraft.network.play.server.S27PacketExplosion;
-import net.minecraft.potion.Potion;
-import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Velocity extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    private boolean pendingExplosion = false;
-    private boolean allowNext = true;
-    private boolean reverseFlag = false;
-    private boolean delayActive = false;
-    private final Random randomChance = new Random();
+    public int chanceCounter = 0;
+    public int delayChanceCounter = 0;
+    public boolean pendingExplosion = false;
+    public boolean allowNext = true;
+    public boolean jumpFlag = false;
+    public boolean reverseFlag = false;
+    public boolean delayActive = false;
 
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "REVERSE"});
-    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
-    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1);
-    public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
-    public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
-    public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
-    public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
-    public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
-    public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
-    public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
+    public boolean shouldJump = false;
+    public int jumpCooldown = 0;
+    public boolean hasReceivedVelocity = false;
+    public int legitSmartJumpCount = 0;
+    public int intaveTick = 0;
+    public int intaveDamageTick = 0;
+
+    public final List<VelocityMode> modes = new ArrayList<>();
+
+    public final ModeProperty mode =
+        new ModeProperty(
+            "mode",
+            0,
+            new String[] {
+              register(new VanillaVelocity("VANILLA", this)),
+              register(new DelayVelocity("DELAY", this)),
+              register(new ReverseVelocity("REVERSE", this))
+            });
 
     private boolean isInLiquidOrWeb() {
         return mc.thePlayer.isInWater() || mc.thePlayer.isInLava() || ((IAccessorEntity) mc.thePlayer).getIsInWeb();
@@ -51,181 +53,82 @@ public class Velocity extends Module {
         return mc.thePlayer.onGround && (!killAura.isEnabled() || !killAura.shouldAutoBlock());
     }
 
+    private String register(VelocityMode m) {
+      this.modes.add(m);
+      return m.getName();
+    }
+
     public Velocity() {
         super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
 
+    @Override
+    public void onEnabled() {
+        getActiveMode().onEnable();
+    }
+
+    @Override
+    public void onDisabled() {
+        getActiveMode().onDisable();
+        this.pendingExplosion = false;
+        this.allowNext = true;
+        this.shouldJump = false;
+        this.jumpCooldown = 0;
+        this.hasReceivedVelocity = false;
+        this.legitSmartJumpCount = 0;
+        this.intaveTick = 0;
+        this.intaveDamageTick = 0;
+        this.reverseFlag = false;
+        this.delayActive = false;
+    }
+
+    @Override
+    public List<myau.property.Property<?>> getAdditionalProperties() {
+      List<myau.property.Property<?>> props = new ArrayList<>();
+      for (VelocityMode m : modes) {
+        for (java.lang.reflect.Field field : m.getClass().getDeclaredFields()) {
+          field.setAccessible(true);
+          try {
+            Object obj = field.get(m);
+            if (obj instanceof myau.property.Property<?>) {
+              myau.property.Property<?> prop = (myau.property.Property<?>) obj;
+              java.util.function.BooleanSupplier original = prop.getVisibleChecker();
+              prop.setVisibleChecker(
+                  () -> this.getActiveMode() == m && (original == null || original.getAsBoolean()));
+              props.add(prop);
+            }
+          } catch (Exception e) {
+          }
+        }
+      }
+      return props;
+    }
+
+    public VelocityMode getActiveMode() {
+      return modes.stream()
+          .filter(m -> m.getName().equals(mode.getModeString()))
+          .findFirst()
+          .orElse(modes.get(0));
+    }
+
     @EventTarget
     public void onKnockback(KnockbackEvent event) {
-        if (!this.isEnabled() || event.isCancelled()) {
-            this.pendingExplosion = false;
-            this.allowNext = true;
-            return;
-        }
-
-        if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
-            this.allowNext = true;
-
-            if (this.pendingExplosion) {
-                this.pendingExplosion = false;
-                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
-                    if (this.explosionHorizontal.getValue() > 0) {
-                        event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
-                        event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
-                    } else {
-                        event.setX(mc.thePlayer.motionX);
-                        event.setZ(mc.thePlayer.motionZ);
-                    }
-                    if (this.explosionVertical.getValue() > 0) {
-                        event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
-                    } else {
-                        event.setY(mc.thePlayer.motionY);
-                    }
-                }
-            } else {
-                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
-                    boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
-                    if (applyThisTime) {
-                        if (this.horizontal.getValue() > 0) {
-                            event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
-                            event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
-                        } else {
-                            event.setX(mc.thePlayer.motionX);
-                            event.setZ(mc.thePlayer.motionZ);
-                        }
-                        if (this.vertical.getValue() > 0) {
-                            event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
-                        } else {
-                            event.setY(mc.thePlayer.motionY);
-                        }
-                    }
-                } else {
-                    // 其他模式專用標記
-                    this.delayActive = this.mode.getValue() == 2;
-                }
-            }
+        if (this.isEnabled()) {
+            getActiveMode().onKnockback(event);
         }
     }
 
     @EventTarget
     public void onUpdate(UpdateEvent event) {
-        if (event.getType() == EventType.POST) {
-            if (this.reverseFlag && (
-                    this.canDelay() ||
-                    this.isInLiquidOrWeb() ||
-                    Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
-            )) {
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(
-                        String.format("%sVelocity: delay %d ticks (tick: %d)",
-                        Myau.clientName,
-                        Myau.delayManager.getDelay(),
-                        mc.thePlayer.ticksExisted
-                        )
-                    );
-                }
-
-                Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
-                this.reverseFlag = false;
-
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(
-                        String.format("%sVelocity: delay ends (tick: %d)",
-                        Myau.clientName,
-                        mc.thePlayer.ticksExisted
-                        )
-                    );
-                }
-            }
-            if (this.delayActive) {
-                MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
-                this.delayActive = false;
-            }
+        if (this.isEnabled()) {
+            getActiveMode().onUpdate(event);
         }
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) {
-            return;
-        }
-
-        if (event.getPacket() instanceof S12PacketEntityVelocity) {
-            S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
-            if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
-                LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
-
-                // DELAY 模式
-                if (this.mode.getValue() == 1
-                        && !this.reverseFlag
-                        && !this.canDelay()
-                        && !this.isInLiquidOrWeb()
-                        && !this.pendingExplosion
-                        && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())
-                        && (!longJump.isEnabled() || !longJump.canStartJump())) {
-
-                    boolean applyDelayThisTime = this.randomChance.nextDouble() <= (double) this.delayChance.getValue() / 100.0;
-                    if (applyDelayThisTime) {
-                        Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
-                        Myau.delayManager.delayedPacket.offer(packet);
-                        event.setCancelled(true);
-                        this.reverseFlag = true;
-                        if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted(
-                                String.format("%sVelocity: delay start (tick: %d)",
-                                Myau.clientName,
-                                mc.thePlayer.ticksExisted
-                            )
-                        );
-                    }
-                        return;
-                    }
-                }
-
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(
-                            String.format(
-                                    "%sVelocity (tick: %d, x: %.2f, y: %.2f, z: %.2f)",
-                                    Myau.clientName,
-                                    mc.thePlayer.ticksExisted,
-                                    (double) packet.getMotionX() / 8000.0,
-                                    (double) packet.getMotionY() / 8000.0,
-                                    (double) packet.getMotionZ() / 8000.0
-                            )
-                    );
-                }
-            }
-        } 
-        else if (event.getPacket() instanceof S27PacketExplosion) {
-            S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
-            if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
-                this.pendingExplosion = true;
-                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式觸發
-                    if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
-                        event.setCancelled(true);
-                    }
-                }
-
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(
-                            String.format(
-                                    "%sExplosion (tick: %d, x: %.2f, y: %.2f, z: %.2f)",
-                                    Myau.clientName,
-                                    mc.thePlayer.ticksExisted,
-                                    mc.thePlayer.motionX + (double) packet.func_149149_c(),
-                                    mc.thePlayer.motionY + (double) packet.func_149144_d(),
-                                    mc.thePlayer.motionZ + (double) packet.func_149147_e()
-                            )
-                    );
-                }
-            }
-        } 
-        else if (event.getPacket() instanceof S19PacketEntityStatus) {
-            S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
-            Entity entity = packet.getEntity(mc.theWorld);
-            if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                this.allowNext = false;
-            }
+        if (this.isEnabled()) {
+            getActiveMode().onPacket(event);
         }
     }
 
