@@ -3,6 +3,7 @@ package myau.module.modules;
 import myau.Myau;
 import myau.event.EventTarget;
 import myau.events.*;
+import myau.mixin.IAccessorEntity;
 import myau.module.Category;
 import myau.module.Module;
 import myau.module.modules.velocity.VelocityMode;
@@ -83,15 +84,15 @@ public class Velocity extends Module {
     }
 
     @Override
-    public List<myau.property.Property<?>> getAdditionalProperties() {
-      List<myau.property.Property<?>> props = new ArrayList<>();
+    public List<Property<?>> getAdditionalProperties() {
+      List<Property<?>> props = new ArrayList<>();
       for (VelocityMode m : modes) {
         for (java.lang.reflect.Field field : m.getClass().getDeclaredFields()) {
           field.setAccessible(true);
           try {
             Object obj = field.get(m);
-            if (obj instanceof myau.property.Property<?>) {
-              myau.property.Property<?> prop = (myau.property.Property<?>) obj;
+            if (obj instanceof Property<?>) {
+              Property<?> prop = (Property<?>) obj;
               java.util.function.BooleanSupplier original = prop.getVisibleChecker();
               prop.setVisibleChecker(
                   () -> this.getActiveMode() == m && (original == null || original.getAsBoolean()));
@@ -132,7 +133,7 @@ public class Velocity extends Module {
         }
     }
 
-        @Override
+    @Override
     public String[] getSuffix() {
         return new String[]{mode.getModeString()};
     }
