@@ -73,6 +73,10 @@ public class Scaffold extends Module {
     private double savedMotionX;
     private double savedMotionY;
     private double savedMotionZ;
+    private boolean legitWasOnGround = true;
+    private int legitDelayTicks = 0;
+    private int legitReleaseTicks = 0;
+    private boolean legitActive = false;
     private boolean placedThisTick = false;
     private boolean safeStuckActive = false;
     private boolean snapRotating = false;
@@ -92,7 +96,9 @@ public class Scaffold extends Module {
     public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
         public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
         public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
-            public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue());
+            public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
+            public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 0);
+            public final IntProperty safeUnmoveTicks = new IntProperty("unmove-ticks", 1, 1, 5, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 1);
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY" ,"AIRSNEAK"});
         public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 5);
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
@@ -440,6 +446,19 @@ public class Scaffold extends Module {
                 mc.thePlayer.motionZ = this.savedMotionZ;
                 this.safeStuckActive = false;
             }
+            if (this.legitDelayTicks > 0) {
+                this.legitDelayTicks--;
+                if (this.legitDelayTicks <= 0) {
+                    this.legitReleaseTicks = this.safeUnmoveTicks.getValue();
+                    this.legitActive = true;
+                }
+            }
+            if (this.legitReleaseTicks > 0) {
+                this.legitReleaseTicks--;
+                if (this.legitReleaseTicks <= 0) {
+                    this.legitActive = false;
+                }
+            }
             if (this.rotationTick > 0) {
                 this.rotationTick--;
             }
@@ -771,6 +790,11 @@ public class Scaffold extends Module {
                 event.setStrafe(0.0F);
                 return;
             }
+            if (this.safe.getValue() && this.safeMode.getValue() == 1 && this.legitActive) {
+                event.setForward(0.0F);
+                event.setStrafe(0.0F);
+                return;
+            }
             if (!mc.thePlayer.isCollidedHorizontally
                     && mc.thePlayer.hurtTime <= 5
                     && !mc.thePlayer.isPotionActive(Potion.jump)
@@ -919,6 +943,12 @@ public class Scaffold extends Module {
                 mc.thePlayer.movementInput.sneak = false;
                 return;
             }
+            if (this.safe.getValue() && this.safeMode.getValue() == 1 && this.legitActive) {
+                // 純粹放開移動鍵（前後左右），不動 jump/sneak，也不凍結封包
+                mc.thePlayer.movementInput.moveForward = 0.0f;
+                mc.thePlayer.movementInput.moveStrafe = 0.0f;
+                return;
+            }
             if (this.moveFix.getValue() == 1
                     && RotationState.isActived()
                     && RotationState.getPriority() == 3.0F
@@ -970,21 +1000,42 @@ public class Scaffold extends Module {
             if (this.safe.getValue() && this.tower.getValue() == 3 && mc.gameSettings.keyBindJump.isKeyDown()) {
                 float moveYaw = this.getCurrentYaw();
                 boolean diagonal = this.isDiagonal(moveYaw);
-                if (diagonal && !mc.thePlayer.onGround) {
-                    double motionY = mc.thePlayer.motionY;
-                    if (this.safePrevMotionY > 0.0 && motionY <= 0.0) {
-                        double motionXZ = Math.sqrt(mc.thePlayer.motionX * mc.thePlayer.motionX + mc.thePlayer.motionZ * mc.thePlayer.motionZ);
-                        double motionXZSpeedBps = motionXZ * 20.0;
-                        if (this.safeStuckDelayTicks <= 0 && this.safeStuckTicks <= 0 && motionXZSpeedBps >= 4.67) {
-                            this.safeStuckDelayTicks = this.safeStuckDelayTicksProperty.getValue();
+                if (this.safeMode.getValue() == 0) {
+                    // ===== STUCK 模式（原本邏輯）=====
+                    if (diagonal && !mc.thePlayer.onGround) {
+                        double motionY = mc.thePlayer.motionY;
+                        if (this.safePrevMotionY > 0.0 && motionY <= 0.0) {
+                            double motionXZ = Math.sqrt(mc.thePlayer.motionX * mc.thePlayer.motionX + mc.thePlayer.motionZ * mc.thePlayer.motionZ);
+                            double motionXZSpeedBps = motionXZ * 20.0;
+                            if (this.safeStuckDelayTicks <= 0 && this.safeStuckTicks <= 0 && motionXZSpeedBps >= 4.67) {
+                                this.safeStuckDelayTicks = this.safeStuckDelayTicksProperty.getValue();
+                            }
                         }
+                        this.safePrevMotionY = motionY;
+                    } else {
+                        this.safePrevMotionY = mc.thePlayer.motionY;
                     }
-                    this.safePrevMotionY = motionY;
+                        this.legitWasOnGround = mc.thePlayer.onGround;
                 } else {
+                    // ===== LEGIT 模式（新增）=====
                     this.safePrevMotionY = mc.thePlayer.motionY;
+                    if (diagonal) {
+                        boolean onGroundNow = mc.thePlayer.onGround;
+                        // 偵測「剛起跳」：上一tick在地面，這一tick離地
+                        if (this.legitWasOnGround && !onGroundNow
+                                && this.legitDelayTicks <= 0
+                                && this.legitReleaseTicks <= 0
+                                && !this.legitActive) {
+                            this.legitDelayTicks = 1; // 起跳後等 1 tick
+                        }
+                        this.legitWasOnGround = onGroundNow;
+                    } else {
+                        this.legitWasOnGround = mc.thePlayer.onGround;
+                    }
                 }
             } else {
                 this.safePrevMotionY = mc.thePlayer.motionY;
+                this.legitWasOnGround = mc.thePlayer.onGround;
             }
         }
     }
@@ -1085,6 +1136,10 @@ public class Scaffold extends Module {
         this.safeStuckDelayTicks = 0;
         this.safePrevMotionY = 0.0;
         this.safeStuckActive = false;
+        this.legitWasOnGround = true;
+        this.legitDelayTicks = 0;
+        this.legitReleaseTicks = 0;
+        this.legitActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
         this.eagleBlocksPlaced = 0;
@@ -1111,6 +1166,10 @@ public class Scaffold extends Module {
         this.safeStuckDelayTicks = 0;
         this.safePrevMotionY = 0.0;
         this.safeStuckActive = false;
+        this.legitWasOnGround = true;
+        this.legitDelayTicks = 0;
+        this.legitReleaseTicks = 0;
+        this.legitActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
         this.airSneakEndTime = 0L;
