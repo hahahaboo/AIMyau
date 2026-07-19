@@ -96,8 +96,9 @@ public class Scaffold extends Module {
     public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
         public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
         public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
-    public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
+            public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
             public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 0);
+            public final IntProperty safeUnmoveTicks = new IntProperty("unmove-ticks", 1, 1, 5, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 1);
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY" ,"AIRSNEAK"});
         public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 5);
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
@@ -448,7 +449,7 @@ public class Scaffold extends Module {
             if (this.legitDelayTicks > 0) {
                 this.legitDelayTicks--;
                 if (this.legitDelayTicks <= 0) {
-                    this.legitReleaseTicks = 2;
+                    this.legitReleaseTicks = this.safeUnmoveTicks.getValue();
                     this.legitActive = true;
                 }
             }
