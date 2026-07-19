@@ -69,7 +69,7 @@ public class NoSlow
             return false;
         }
         int mode = killAura.autoBlock.getValue();
-        if (mode == 0 || mode == 8) {
+        if (mode == 0 || mode == 4) {
             return false;
         }
         return killAura.isBlocking() || killAura.isPlayerBlocking();
