@@ -28,10 +28,9 @@ public class Velocity extends Module {
     private boolean pendingExplosion = false;
     private boolean allowNext = true;
     private boolean reverseFlag = false;
-    private boolean delayActive = false;
     private final Random randomChance = new Random();
 
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "REVERSE"});
+    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1);
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
@@ -99,9 +98,6 @@ public class Velocity extends Module {
                             event.setY(mc.thePlayer.motionY);
                         }
                     }
-                } else {
-                    // 其他模式專用標記
-                    this.delayActive = this.mode.getValue() == 2;
                 }
             }
         }
@@ -136,10 +132,6 @@ public class Velocity extends Module {
                         )
                     );
                 }
-            }
-            if (this.delayActive) {
-                MoveUtil.setSpeed(MoveUtil.getSpeed(), MoveUtil.getMoveYaw());
-                this.delayActive = false;
             }
         }
     }
