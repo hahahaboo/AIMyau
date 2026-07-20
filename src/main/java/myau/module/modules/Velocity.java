@@ -27,7 +27,7 @@ public class Velocity extends Module {
 
     private boolean pendingExplosion = false;
     private boolean allowNext = true;
-    private boolean reverseFlag = false;
+    private boolean delayActive = false;
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY"});
@@ -106,7 +106,7 @@ public class Velocity extends Module {
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
-            if (this.reverseFlag && (
+            if (this.delayActive && (
                     this.canDelay() ||
                     this.isInLiquidOrWeb() ||
                     Myau.delayManager.getDelay() >= (long) this.delayTicks.getValue()
@@ -122,7 +122,7 @@ public class Velocity extends Module {
                 }
 
                 Myau.delayManager.setDelayState(false, DelayModules.VELOCITY);
-                this.reverseFlag = false;
+                this.delayActive = false;
 
                 if (this.debugLog.getValue()) {
                     ChatUtil.sendFormatted(
@@ -149,7 +149,7 @@ public class Velocity extends Module {
 
                 // DELAY 模式
                 if (this.mode.getValue() == 1
-                        && !this.reverseFlag
+                        && !this.delayActive
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
                         && !this.pendingExplosion
@@ -161,7 +161,7 @@ public class Velocity extends Module {
                         Myau.delayManager.setDelayState(true, DelayModules.VELOCITY);
                         Myau.delayManager.delayedPacket.offer(packet);
                         event.setCancelled(true);
-                        this.reverseFlag = true;
+                        this.delayActive = true;
                         if (this.debugLog.getValue()) {
                             ChatUtil.sendFormatted(
                                 String.format("%sVelocity: delay start (tick: %d)",
