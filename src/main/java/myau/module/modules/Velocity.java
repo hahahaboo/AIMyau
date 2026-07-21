@@ -185,7 +185,7 @@ public class Velocity extends Module {
             if (this.reduceTicks > 0) {
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null) {
+                if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null && !killAura.isBlocking()) {
                     EntityLivingBase target = killAura.getTarget();
                     if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() && mc.thePlayer.isSprinting() && MoveUtil.isMoving() && target != mc.thePlayer && !this.badPackets()) {
                         EventManager.call(new AttackEvent(target));
@@ -210,41 +210,23 @@ public class Velocity extends Module {
             Packet<?> packet = event.getPacket();
             if (packet instanceof C09PacketHeldItemChange) {
                 this.slot = true;
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce slot packet");
-                }
             } else if (packet instanceof C0APacketAnimation) {
                 this.swing = true;
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce swing packet");
-                }
             } else if (packet instanceof C02PacketUseEntity) {
                 C02PacketUseEntity useEntity = (C02PacketUseEntity) packet;
                 if (useEntity.getAction() == C02PacketUseEntity.Action.ATTACK) {
                     this.attack = true;
-                    if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce attack packet");
-                    }
                 }
             } else if (packet instanceof C08PacketPlayerBlockPlacement) {
                 this.block = true;
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce block packet");
-                }
             } else if (packet instanceof C07PacketPlayerDigging) {
                 this.block = true;
                 this.dig = true;
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce dig packet");
-                }
             } else if (packet instanceof C0DPacketCloseWindow ||
                     packet instanceof C0EPacketClickWindow ||
                     (packet instanceof C16PacketClientStatus &&
-                            ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
+                    ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
                 this.inventory = true;
-                if (this.debugLog.getValue()) {
-                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce inventory packet");
-                }
             } else if (packet instanceof C03PacketPlayer) {
                 this.resetBadPackets();
             }
@@ -286,7 +268,7 @@ public class Velocity extends Module {
                 if (this.mode.getValue() == 2 && this.reduce.getValue()) {
                     this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                     if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks);
+                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks + "ticks");
                     }
                 }
 
