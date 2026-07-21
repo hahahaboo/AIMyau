@@ -207,7 +207,7 @@ public class Velocity extends Module {
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) {
+        if (!this.isEnabled() || event.isCancelled()) {
             return;
         }
 
@@ -236,7 +236,8 @@ public class Velocity extends Module {
                 this.resetBadPackets();
             }
         }
-        
+
+        if (event.getType() != EventType.RECEIVE) return;
         if (event.getPacket() instanceof S12PacketEntityVelocity) {
             S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
