@@ -96,6 +96,19 @@ public class Velocity extends Module {
         return tick10000.getValue();
     }
 
+    private boolean badPackets() {
+        return this.slot || this.attack || this.swing || this.block || this.inventory || this.dig;
+    }
+
+    private void resetBadPackets() {
+        this.slot = false;
+        this.swing = false;
+        this.attack = false;
+        this.block = false;
+        this.inventory = false;
+        this.dig = false;
+    }
+
     public Velocity() {
         super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
@@ -193,7 +206,10 @@ public class Velocity extends Module {
                         mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
                         mc.thePlayer.motionX *= 0.6;
                         mc.thePlayer.motionZ *= 0.6;
-                        mc.thePlayer.setSprinting(false);                        
+                        mc.thePlayer.setSprinting(false);
+                        if (this.debugLog.getValue()) {
+                            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks + "ticks");
+                        }
                     }
                 }
             }
@@ -267,9 +283,6 @@ public class Velocity extends Module {
 
                 if (this.mode.getValue() == 2 && this.reduce.getValue()) {
                     this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
-                    if (this.debugLog.getValue()) {
-                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks + "ticks");
-                    }
                 }
 
                 if (this.debugLog.getValue()) {
@@ -317,29 +330,6 @@ public class Velocity extends Module {
                 this.allowNext = false;
             }
         }
-    }
-
-    private boolean badPackets() {
-        return this.badPackets(false, false, false, false, false, false);
-    }
-
-    private boolean badPackets(boolean p1, boolean p2, boolean p3, boolean p4, boolean p5, boolean p6) {
-        if (this.slot && !p1) return true;
-        if (this.attack && !p2) return true;
-        if (this.swing && !p3) return true;
-        if (this.block && !p4) return true;
-        if (this.inventory && !p5) return true;
-        if (this.dig && !p6) return true;
-        return false;
-    }
-
-    private void resetBadPackets() {
-        this.slot = false;
-        this.swing = false;
-        this.attack = false;
-        this.block = false;
-        this.inventory = false;
-        this.dig = false;
     }
 
     @Override
