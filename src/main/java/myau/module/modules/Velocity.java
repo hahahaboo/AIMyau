@@ -39,7 +39,6 @@ public class Velocity extends Module {
     private boolean inventory = false;
     private boolean dig = false;
     private int reduceTicks = 0;
-    private int anInt = 0;
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
@@ -194,11 +193,7 @@ public class Velocity extends Module {
                         mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
                         mc.thePlayer.motionX *= 0.6;
                         mc.thePlayer.motionZ *= 0.6;
-                        mc.thePlayer.setSprinting(false);
-                        this.anInt++;
-                        if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.anInt);
-                        }
+                        mc.thePlayer.setSprinting(false);                        
                     }
                 }
             }
@@ -290,6 +285,9 @@ public class Velocity extends Module {
 
                 if (this.mode.getValue() == 2 && this.reduce.getValue()) {
                     this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
+                    if (this.debugLog.getValue()) {
+                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks);
+                    }
                 }
 
                 if (this.debugLog.getValue()) {
@@ -360,9 +358,6 @@ public class Velocity extends Module {
         this.block = false;
         this.inventory = false;
         this.dig = false;
-        if (this.debugLog.getValue()) {
-            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce reset packet");
-        }
     }
 
     @Override
