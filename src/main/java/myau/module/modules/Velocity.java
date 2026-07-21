@@ -200,14 +200,18 @@ public class Velocity extends Module {
             if (this.reduceTicks > 0) {
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null && !killAura.isBlocking()) {
-                    EntityLivingBase target = killAura.getTarget();
-                    if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
-                        && mc.thePlayer.isSprinting()
-                        && MoveUtil.isMoving()
-                        && target != mc.thePlayer
-                        && !this.badPackets()) {
-                            if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) <= killAura.attackRange.getValue()){
+                if (killAura != null && killAura.isEnabled() 
+                    && killAura.getTarget() != null 
+                    && !killAura.isBlocking()) {
+                        EntityLivingBase target = killAura.getTarget();
+                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > killAura.attackRange.getValue()){
+                            return;
+                        }
+                        if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
+                            && mc.thePlayer.isSprinting()
+                            && MoveUtil.isMoving()
+                            && target != mc.thePlayer
+                            && !this.badPackets()) {
                                 EventManager.call(new AttackEvent(target));
                                 mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
                                 mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
@@ -217,8 +221,7 @@ public class Velocity extends Module {
                                 if (this.debugLog.getValue()) {
                                     ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
                                 }
-                            }
-                    }
+                        }
                 }
             }
         }
