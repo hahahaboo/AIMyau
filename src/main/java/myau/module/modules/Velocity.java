@@ -53,17 +53,17 @@ public class Velocity extends Module {
     public final BooleanProperty reduce = new BooleanProperty("Reduce", true, () -> this.mode.getValue() == 2);
     public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", false, () -> this.mode.getValue() == 2);
     public final BooleanProperty tickExactEnable = new BooleanProperty("TickExact", true, () -> this.mode.getValue() == 2);
-    public final IntProperty tick500 = new IntProperty("500", 3, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick1000 = new IntProperty("1000", 4, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick2000 = new IntProperty("2000", 4, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick3000 = new IntProperty("3000", 5, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick4000 = new IntProperty("4000", 6, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick5000 = new IntProperty("5000", 6, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick6000 = new IntProperty("6000", 7, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick7000 = new IntProperty("7000", 7, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2);
-    public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2);
+    public final IntProperty tick500 = new IntProperty("500", 3, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick1000 = new IntProperty("1000", 4, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick2000 = new IntProperty("2000", 4, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick3000 = new IntProperty("3000", 5, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick4000 = new IntProperty("4000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick5000 = new IntProperty("5000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick6000 = new IntProperty("6000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick7000 = new IntProperty("7000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
