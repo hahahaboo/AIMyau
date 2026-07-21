@@ -15,6 +15,7 @@ import myau.property.properties.ModeProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
 import myau.util.MoveUtil;
+inport myau.util.RotationUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -200,16 +201,21 @@ public class Velocity extends Module {
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                 if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null && !killAura.isBlocking()) {
                     EntityLivingBase target = killAura.getTarget();
-                    if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() && mc.thePlayer.isSprinting() && MoveUtil.isMoving() && target != mc.thePlayer && !this.badPackets()) {
-                        EventManager.call(new AttackEvent(target));
-                        mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
-                        mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
-                        mc.thePlayer.motionX *= 0.6;
-                        mc.thePlayer.motionZ *= 0.6;
-                        mc.thePlayer.setSprinting(false);
-                        if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
-                        }
+                    if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
+                        && mc.thePlayer.isSprinting()
+                        && MoveUtil.isMoving()
+                        && target != mc.thePlayer
+                        && RotationUtil.distanceToEntity(target) <= 3
+                        && !this.badPackets()) {
+                            EventManager.call(new AttackEvent(target));
+                            mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
+                            mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
+                            mc.thePlayer.motionX *= 0.6;
+                            mc.thePlayer.motionZ *= 0.6;
+                            mc.thePlayer.setSprinting(false);
+                            if (this.debugLog.getValue()) {
+                                ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                            }
                     }
                 }
             }
