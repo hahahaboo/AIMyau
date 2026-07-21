@@ -51,6 +51,7 @@ public class Velocity extends Module {
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
     public final BooleanProperty reduce = new BooleanProperty("Reduce", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", false, () -> this.mode.getValue() == 2);
     public final BooleanProperty tickExactEnable = new BooleanProperty("TickExact", true, () -> this.mode.getValue() == 2);
     public final IntProperty tick500 = new IntProperty("500", 3, 0, 20, () -> this.mode.getValue() == 2);
     public final IntProperty tick1000 = new IntProperty("1000", 4, 0, 20, () -> this.mode.getValue() == 2);
@@ -205,16 +206,17 @@ public class Velocity extends Module {
                         && mc.thePlayer.isSprinting()
                         && MoveUtil.isMoving()
                         && target != mc.thePlayer
-                        && RotationUtil.distanceToEntity(target) <= 3
                         && !this.badPackets()) {
-                            EventManager.call(new AttackEvent(target));
-                            mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
-                            mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
-                            mc.thePlayer.motionX *= 0.6;
-                            mc.thePlayer.motionZ *= 0.6;
-                            mc.thePlayer.setSprinting(false);
-                            if (this.debugLog.getValue()) {
-                                ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                            if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) <= killAura.attackRange.getValue()){
+                                EventManager.call(new AttackEvent(target));
+                                mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
+                                mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
+                                mc.thePlayer.motionX *= 0.6;
+                                mc.thePlayer.motionZ *= 0.6;
+                                mc.thePlayer.setSprinting(false);
+                                if (this.debugLog.getValue()) {
+                                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                                }
                             }
                     }
                 }
