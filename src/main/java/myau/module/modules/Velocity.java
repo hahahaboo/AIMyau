@@ -185,7 +185,7 @@ public class Velocity extends Module {
             if (this.reduceTicks > 0) {
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null && !killAura.isBlocking()) {
+                if (killAura != null && killAura.isEnabled() && killAura.getTarget() != null) {
                     EntityLivingBase target = killAura.getTarget();
                     if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() && mc.thePlayer.isSprinting() && MoveUtil.isMoving() && target != mc.thePlayer && !this.badPackets()) {
                         EventManager.call(new AttackEvent(target));
@@ -363,14 +363,12 @@ public class Velocity extends Module {
     @Override
     public void onEnabled() {
         reduceTicks = 0;
-        anInt = 0;
         this.resetBadPackets();
     }
 
     @Override
     public void onDisabled() {
         reduceTicks = 0;
-        anInt = 0;
         this.resetBadPackets();
     }
     
