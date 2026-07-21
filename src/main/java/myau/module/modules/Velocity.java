@@ -208,7 +208,7 @@ public class Velocity extends Module {
                         mc.thePlayer.motionZ *= 0.6;
                         mc.thePlayer.setSprinting(false);
                         if (this.debugLog.getValue()) {
-                            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + this.reduceTicks + "ticks");
+                            ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
                         }
                     }
                 }
