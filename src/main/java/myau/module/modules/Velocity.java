@@ -15,7 +15,7 @@ import myau.property.properties.ModeProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
 import myau.util.MoveUtil;
-inport myau.util.RotationUtil;
+import myau.util.RotationUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
