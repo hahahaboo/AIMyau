@@ -292,8 +292,11 @@ public class Velocity extends Module {
                     }
                 }
 
-                if (this.mode.getValue() == 2 && this.reduce.getValue() && !this.pendingExplosion) {
-                    this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
+                if (this.mode.getValue() == 2 
+                    && this.reduce.getValue() 
+                    && !this.pendingExplosion 
+                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
                 if (this.debugLog.getValue()) {
