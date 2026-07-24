@@ -2,6 +2,7 @@ package myau.module.modules;
 
 import myau.Myau;
 import myau.enums.DelayModules;
+import myau.event.EventManager;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.*;
@@ -14,8 +15,12 @@ import myau.property.properties.ModeProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.ChatUtil;
 import myau.util.MoveUtil;
+import myau.util.RotationUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.network.Packet;
+import net.minecraft.network.play.client.*;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.network.play.server.S19PacketEntityStatus;
 import net.minecraft.network.play.server.S27PacketExplosion;
@@ -28,9 +33,16 @@ public class Velocity extends Module {
     private boolean pendingExplosion = false;
     private boolean allowNext = true;
     private boolean delayActive = false;
+    private boolean slot = false;
+    private boolean attack = false;
+    private boolean swing = false;
+    private boolean block = false;
+    private boolean inventory = false;
+    private boolean dig = false;
+    private int reduceTicks = 0;
     private final Random randomChance = new Random();
 
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY"});
+    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1);
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
@@ -38,6 +50,20 @@ public class Velocity extends Module {
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
+    public final BooleanProperty reduce = new BooleanProperty("Reduce", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", false, () -> this.mode.getValue() == 2);
+    public final BooleanProperty tickExactEnable = new BooleanProperty("TickExact", true, () -> this.mode.getValue() == 2);
+    public final IntProperty tick500 = new IntProperty("500", 3, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick1000 = new IntProperty("1000", 4, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick2000 = new IntProperty("2000", 4, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick3000 = new IntProperty("3000", 5, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick4000 = new IntProperty("4000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick5000 = new IntProperty("5000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick6000 = new IntProperty("6000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick7000 = new IntProperty("7000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
@@ -48,6 +74,41 @@ public class Velocity extends Module {
     private boolean canDelay() {
         KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
         return mc.thePlayer.onGround && (!killAura.isEnabled() || !killAura.shouldAutoBlock());
+    }
+
+    private int calculateTicks(int motionX, int motionZ) {
+        double kb = Math.hypot(motionX, motionZ);
+        if (!tickExactEnable.getValue()) {
+            double ticks = 6.43153527E-4 * kb + 2.9419087136;
+            int result = (int) Math.round(ticks);
+            if (result < 1) result = 1;
+            if (result > 10) result = 10;
+            return result;
+        }
+        if (kb <= 500) return tick500.getValue();
+        if (kb <= 1000) return tick1000.getValue();
+        if (kb <= 2000) return tick2000.getValue();
+        if (kb <= 3000) return tick3000.getValue();
+        if (kb <= 4000) return tick4000.getValue();
+        if (kb <= 5000) return tick5000.getValue();
+        if (kb <= 6000) return tick6000.getValue();
+        if (kb <= 7000) return tick7000.getValue();
+        if (kb <= 8000) return tick8000.getValue();
+        if (kb <= 9000) return tick9000.getValue();
+        return tick10000.getValue();
+    }
+
+    private boolean badPackets() {
+        return this.slot || this.attack || this.swing || this.block || this.inventory || this.dig;
+    }
+
+    private void resetBadPackets() {
+        this.slot = false;
+        this.swing = false;
+        this.attack = false;
+        this.block = false;
+        this.inventory = false;
+        this.dig = false;
     }
 
     public Velocity() {
@@ -134,14 +195,71 @@ public class Velocity extends Module {
                 }
             }
         }
+
+        if (this.mode.getValue() == 2 && this.reduce.getValue() && event.getType() == EventType.PRE) {
+            if (this.reduceTicks > 0) {
+                this.reduceTicks--;
+                KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+                if (killAura != null && killAura.isEnabled() 
+                    && killAura.getTarget() != null 
+                    && !killAura.isBlocking()) {
+                        EntityLivingBase target = killAura.getTarget();
+                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > killAura.attackRange.getValue()){
+                            return;
+                        }
+                        if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
+                            && mc.thePlayer.isSprinting()
+                            && MoveUtil.isMoving()
+                            && target != mc.thePlayer
+                            && !this.badPackets()) {
+                                EventManager.call(new AttackEvent(target));
+                                mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
+                                mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
+                                mc.thePlayer.motionX *= 0.6;
+                                mc.thePlayer.motionZ *= 0.6;
+                                mc.thePlayer.setSprinting(false);
+                                if (this.debugLog.getValue()) {
+                                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                                }
+                        }
+                }
+            }
+        }
     }
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || event.getType() != EventType.RECEIVE || event.isCancelled()) {
+        if (!this.isEnabled() || event.isCancelled()) {
             return;
         }
 
+        if (this.mode.getValue() == 2 && event.getType() == EventType.SEND) {
+            Packet<?> packet = event.getPacket();
+            if (packet instanceof C09PacketHeldItemChange) {
+                this.slot = true;
+            } else if (packet instanceof C0APacketAnimation) {
+                this.swing = true;
+            } else if (packet instanceof C02PacketUseEntity) {
+                C02PacketUseEntity useEntity = (C02PacketUseEntity) packet;
+                if (useEntity.getAction() == C02PacketUseEntity.Action.ATTACK) {
+                    this.attack = true;
+                }
+            } else if (packet instanceof C08PacketPlayerBlockPlacement) {
+                this.block = true;
+            } else if (packet instanceof C07PacketPlayerDigging) {
+                this.block = true;
+                this.dig = true;
+            } else if (packet instanceof C0DPacketCloseWindow ||
+                    packet instanceof C0EPacketClickWindow ||
+                    (packet instanceof C16PacketClientStatus &&
+                    ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
+                this.inventory = true;
+            } else if (packet instanceof C03PacketPlayer) {
+                this.resetBadPackets();
+            }
+        }
+
+        if (event.getType() != EventType.RECEIVE) return;
         if (event.getPacket() instanceof S12PacketEntityVelocity) {
             S12PacketEntityVelocity packet = (S12PacketEntityVelocity) event.getPacket();
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
@@ -172,6 +290,13 @@ public class Velocity extends Module {
                     }
                         return;
                     }
+                }
+
+                if (this.mode.getValue() == 2 
+                    && this.reduce.getValue() 
+                    && !this.pendingExplosion 
+                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
                 if (this.debugLog.getValue()) {
@@ -221,7 +346,19 @@ public class Velocity extends Module {
         }
     }
 
-        @Override
+    @Override
+    public void onEnabled() {
+        reduceTicks = 0;
+        this.resetBadPackets();
+    }
+
+    @Override
+    public void onDisabled() {
+        reduceTicks = 0;
+        this.resetBadPackets();
+    }
+    
+    @Override
     public String[] getSuffix() {
         return new String[]{mode.getModeString()};
     }
