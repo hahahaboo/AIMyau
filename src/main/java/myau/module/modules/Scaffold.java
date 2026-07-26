@@ -82,12 +82,12 @@ public class Scaffold extends Module {
     private boolean snapRotating = false;
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Backwards", "Sideways", "Godbridge", "Smooth", "Hypixel", "Snap"});
-        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
-        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
-        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
-        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5);
-        public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 7);
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Hypixel", "Snap"});
+        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+        public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 6);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -99,8 +99,7 @@ public class Scaffold extends Module {
             public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
             public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 0);
             public final IntProperty safeUnmoveTicks = new IntProperty("unmove-ticks", 1, 1, 5, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 1);
-    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY" ,"AIRSNEAK"});
-        public final IntProperty airSneak = new IntProperty("air-sneak", 100, 50, 500, () -> this.keepY.getValue() == 5);
+    public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY"});
         public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
         public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
@@ -117,8 +116,6 @@ public class Scaffold extends Module {
     private int eagleSneakTicks = 0;
     private long eagleLastSneakTime = 0L;
     private int eagleBlocksPlaced = 0;
-    private long airSneakEndTime = 0L;
-    private boolean hasTouchedGround = true;
 
     private boolean shouldStopSprint() {
         if (this.isTowering()) {
@@ -350,31 +347,6 @@ public class Scaffold extends Module {
         }
     }
 
-    private boolean shouldAirSneak() {
-        return this.keepY.getValue() == 5 
-                && !mc.thePlayer.onGround 
-                && mc.thePlayer.motionY < 0.0 
-                && this.hasTouchedGround;
-    }
-
-    private void updateAirSneak() {
-        if (this.keepY.getValue() != 5) {
-            this.airSneakEndTime = 0L;
-            return;
-        }
-
-        if (mc.thePlayer.onGround) {
-            this.hasTouchedGround = true;
-            this.airSneakEndTime = 0L;
-            return;
-        }
-
-        if (this.shouldAirSneak() && this.airSneakEndTime == 0L) {
-            this.airSneakEndTime = System.currentTimeMillis() + this.airSneak.getValue();
-            this.hasTouchedGround = false;
-        }
-    }
-
     private float getSpeed() {
         if (!mc.thePlayer.onGround) {
             return (float) this.airMotion.getValue() / 100.0F;
@@ -402,7 +374,7 @@ public class Scaffold extends Module {
 
     private boolean isTowering() {
         if (mc.thePlayer.onGround && MoveUtil.isForwardPressed() && !PlayerUtil.isAirAbove()) {
-            boolean keepY = this.keepY.getValue() == 3 || this.keepY.getValue() == 4 || this.keepY.getValue() == 5;
+            boolean keepY = this.keepY.getValue() == 3 || this.keepY.getValue() == 4;
             boolean tower = this.tower.getValue() == 3;
             return keepY && this.stage > 0 || tower && mc.gameSettings.keyBindJump.isKeyDown();
         } else {
@@ -511,11 +483,11 @@ public class Scaffold extends Module {
                 float diagonalYaw = this.isDiagonal(currentYaw)
                         ? yawDiffTo180
                         : RotationUtil.wrapAngleDiff(currentYaw - 135.0F * ((currentYaw + 180.0F) % 90.0F < 45.0F ? 1.0F : -1.0F), event.getYaw());
-                boolean snapMode = this.rotationMode.getValue() == 7;
+                boolean snapMode = this.rotationMode.getValue() == 6;
                 this.snapRotating = false;
                 if (!this.canRotate) {
                     switch (this.rotationMode.getValue()) {
-                        case 1:
+                        case 1: // Default
                             if (this.yaw == -180.0F && this.pitch == 0.0F) {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                                 this.pitch = RotationUtil.quantizeAngle(85.0F);
@@ -523,40 +495,7 @@ public class Scaffold extends Module {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                             }
                             break;
-                        case 2:
-                            if (this.yaw == -180.0F && this.pitch == 0.0F) {
-                                this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
-                                this.pitch = RotationUtil.quantizeAngle(85.0F);
-                            } else {
-                                this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
-                            }
-                            break;
-                        case 3:
-                            if (this.yaw == -180.0F && this.pitch == 0.0F) {
-                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
-                                this.pitch = RotationUtil.quantizeAngle(85.0F);
-                            } else {
-                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
-                            }
-                            break;
-                        case 4: // God Bridge Mode
-                            // 1. SNAP YAW TO NEAREST 45-DEGREE DIAGONAL
-                            // This finds if you are facing 45, 135, -45, or -135 and locks you there perfectly.
-                            float roundedYaw = Math.round(currentYaw / 45.0f) * 45.0f;
-                            this.yaw = RotationUtil.quantizeAngle(roundedYaw);
-
-                            // 2. SET THE GODBRIDGE PITCH
-                            if (this.pitch == 0.0F || !this.canRotate) {
-        /*
-           75.6f to 79.5f is the "Golden Range" for Godbridging.
-           - 75.6f is good for high CPS/Short Drag
-           - 79.3f is common for "Telly" or standard Godbridge
-        */
-                                float godBridgePitch = 79.3f;
-                                this.pitch = RotationUtil.quantizeAngle(godBridgePitch);
-                            }
-                            break;
-                        case 5:
+                        case 2: // Smooth
                             if (this.yaw == -180.0F && this.pitch == 0.0F) {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                                 this.pitch = RotationUtil.quantizeAngle(85.0F);
@@ -570,7 +509,23 @@ public class Scaffold extends Module {
                                 this.pitch = RotationUtil.quantizeAngle(this.pitch + RotationUtil.clampAngle(pitchDiff, pitchTolerance));
                             }
                             break;
-                        case 6:
+                        case 3: // Backwards
+                            if (this.yaw == -180.0F && this.pitch == 0.0F) {
+                                this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
+                                this.pitch = RotationUtil.quantizeAngle(85.0F);
+                            } else {
+                                this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
+                            }
+                            break;
+                        case 4: // Sideways
+                            if (this.yaw == -180.0F && this.pitch == 0.0F) {
+                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
+                                this.pitch = RotationUtil.quantizeAngle(85.0F);
+                            } else {
+                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
+                            }
+                            break;
+                        case 5: // Hypixel
                             //idk what to put here so imma just do the same as sideways for now
                             if (this.yaw == -180.0F && this.pitch == 0.0F) {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
@@ -579,7 +534,7 @@ public class Scaffold extends Module {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                             }
                             break;
-                        case 7:
+                        case 6: // Snap
                             this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
                             this.pitch = RotationUtil.quantizeAngle(85.0F);
                             break;
@@ -686,10 +641,10 @@ public class Scaffold extends Module {
                 }
                 if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
                     switch (this.rotationMode.getValue()) {
-                        case 2:
+                        case 3: // Backwards
                             this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
                             break;
-                        case 3:
+                        case 4: // Sideways
                             this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                     }
                 }
@@ -963,14 +918,6 @@ public class Scaffold extends Module {
                 mc.thePlayer.movementInput.moveForward *= 0.3F;
                 mc.thePlayer.movementInput.moveStrafe *= 0.3F;
             }
-
-            // ==================== Air Sneak Logic ====================
-            this.updateAirSneak();
-            if (this.airSneakEndTime > System.currentTimeMillis() && !mc.thePlayer.movementInput.sneak) {
-                mc.thePlayer.movementInput.sneak = true;
-                mc.thePlayer.movementInput.moveForward *= 0.3F;
-                mc.thePlayer.movementInput.moveStrafe *= 0.3F;
-            }
         }
     }
 
@@ -1147,8 +1094,6 @@ public class Scaffold extends Module {
         this.snapRotating = false;
         this.lastSnapPlaceYaw = Float.NaN;
         this.lastSnapPlacePitch = Float.NaN;
-        this.airSneakEndTime = 0L;
-        this.hasTouchedGround = true;
     }
 
     @Override
@@ -1172,7 +1117,6 @@ public class Scaffold extends Module {
         this.legitActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
-        this.airSneakEndTime = 0L;
     }
 
     public int getBlockCount() {
