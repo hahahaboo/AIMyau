@@ -15,7 +15,7 @@ public class FontManager {
             productSans12, productSans16, productSans18, productSans20,
             tahomaBold12, tahomaBold16, tahomaBold20,
             noti20,
-            nunitoBold20, nunitoBold48, nunitoBold80,
+            nunitoBold20, nunitoBold48, nunitoBold80;
 
     private static int prevScale;
 
