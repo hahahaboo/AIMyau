@@ -39,7 +39,7 @@ import java.awt.*;
 public class TargetHUD extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final ModeProperty style = new ModeProperty("Style", 3, new String[]{
-            "ASTOLFO", "EXHIBITION", "MOON", "RISE", "NEVERLOSE", "TENACITY"
+            "ASTOLFO", "EXHIBITION", "MOON", "RISE", "NEVERLOSE"
     });
     public final ModeProperty animMode = new ModeProperty("Anim Mode", 0, new String[]{"ELASTIC", "SCALE"});
     public final ModeProperty colorMode = new ModeProperty("Color", 0, new String[]{"SYNC", "CUSTOM", "HEALTH", "ASTOLFO"});
@@ -237,9 +237,6 @@ public class TargetHUD extends Module {
             case 4:
                 renderNeverlose(pos[0], pos[1], animatedHealth, useShadow);
                 break;
-            case 5:
-                renderTenacity(pos[0], pos[1], width, height, animatedHealth, useShadow);
-                break;
         }
 
         GlStateManager.popMatrix();
@@ -335,13 +332,13 @@ public class TargetHUD extends Module {
         }
 
         drawFace(renderTarget, 2.5f, 2.5f, 35, 35, 8);
-        FontManager.tenacity12.drawString(String.format("%.1f", health) + "HP", 40, 17, -1, true);
-        FontManager.tenacity16.drawString(renderTarget.getName(), 40, 6, -1, true);
+        FontManager.productSans12.drawString(String.format("%.1f", health) + "HP", 40, 17, -1, true);
+        FontManager.productSans16.drawString(renderTarget.getName(), 40, 6, -1, true);
         GlStateManager.popMatrix();
     }
 
     private void renderNeverlose(float x, float y, float health, boolean shadow) {
-        float width = Math.max(125.0f, (float) (FontManager.tenacity16.getStringWidth(renderTarget.getName()) + 42));
+        float width = Math.max(125.0f, (float) (FontManager.productSans16.getStringWidth(renderTarget.getName()) + 42));
         float height = 32.5f;
         GlStateManager.pushMatrix();
         GlStateManager.translate(x, y, 0);
@@ -355,30 +352,8 @@ public class TargetHUD extends Module {
         drawCircle(circleX, new Color(0, 0, 0, 100).getRGB());
         drawArc(circleX, 360 * MathHelper.clamp_float(health / renderTarget.getMaxHealth(), 0, 1), getColor(0).getRGB());
 
-        FontManager.tenacity16.drawString(renderTarget.getName(), 34, 8, -1, true);
-        FontManager.tenacity12.drawString("Dist: " + String.format("%.1f", renderTarget.getDistanceToEntity(mc.thePlayer)) + "m", 34, 20, getColor(0).getRGB(), true);
-        GlStateManager.popMatrix();
-    }
-
-    private void renderTenacity(float x, float y, float width, float height, float health, boolean shadow) {
-        GlStateManager.pushMatrix();
-        GlStateManager.translate(x, y, 0);
-        if (shadow) ShadowShader.drawShadow(0, 0, width, height, 6, 6, new Color(0, 0, 0, 120).getRGB());
-
-        RenderUtil.drawRoundedRect(0, 0, width, height, 6, false, new Color(0, 0, 0, bgAlpha.getValue()));
-
-        drawFace(renderTarget, 4, 4, 34, 34, 6);
-        FontManager.tenacity20.drawString(renderTarget.getName(), 43, 10, -1, true);
-        FontManager.tenacity12.drawString("HP: " + String.format("%.1f", health), 43, 20, -1, true);
-
-        float pct = MathHelper.clamp_float(health / renderTarget.getMaxHealth(), 0, 1);
-        float barWidth = width - 52;
-        RenderUtil.drawRoundedRect(44, 30, barWidth, 6, 3, false, new Color(0, 0, 0, 150));
-
-        if (pct > 0.01f) {
-            float displayW = Math.max(6, barWidth * pct);
-            drawGradientRoundedRect(44, 30, displayW, 6, 3, getColor(0), getColor((int) (displayW * 2)));
-        }
+        FontManager.productSans16.drawString(renderTarget.getName(), 34, 8, -1, true);
+        FontManager.productSans12.drawString("Dist: " + String.format("%.1f", renderTarget.getDistanceToEntity(mc.thePlayer)) + "m", 34, 20, getColor(0).getRGB(), true);
         GlStateManager.popMatrix();
     }
 
@@ -473,13 +448,11 @@ public class TargetHUD extends Module {
             case 1:
                 return new float[]{Math.max(120, (float) (FontManager.tahomaBold16.getStringWidth(name) + 50)), 40};
             case 2:
-                return new float[]{Math.max(110, (float) (FontManager.tenacity16.getStringWidth(name) + 68)), 40.5f};
+                return new float[]{Math.max(110, (float) (FontManager.productSans16.getStringWidth(name) + 68)), 40.5f};
             case 3:
                 return new float[]{Math.max(160, (float) (FontManager.productSans18.getStringWidth(name) + 30)), 40.5f};
             case 4:
-                return new float[]{Math.max(125, (float) (FontManager.tenacity16.getStringWidth(name) + 42)), 32.5f};
-            case 5:
-                return new float[]{Math.max(120, (float) (FontManager.tenacity20.getStringWidth(name) + 50)), 44};
+                return new float[]{Math.max(125, (float) (FontManager.productSans16.getStringWidth(name) + 42)), 32.5f};
             default:
                 return new float[]{120, 40};
         }
