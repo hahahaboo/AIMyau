@@ -33,9 +33,6 @@ public class WaterMark extends Module {
                     if (FontManager.productSans20 != null) return FontManager.productSans20;
                     break;
                 case 2:
-                    if (FontManager.tenacity20 != null) return FontManager.tenacity20;
-                    break;
-                case 3:
                     if (FontManager.tahomaBold20 != null) return FontManager.tahomaBold20;
                     break;
             }
