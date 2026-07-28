@@ -12,12 +12,10 @@ import static myau.config.Config.mc;
 
 public class FontManager {
     public static FontRenderer
-            productSans16, productSans18, productSans20,
-            tenacity12, tenacity16, tenacity20,
+            productSans12, productSans16, productSans18, productSans20,
             tahomaBold12, tahomaBold16, tahomaBold20,
             noti20,
             nunitoBold20, nunitoBold48, nunitoBold80,
-            harmonyOS_Sans20;
 
     private static int prevScale;
 
@@ -38,14 +36,10 @@ public class FontManager {
             releaseAllFonts();
 
             // Product Sans (Google Style)
+            productSans12 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 12));
             productSans16 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 16));
             productSans18 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 18));
             productSans20 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 20));
-
-            // Tenacity Fonts
-            tenacity12 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 12));
-            tenacity16 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 16));
-            tenacity20 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 20));
 
             // Tahoma Bold
             tahomaBold12 = new FontRenderer(FontUtil.getResource(locationMap, "tahomabold.ttf", 12));
@@ -59,12 +53,14 @@ public class FontManager {
             nunitoBold20 = new FontRenderer(FontUtil.getResource(locationMap, "Nunito-Bold.ttf", 20));
             nunitoBold48 = new FontRenderer(FontUtil.getResource(locationMap, "Nunito-Bold.ttf", 48));
             nunitoBold80 = new FontRenderer(FontUtil.getResource(locationMap, "Nunito-Bold.ttf", 80));
-
-            harmonyOS_Sans20 = new FontRenderer(FontUtil.getResource(locationMap, "harmonyOS_Sans.ttf", 20));
         }
     }
 
     public static void releaseAllFonts() {
+        if (productSans12 != null) {
+            productSans12.destroy();
+            productSans12 = null;
+        }
         if (productSans16 != null) {
             productSans16.destroy();
             productSans16 = null;
@@ -76,18 +72,6 @@ public class FontManager {
         if (productSans20 != null) {
             productSans20.destroy();
             productSans20 = null;
-        }
-        if (tenacity12 != null) {
-            tenacity12.destroy();
-            tenacity12 = null;
-        }
-        if (tenacity16 != null) {
-            tenacity16.destroy();
-            tenacity16 = null;
-        }
-        if (tenacity20 != null) {
-            tenacity20.destroy();
-            tenacity20 = null;
         }
         if (tahomaBold12 != null) {
             tahomaBold12.destroy();
@@ -116,10 +100,6 @@ public class FontManager {
         if (nunitoBold80 != null) {
             nunitoBold80.destroy();
             nunitoBold80 = null;
-        }
-        if (harmonyOS_Sans20 != null) {
-            harmonyOS_Sans20.destroy();
-            harmonyOS_Sans20 = null;
         }
     }
 
