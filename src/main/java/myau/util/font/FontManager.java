@@ -12,11 +12,8 @@ import static myau.config.Config.mc;
 
 public class FontManager {
     public static FontRenderer
-            regular18, regular22,
             productSans16, productSans18, productSans20,
             tenacity12, tenacity16, tenacity20,
-            vision20,
-            nbpInforma20,
             tahomaBold12, tahomaBold16, tahomaBold20,
             noti20,
             nunitoBold20, nunitoBold48, nunitoBold80,
@@ -40,9 +37,6 @@ public class FontManager {
 
             releaseAllFonts();
 
-            regular18 = new FontRenderer(FontUtil.getResource(locationMap, "regular.ttf", 18));
-            regular22 = new FontRenderer(FontUtil.getResource(locationMap, "regular.ttf", 22));
-
             // Product Sans (Google Style)
             productSans16 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 16));
             productSans18 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 18));
@@ -52,12 +46,6 @@ public class FontManager {
             tenacity12 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 12));
             tenacity16 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 16));
             tenacity20 = new FontRenderer(FontUtil.getResource(locationMap, "tenacity.ttf", 20));
-
-            // Vision Fonts
-            vision20 = new FontRenderer(FontUtil.getResource(locationMap, "Vision.otf", 20));
-
-            // NBP Informa
-            nbpInforma20 = new FontRenderer(FontUtil.getResource(locationMap, "nbp-informa-fivesix.ttf", 20));
 
             // Tahoma Bold
             tahomaBold12 = new FontRenderer(FontUtil.getResource(locationMap, "tahomabold.ttf", 12));
@@ -77,14 +65,6 @@ public class FontManager {
     }
 
     public static void releaseAllFonts() {
-        if (regular18 != null) {
-            regular18.destroy();
-            regular18 = null;
-        }
-        if (regular22 != null) {
-            regular22.destroy();
-            regular22 = null;
-        }
         if (productSans16 != null) {
             productSans16.destroy();
             productSans16 = null;
@@ -108,14 +88,6 @@ public class FontManager {
         if (tenacity20 != null) {
             tenacity20.destroy();
             tenacity20 = null;
-        }
-        if (vision20 != null) {
-            vision20.destroy();
-            vision20 = null;
-        }
-        if (nbpInforma20 != null) {
-            nbpInforma20.destroy();
-            nbpInforma20 = null;
         }
         if (tahomaBold12 != null) {
             tahomaBold12.destroy();
