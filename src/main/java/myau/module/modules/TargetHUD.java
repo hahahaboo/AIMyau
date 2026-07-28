@@ -278,11 +278,11 @@ public class TargetHUD extends Module {
         RenderUtil.drawRect(0, 0, width, height, new Color(0, 0, 0, bgAlpha.getValue()).getRGB());
 
         drawEntityOnScreen(25, 45, renderTarget);
-        FontManager.regular18.drawString(renderTarget.getName(), 50, 6, -1, true);
+        FontManager.productSans18.drawString(renderTarget.getName(), 50, 6, -1, true);
 
         GlStateManager.pushMatrix();
         GlStateManager.scale(1.5, 1.5, 1.5);
-        FontManager.regular18.drawString(String.format("%.1f", health) + " ❤", 50 / 1.5f, 22 / 1.5f, getColor(0).getRGB(), true);
+        FontManager.productSans18.drawString(String.format("%.1f", health) + " ❤", 50 / 1.5f, 22 / 1.5f, getColor(0).getRGB(), true);
         GlStateManager.popMatrix();
 
         float healthPct = MathHelper.clamp_float(health / renderTarget.getMaxHealth(), 0, 1);
@@ -469,7 +469,7 @@ public class TargetHUD extends Module {
         String name = renderTarget.getName();
         switch (style.getValue()) {
             case 0:
-                return new float[]{Math.max(130, (float) (FontManager.regular18.getStringWidth(name) + 60)), 56};
+                return new float[]{Math.max(130, (float) (FontManager.productSans18.getStringWidth(name) + 60)), 56};
             case 1:
                 return new float[]{Math.max(120, (float) (FontManager.tahomaBold16.getStringWidth(name) + 50)), 40};
             case 2:
