@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 
 public class HUD extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final ModeProperty fontMode = new ModeProperty("font", 1, new String[]{"Minecraft", "Product_Sans", "Regular", "Tenacity", "Vision", "NBP_INFORMA", "Tahoma_Bold", "Nunito_Bold", "HarmonyOS_Sans"});
+    public final ModeProperty fontMode = new ModeProperty("font", 1, new String[]{"Minecraft", "Product_Sans", "Tahoma_Bold", "Nunito_Bold"});
     public final ModeProperty arraylistMode = new ModeProperty("position", 1, new String[]{"Left", "Right"});
     public final IntProperty offsetX = new IntProperty("offset-x", 6, 0, 255);
     public final IntProperty offsetY = new IntProperty("offset-y", 6, 0, 255);
@@ -92,25 +92,10 @@ public class HUD extends Module {
                 if (FontManager.productSans20 != null) return FontManager.productSans20;
                 break;
             case 2:
-                if (FontManager.regular22 != null) return FontManager.regular22;
-                break;
-            case 3:
-                if (FontManager.tenacity20 != null) return FontManager.tenacity20;
-                break;
-            case 4:
-                if (FontManager.vision20 != null) return FontManager.vision20;
-                break;
-            case 5:
-                if (FontManager.nbpInforma20 != null) return FontManager.nbpInforma20;
-                break;
-            case 6:
                 if (FontManager.tahomaBold20 != null) return FontManager.tahomaBold20;
                 break;
-            case 7:
+            case 3:
                 if (FontManager.nunitoBold20 != null) return FontManager.nunitoBold20;
-                break;
-            case 8:
-                if (FontManager.harmonyOS_Sans20 != null) return FontManager.harmonyOS_Sans20;
                 break;
         }
         return null;
