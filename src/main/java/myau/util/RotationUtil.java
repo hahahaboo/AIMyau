@@ -67,6 +67,13 @@ public class RotationUtil {
         return new float[]{RotationUtil.quantizeAngle(currentYaw + yawDelta), RotationUtil.quantizeAngle(currentPitch + pitchDelta)};
     }
 
+    public static Vec3 getClosestPointOnBox(Vec3 point, AxisAlignedBB bb) {
+        double x = MathHelper.clamp_double(point.xCoord, bb.minX, bb.maxX);
+        double y = MathHelper.clamp_double(point.yCoord, bb.minY, bb.maxY);
+        double z = MathHelper.clamp_double(point.zCoord, bb.minZ, bb.maxZ);
+        return new Vec3(x, y, z);
+    }
+
     public static Vec3 clampVecToBox(Vec3 vector, AxisAlignedBB boundingBox) {
         double[] coords = new double[]{vector.xCoord, vector.yCoord, vector.zCoord};
         double[] minCoords = new double[]{boundingBox.minX, boundingBox.minY, boundingBox.minZ};
