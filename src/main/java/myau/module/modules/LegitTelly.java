@@ -779,7 +779,7 @@ public final class LegitTelly extends Module {
 
     private void disableSafeWalkForRun() {
         if (this.safeWalkCaptured || !this.disableSafeWalk.getValue()) return;
-        Module safeWalk = Leader.moduleManager.getModule("SafeWalk");
+        Module safeWalk = Myau.moduleManager.modules.get(SafeWalk.class);
         if (safeWalk == null) return;
         this.safeWalkCaptured = true;
         this.safeWalkWasEnabled = safeWalk.isEnabled();
@@ -788,13 +788,13 @@ public final class LegitTelly extends Module {
 
     private void enforceSafeWalkDisabled() {
         if (!this.safeWalkCaptured) return;
-        Module safeWalk = Leader.moduleManager.getModule("SafeWalk");
+        Module safeWalk = Myau.moduleManager.modules.get(SafeWalk.class);
         if (safeWalk != null && safeWalk.isEnabled()) safeWalk.setEnabled(false);
     }
 
     private void restoreSafeWalk() {
         if (!this.safeWalkCaptured) return;
-        Module safeWalk = Leader.moduleManager.getModule("SafeWalk");
+        Module safeWalk = Myau.moduleManager.modules.get(SafeWalk.class);
         if (safeWalk != null && this.safeWalkWasEnabled && !safeWalk.isEnabled()) safeWalk.setEnabled(true);
         this.safeWalkCaptured = false;
         this.safeWalkWasEnabled = false;
@@ -827,7 +827,7 @@ public final class LegitTelly extends Module {
     }
 
     private boolean scaffoldEnabled() {
-        Scaffold scaffold = (Scaffold) Leader.moduleManager.getModule(Scaffold.class);
+        Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
         return scaffold != null && scaffold.isEnabled();
     }
 
