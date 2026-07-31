@@ -60,7 +60,7 @@ import java.util.Map;
 
 public class Telly extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    private final String scriptName = "Telly";
+    private final String scriptName = "LegitTelly";
 
     public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
     public final BooleanProperty disableSafeWalk = new BooleanProperty("disable-safewalk", true);
@@ -77,8 +77,8 @@ public class Telly extends Module {
     private final UtilApi util = new UtilApi();
     private final BridgeApi bridge = new BridgeApi();
 
-    public Telly() {
-        super("Telly", false);
+    public LegitTelly() {
+        super("LegitTelly", " ", Category.PLAYER, 0, false, false);
         onLoad();
     }
 
