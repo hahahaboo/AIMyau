@@ -18,6 +18,7 @@ import myau.events.SafeWalkEvent;
 import myau.events.UpdateEvent;
 import myau.mixin.IAccessorKeyBinding;
 import myau.mixin.IAccessorMinecraft;
+import myau.module.Category;
 import myau.module.Module;
 import myau.property.Property;
 import myau.property.properties.BooleanProperty;
