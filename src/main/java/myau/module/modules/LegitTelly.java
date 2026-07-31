@@ -58,7 +58,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class Telly extends Module {
+public class LegitTelly extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private final String scriptName = "LegitTelly";
 
