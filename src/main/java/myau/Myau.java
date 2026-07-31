@@ -98,6 +98,7 @@ public class Myau {
         moduleManager.modules.put(KeepSprint.class, new KeepSprint());
         moduleManager.modules.put(KillAura.class, new KillAura());
         moduleManager.modules.put(LagRange.class, new LagRange());
+        moduleManager.modules.put(LegitTelly.class, new LegitTelly());
         moduleManager.modules.put(LongJump.class, new LongJump());
         moduleManager.modules.put(MCF.class, new MCF());
         moduleManager.modules.put(MoreKB.class, new MoreKB());
@@ -121,7 +122,6 @@ public class Myau {
         moduleManager.modules.put(Sprint.class, new Sprint());
         moduleManager.modules.put(TargetHUD.class, new TargetHUD());
         moduleManager.modules.put(TargetStrafe.class, new TargetStrafe());
-        moduleManager.modules.put(Telly.class, new Telly());
         moduleManager.modules.put(Tracers.class, new Tracers());
         moduleManager.modules.put(Trajectories.class, new Trajectories());
         moduleManager.modules.put(Velocity.class, new Velocity());
