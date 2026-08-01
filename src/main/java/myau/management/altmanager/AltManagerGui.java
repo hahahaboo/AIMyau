@@ -92,8 +92,8 @@ public class AltManagerGui extends GuiScreen {
         int midX = this.width / 2;
         this.backButton = new GuiButton(2, midX - buttonWidth / 2, baseY + buttonSpacing, buttonWidth, buttonHeight, "Back");
 
-        this.buttonList.add(loginButton);
-        this.buttonList.add(loginButton2);
+        this.buttonList.add(crackedButton);
+        this.buttonList.add(tokenButton);
         this.buttonList.add(oauthButton);
         this.buttonList.add(backButton);
     }
