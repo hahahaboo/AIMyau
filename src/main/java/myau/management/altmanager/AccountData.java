@@ -35,30 +35,7 @@ public class AccountData {
         }
     }
 
-    public static void setBanned(String name) {
-        String key = name.trim();
-        if (names.containsKey(key)) {
-            names.remove(name);
-            names.put(key, true);
-        }
-    }
-
-    public static boolean isBanned(String name) {
-        Boolean banned = names.get(name.trim());
-        return banned != null && banned;
-    }
-
     public static Map<String, Boolean> getNames() {
         return names;
     }
-
-    public static String getNextUnbanned() {
-        for (Map.Entry<String, Boolean> entry : names.entrySet()) {
-            if (!entry.getValue()) {
-                return entry.getKey();
-            }
-        }
-        return null;
-    }
-
 }
