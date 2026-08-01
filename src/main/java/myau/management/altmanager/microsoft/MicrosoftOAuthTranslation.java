@@ -5,6 +5,7 @@ import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
 import java.awt.*;
+import java.awt.datatransfer.StringSelection;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -26,10 +27,11 @@ public class MicrosoftOAuthTranslation {
 
     static void browse(String url) {
         try {
-            System.out.println("Opening browser to: " + url);
-            Desktop.getDesktop().browse(new URI(url));
-        } catch (IOException | URISyntaxException e) {
-            System.err.println("Failed to open browser: " + e.getMessage());
+            Toolkit.getDefaultToolkit().getSystemClipboard()
+                    .setContents(new StringSelection(url), null);
+            System.out.println("Copied OAuth link to clipboard: " + url);
+        } catch (Exception e) {
+            System.err.println("Failed to copy OAuth link to clipboard: " + e.getMessage());
             e.printStackTrace();
         }
     }
