@@ -98,9 +98,6 @@ public class AltManagerGui extends GuiScreen {
         this.buttonList.add(oauthButton);
         this.buttonList.add(randomCrackedButton);
         this.buttonList.add(backButton);
-
-        // Update banned status for all accounts
-        updateBannedStatus();
     }
 
     @Override
