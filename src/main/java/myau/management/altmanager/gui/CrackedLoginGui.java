@@ -1,6 +1,5 @@
 package myau.management.altmanager.gui;
 
-import myau.management.altmanager.AccountData;
 import myau.management.altmanager.Alt;
 import myau.management.altmanager.AltManagerGui;
 import myau.management.altmanager.SessionChanger;
