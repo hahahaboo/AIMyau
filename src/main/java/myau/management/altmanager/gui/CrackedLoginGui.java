@@ -30,6 +30,10 @@ public class CrackedLoginGui extends GuiScreen {
         int buttonWidth = 150;
         int buttonHeight = 20;
         int baseY = this.height / 2 - 20;
+        int rowY1 = baseY + fieldHeight + 35;
+        int rowY2 = rowY1 + buttonHeight + 5;
+        int halfButtonWidth = buttonWidth / 2;
+
 
         this.buttonList.clear();
         this.usernameField = new GuiTextField(0, this.fontRendererObj, centerX - (fieldWidth / 2), baseY, fieldWidth, fieldHeight);
