@@ -36,7 +36,7 @@ public class AltManagerGui extends GuiScreen {
     // Hover value tracking for delete buttons (key: account index)
     private final Map<Integer, Integer> deleteHoverValues = new HashMap<>();
     private GuiMainMenu parent;
-    private GuiButton loginButton, loginButton2, oauthButton, backButton;
+    private GuiButton crackedButton, tokenButton, oauthButton, backButton;
     // Scrolling variables
     private int scrollOffset = 0;
     private double smoothScrollOffset = 0.0;
@@ -83,12 +83,11 @@ public class AltManagerGui extends GuiScreen {
         int singleButtonWidth = totalButtonWidth / 4; // ~100 pixels per button
         int startX = (this.width - totalButtonWidth) / 2; // Center the group of buttons
 
-        this.loginButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight,
+        this.crackedButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight,
                 "Add Cracked");
-        this.loginButton2 = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight,
+        this.tokenButton = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight,
                 "Token Login");
         this.oauthButton = new GuiButton(3, startX + singleButtonWidth * 2, baseY, singleButtonWidth - 5, buttonHeight, "OAuth Login");
-        GuiButton randomCrackedButton = new GuiButton(5, startX + singleButtonWidth * 3, baseY, singleButtonWidth - 5, buttonHeight, "Random Cracked");
 
         int midX = this.width / 2;
         this.backButton = new GuiButton(2, midX - buttonWidth / 2, baseY + buttonSpacing, buttonWidth, buttonHeight, "Back");
@@ -96,7 +95,6 @@ public class AltManagerGui extends GuiScreen {
         this.buttonList.add(loginButton);
         this.buttonList.add(loginButton2);
         this.buttonList.add(oauthButton);
-        this.buttonList.add(randomCrackedButton);
         this.buttonList.add(backButton);
     }
 
@@ -411,21 +409,6 @@ public class AltManagerGui extends GuiScreen {
             this.mc.displayGuiScreen(parent);
         } else if (button.id == 3) {
             startOAuthLogin();
-        } else if (button.id == 5) {
-            // Random Cracked button clicked
-            String randomUsername = myau.management.altmanager.util.NameGenerator.generateRandomUsername();
-            if (randomUsername != null && !randomUsername.isEmpty()) {
-                // Create a new cracked alt with the random username
-                Alt alt = new Alt(null, null, randomUsername, true);
-                alts.add(alt);
-                SessionChanger.instance().loginCracked(randomUsername);
-                AltJsonHandler.start();
-                AltJsonHandler.saveAlts();
-                AltJsonHandler.loadAlts();
-                AltManagerGui.status = "§aAdded and logged in with random cracked alt: " + randomUsername;
-            } else {
-                AltManagerGui.status = "§cFailed to generate random username";
-            }
         }
     }
 
