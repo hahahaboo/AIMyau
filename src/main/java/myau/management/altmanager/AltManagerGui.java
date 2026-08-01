@@ -79,14 +79,12 @@ public class AltManagerGui extends GuiScreen {
 
         // Bottom action buttons - arranged in a more compact layout
         // Row 1: Four buttons side by side (dividing the width evenly)
-        int totalButtonWidth = 400; // Total width for all buttons in row 1
-        int singleButtonWidth = totalButtonWidth / 4; // ~100 pixels per button
+        int totalButtonWidth = 300; // Total width for all buttons in row 1
+        int singleButtonWidth = totalButtonWidth / 3; // ~100 pixels per button
         int startX = (this.width - totalButtonWidth) / 2; // Center the group of buttons
 
-        this.crackedButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight,
-                "Cracked Login");
-        this.tokenButton = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight,
-                "Token Login");
+        this.crackedButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight, "Cracked Login");
+        this.tokenButton = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight, "Token Login");
         this.oauthButton = new GuiButton(3, startX + singleButtonWidth * 2, baseY, singleButtonWidth - 5, buttonHeight, "OAuth Login");
 
         int midX = this.width / 2;
