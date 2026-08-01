@@ -3,7 +3,6 @@ package myau.management.altmanager;
 public class Alt {
     private String email, password, name, uuid, refreshToken;
     private boolean cracked;
-    private boolean banned;
 
     public Alt(String email, String password, String name, boolean cracked) {
         this.email = email;
@@ -62,13 +61,5 @@ public class Alt {
 
     public void setCracked(boolean cracked) {
         this.cracked = cracked;
-    }
-
-    public boolean isBanned() {
-        return banned;
-    }
-
-    public void setBanned(boolean banned) {
-        this.banned = banned;
     }
 }
