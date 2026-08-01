@@ -84,7 +84,7 @@ public class AltManagerGui extends GuiScreen {
         int startX = (this.width - totalButtonWidth) / 2; // Center the group of buttons
 
         this.crackedButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight,
-                "Add Cracked");
+                "Cracked Login");
         this.tokenButton = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight,
                 "Token Login");
         this.oauthButton = new GuiButton(3, startX + singleButtonWidth * 2, baseY, singleButtonWidth - 5, buttonHeight, "OAuth Login");
