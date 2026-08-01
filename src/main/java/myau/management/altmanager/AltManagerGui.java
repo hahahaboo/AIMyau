@@ -36,7 +36,7 @@ public class AltManagerGui extends GuiScreen {
     // Hover value tracking for delete buttons (key: account index)
     private final Map<Integer, Integer> deleteHoverValues = new HashMap<>();
     private GuiMainMenu parent;
-    private GuiButton loginButton, loginButton2, oauthButton, backButton, deleteBannedButton;
+    private GuiButton loginButton, loginButton2, oauthButton, backButton;
     // Scrolling variables
     private int scrollOffset = 0;
     private double smoothScrollOffset = 0.0;
@@ -90,28 +90,14 @@ public class AltManagerGui extends GuiScreen {
         this.oauthButton = new GuiButton(3, startX + singleButtonWidth * 2, baseY, singleButtonWidth - 5, buttonHeight, "OAuth Login");
         GuiButton randomCrackedButton = new GuiButton(5, startX + singleButtonWidth * 3, baseY, singleButtonWidth - 5, buttonHeight, "Random Cracked");
 
-        // Row 2: Two buttons side by side
         int midX = this.width / 2;
-        this.deleteBannedButton = new GuiButton(4, midX - buttonWidth - 5, baseY + buttonSpacing, buttonWidth,
-                buttonHeight, "Delete Banned");
-        this.backButton = new GuiButton(2, midX + 5, baseY + buttonSpacing, buttonWidth, buttonHeight, "Back");
+        this.backButton = new GuiButton(2, midX - buttonWidth / 2, baseY + buttonSpacing, buttonWidth, buttonHeight, "Back");
 
         this.buttonList.add(loginButton);
         this.buttonList.add(loginButton2);
         this.buttonList.add(oauthButton);
         this.buttonList.add(randomCrackedButton);
-        this.buttonList.add(deleteBannedButton);
         this.buttonList.add(backButton);
-
-        // Update banned status for all accounts
-        updateBannedStatus();
-    }
-
-    private void updateBannedStatus() {
-        for (Alt alt : alts) {
-            boolean isBanned = AccountData.isBanned(alt.getName());
-            alt.setBanned(isBanned);
-        }
     }
 
     @Override
@@ -344,14 +330,7 @@ public class AltManagerGui extends GuiScreen {
                 double textX = accountX + ACCOUNT_BUTTON_WIDTH / 2.0;
                 double textY = yPos + ACCOUNT_BUTTON_HEIGHT / 2.0 - FontManager.productSans20.getHeight() / 2.0 - 6;
                 // Use green color for active account, red for banned, white for others
-                int nameColor;
-                if (isActive) {
-                    nameColor = 0xFF00FF00; // Green for active
-                } else if (alt.isBanned()) {
-                    nameColor = 0xFFFF0000; // Red for banned
-                } else {
-                    nameColor = -1; // White for normal
-                }
+                int nameColor = isActive ? 0xFF00FF00 : -1;
 
                 // Center the text by calculating the horizontal center position
                 int centeredX = (int) (textX - FontManager.productSans20.getStringWidth(nameText) / 2.0);
@@ -394,14 +373,7 @@ public class AltManagerGui extends GuiScreen {
                 double textX = accountX + ACCOUNT_BUTTON_WIDTH / 2.0;
                 double textY = yPos + ACCOUNT_BUTTON_HEIGHT / 2.0 - fontRenderer.FONT_HEIGHT / 2.0 - 6;
                 // Use green color for active account, red for banned, white for others
-                int nameColor;
-                if (isActive) {
-                    nameColor = 0xFF00FF00; // Green for active
-                } else if (alt.isBanned()) {
-                    nameColor = 0xFFFF0000; // Red for banned
-                } else {
-                    nameColor = -1; // White for normal
-                }
+                int nameColor = isActive ? 0xFF00FF00 : -1;
 
                 // Center the text by calculating the horizontal center position
                 int centeredX = (int) (textX - fontRenderer.getStringWidth(nameText) / 2.0);
@@ -439,27 +411,12 @@ public class AltManagerGui extends GuiScreen {
             this.mc.displayGuiScreen(parent);
         } else if (button.id == 3) {
             startOAuthLogin();
-        } else if (button.id == 4) {
-            // Delete all banned accounts
-            Iterator<Alt> iterator = alts.iterator();
-            int deletedCount = 0;
-            while (iterator.hasNext()) {
-                Alt alt = iterator.next();
-                if (alt.isBanned()) {
-                    iterator.remove();
-                    deletedCount++;
-                }
-            }
-            AltJsonHandler.saveAlts();
-            this.initGui();
         } else if (button.id == 5) {
             // Random Cracked button clicked
             String randomUsername = myau.management.altmanager.util.NameGenerator.generateRandomUsername();
             if (randomUsername != null && !randomUsername.isEmpty()) {
                 // Create a new cracked alt with the random username
                 Alt alt = new Alt(null, null, randomUsername, true);
-                boolean isBanned = AccountData.isBanned(randomUsername);
-                alt.setBanned(isBanned);
                 alts.add(alt);
                 SessionChanger.instance().loginCracked(randomUsername);
                 AltJsonHandler.start();
@@ -607,12 +564,10 @@ public class AltManagerGui extends GuiScreen {
                         if (existingAlt != null) {
                             existingAlt.setRefreshToken(tokenToStore);
                             existingAlt.setUuid(loginData.uuid);
-                            existingAlt.setBanned(AccountData.isBanned(loginData.username));
                         } else {
                             Alt alt = new Alt(loginData.username, "", loginData.username, false);
                             alt.setRefreshToken(tokenToStore);
                             alt.setUuid(loginData.uuid);
-                            alt.setBanned(AccountData.isBanned(loginData.username));
                             alts.add(alt);
                         }
 

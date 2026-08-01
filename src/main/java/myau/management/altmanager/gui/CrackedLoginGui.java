@@ -1,6 +1,5 @@
 package myau.management.altmanager.gui;
 
-import myau.management.altmanager.AccountData;
 import myau.management.altmanager.Alt;
 import myau.management.altmanager.AltManagerGui;
 import myau.management.altmanager.SessionChanger;
@@ -74,8 +73,6 @@ public class CrackedLoginGui extends GuiScreen {
             if (!usernameField.getText().equals("")) {
                 String username = usernameField.getText();
                 Alt alt = new Alt(null, null, username, true);
-                boolean isBanned = AccountData.isBanned(username);
-                alt.setBanned(isBanned);
                 parent.alts.add(alt);
                 SessionChanger.instance().loginCracked(username);
                 AltJsonHandler.start();
