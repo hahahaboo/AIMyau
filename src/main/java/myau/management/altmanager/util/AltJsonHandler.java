@@ -26,7 +26,6 @@ public class AltJsonHandler {
                 JsonObject altJson = new JsonObject();
                 altJson.addProperty("name", alt.getName());
                 altJson.addProperty("cracked", alt.isCracked());
-                altJson.addProperty("banned", alt.isBanned());
 
                 if (!alt.isCracked()) {
                     altJson.addProperty("email", alt.getEmail());
@@ -75,12 +74,6 @@ public class AltJsonHandler {
                 if (altJson.has("uuid")) {
                     alt.setUuid(altJson.get("uuid").getAsString());
                 }
-                if (altJson.has("banned")) {
-                    alt.setBanned(altJson.get("banned").getAsBoolean());
-                } else {
-                    // Check banned status if not saved
-                    alt.setBanned(myau.management.altmanager.AccountData.isBanned(name));
-                }
                 AltManagerGui.alts.add(alt);
             }
         } catch (IOException e) {
@@ -88,4 +81,3 @@ public class AltJsonHandler {
         }
     }
 }
-
