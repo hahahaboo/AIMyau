@@ -74,8 +74,6 @@ public class CrackedLoginGui extends GuiScreen {
             if (!usernameField.getText().equals("")) {
                 String username = usernameField.getText();
                 Alt alt = new Alt(null, null, username, true);
-                boolean isBanned = AccountData.isBanned(username);
-                alt.setBanned(isBanned);
                 parent.alts.add(alt);
                 SessionChanger.instance().loginCracked(username);
                 AltJsonHandler.start();
