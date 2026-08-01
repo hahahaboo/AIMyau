@@ -530,7 +530,7 @@ public class AltManagerGui extends GuiScreen {
     }
 
     private void startOAuthLogin() {
-        status = "§alink copied to clipboard!";
+        status = "§6link copied to clipboard!";
         MicrosoftOAuthTranslation.getRefreshToken(refreshToken -> mc.addScheduledTask(() -> {
             if (refreshToken == null || refreshToken.isEmpty()) {
                 status = "§cOAuth cancelled";
