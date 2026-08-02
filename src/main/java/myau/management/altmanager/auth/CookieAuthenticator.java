@@ -110,7 +110,7 @@ public class CookieAuthenticator {
         if (trimmed.isEmpty()) return "";
 
         if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-            JsonElement parsed = JsonParser.parseString(trimmed);
+            JsonElement parsed = new JsonParser().parse(trimmed);
             if (!parsed.isJsonArray()) return "";
 
             JsonArray array = parsed.getAsJsonArray();
@@ -297,7 +297,7 @@ public class CookieAuthenticator {
         String response = readStream(stream);
         connection.disconnect();
         if (code != 200) throw new IOException("[Step 4] Minecraft login HTTP " + code + ": " + snippet(response));
-        return JsonParser.parseString(response).getAsJsonObject();
+        return new JsonParser().parse(response).getAsJsonObject();
     }
 
     private static JsonObject getMinecraftProfile(String accessToken) throws IOException {
@@ -315,7 +315,7 @@ public class CookieAuthenticator {
         String response = readStream(stream);
         connection.disconnect();
         if (code != 200) throw new IOException("[Step 5] Minecraft profile HTTP " + code + ": " + snippet(response));
-        return JsonParser.parseString(response).getAsJsonObject();
+        return new JsonParser().parse(response).getAsJsonObject();
     }
 
     private static String readStream(InputStream stream) throws IOException {
