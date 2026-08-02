@@ -412,7 +412,7 @@ public class AltManagerGui extends GuiScreen {
         } else if (button.id == 3) {
             startOAuthLogin();
         } else if (button.id == 4) {
-+           startCookieLogin();
+            startCookieLogin();
         }
     }
 
