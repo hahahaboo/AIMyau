@@ -36,6 +36,13 @@ public class MicrosoftAuthenticator {
 
     public static final String MINECRAFT_STORE_IDENTIFIER = "game_minecraft";
 
+    // 自己的 OAuth Client（與 MicrosoftOAuthTranslation 相同）
+    public static final String OWN_CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17";
+    public static final String OWN_CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
+    public static final String OWN_REDIRECT_URI = "http://localhost:8247";
+
+    // Vanilla Minecraft Launcher Client ID
+    public static final String VANILLA_CLIENT_ID = "00000000402b5328";
 
     private final HttpClient http;
 
@@ -77,23 +84,72 @@ public class MicrosoftAuthenticator {
     }
 
     /**
-     * Logs in a player using a Microsoft account refresh token retrieved earlier.
+     * Logs in a player using a Microsoft account refresh token.
+     * 依序嘗試：自己的 Client ID → Vanilla → Xbox Live
      *
      * @param refreshToken Player Microsoft account refresh token
      * @return The player Minecraft profile
-     * @throws MicrosoftAuthenticationException Thrown if one of the several HTTP requests failed at some point
+     * @throws MicrosoftAuthenticationException Thrown if all attempts failed
      */
     public MicrosoftAuthResult loginWithRefreshToken(String refreshToken) throws MicrosoftAuthenticationException {
-        Map<String, String> params = getLoginParams();
-        params.put("refresh_token", refreshToken);
-        params.put("grant_type", "refresh_token");
+        // 嘗試順序：自己的 → Vanilla → Xbox Live
+        // 格式：{ clientId, clientSecret(可null), redirectUri, scope }
+        String[][] attempts = {
+                { OWN_CLIENT_ID, OWN_CLIENT_SECRET, OWN_REDIRECT_URI, "XboxLive.signin offline_access" },
+                { VANILLA_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE },
+                { XBOX_LIVE_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE }
+        };
 
-        MicrosoftRefreshResponse response = http.postFormGetJson(
-                MICROSOFT_TOKEN_ENDPOINT,
-                params, MicrosoftRefreshResponse.class
-        );
+        MicrosoftAuthenticationException lastException = null;
 
-        return loginWithTokens(new AuthTokens(response.getAccessToken(), response.getRefreshToken()), true);
+        for (String[] attempt : attempts) {
+            String clientId = attempt[0];
+            String clientSecret = attempt[1];
+            String redirectUri = attempt[2];
+            String scope = attempt[3];
+
+            try {
+                System.out.println("[TokenLogin] Trying client_id: " + clientId);
+
+                Map<String, String> params = new HashMap<>();
+                params.put("client_id", clientId);
+                params.put("refresh_token", refreshToken);
+                params.put("grant_type", "refresh_token");
+                params.put("redirect_uri", redirectUri);
+                params.put("scope", scope);
+
+                // 只有自己的 Client 才需要 secret
+                if (clientSecret != null) {
+                    params.put("client_secret", clientSecret);
+                }
+
+                MicrosoftRefreshResponse response = http.postFormGetJson(
+                        MICROSOFT_TOKEN_ENDPOINT,
+                        params,
+                        MicrosoftRefreshResponse.class
+                );
+
+                if (response != null && response.getAccessToken() != null) {
+                    System.out.println("[TokenLogin] Success with client_id: " + clientId);
+                    return loginWithTokens(
+                            new AuthTokens(response.getAccessToken(), response.getRefreshToken()),
+                            true
+                    );
+                }
+            } catch (MicrosoftAuthenticationException e) {
+                System.out.println("[TokenLogin] Failed with client_id " + clientId + ": " + e.getMessage());
+                lastException = e;
+            } catch (Exception e) {
+                System.out.println("[TokenLogin] Unexpected error with client_id " + clientId + ": " + e.getMessage());
+                lastException = new MicrosoftAuthenticationException(e);
+            }
+        }
+
+        // 三種都失敗
+        if (lastException != null) {
+            throw lastException;
+        }
+        throw new MicrosoftAuthenticationException("All client_id attempts failed for refresh token");
     }
 
     /**
