@@ -36,13 +36,15 @@ public class MicrosoftAuthenticator {
 
     public static final String MINECRAFT_STORE_IDENTIFIER = "game_minecraft";
 
-    // 自己的 OAuth Client（與 MicrosoftOAuthTranslation 相同）
+    // 自己的 OAuth Client（與 MicrosoftOAuthTranslation / Tenacity 相同）
     public static final String OWN_CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17";
     public static final String OWN_CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
     public static final String OWN_REDIRECT_URI = "http://localhost:8247";
+    public static final String OWN_SCOPE = "XboxLive.signin offline_access";
 
     // Vanilla Minecraft Launcher Client ID
     public static final String VANILLA_CLIENT_ID = "00000000402b5328";
+    public static final String VANILLA_SCOPE = "service::user.auth.xboxlive.com::MBI_SSL";
 
     private final HttpClient http;
 
@@ -71,7 +73,8 @@ public class MicrosoftAuthenticator {
         }
 
         try {
-            return loginWithTokens(extractTokens(result.getURL().toString()), true);
+            // credentials 流程使用 Xbox Live client，不需要 d= 前綴
+            return loginWithTokens(extractTokens(result.getURL().toString()), true, false);
         } catch (MicrosoftAuthenticationException e) {
             if (match("(identity/confirm)", http.readResponse(result)) != null) {
                 throw new MicrosoftAuthenticationException(
@@ -85,42 +88,40 @@ public class MicrosoftAuthenticator {
 
     /**
      * Logs in a player using a Microsoft account refresh token.
-     * 依序嘗試：自己的 Client ID → Vanilla → Xbox Live
-     *
-     * @param refreshToken Player Microsoft account refresh token
-     * @return The player Minecraft profile
-     * @throws MicrosoftAuthenticationException Thrown if all attempts failed
+     * 依序嘗試：自己的 Client ID → Vanilla
+     * （參考 Tenacity MicrosoftLogin 的做法）
      */
     public MicrosoftAuthResult loginWithRefreshToken(String refreshToken) throws MicrosoftAuthenticationException {
-        // 嘗試順序：自己的 → Vanilla → Xbox Live
-        // 格式：{ clientId, clientSecret(可null), redirectUri, scope }
-        String[][] attempts = {
-                { OWN_CLIENT_ID, OWN_CLIENT_SECRET, OWN_REDIRECT_URI, "XboxLive.signin offline_access" },
-                { VANILLA_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE },
-                { XBOX_LIVE_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE }
+        // 格式：name, clientId, clientSecret(可null), redirectUri, scope(可null), useDPrefix
+        Object[][] attempts = {
+                { "Own",     OWN_CLIENT_ID,     OWN_CLIENT_SECRET, OWN_REDIRECT_URI,              OWN_SCOPE,     true  },
+                { "Vanilla", VANILLA_CLIENT_ID, null,              MICROSOFT_REDIRECTION_ENDPOINT, VANILLA_SCOPE, false }
         };
 
         MicrosoftAuthenticationException lastException = null;
 
-        for (String[] attempt : attempts) {
-            String clientId = attempt[0];
-            String clientSecret = attempt[1];
-            String redirectUri = attempt[2];
-            String scope = attempt[3];
+        for (Object[] attempt : attempts) {
+            String name         = (String)  attempt[0];
+            String clientId     = (String)  attempt[1];
+            String clientSecret = (String)  attempt[2];
+            String redirectUri  = (String)  attempt[3];
+            String scope        = (String)  attempt[4];
+            boolean useDPrefix  = (Boolean) attempt[5];
 
             try {
-                System.out.println("[TokenLogin] Trying client_id: " + clientId);
+                System.out.println("[TokenLogin] Trying client: " + name + " (" + clientId + ")");
 
                 Map<String, String> params = new HashMap<>();
                 params.put("client_id", clientId);
                 params.put("refresh_token", refreshToken);
                 params.put("grant_type", "refresh_token");
                 params.put("redirect_uri", redirectUri);
-                params.put("scope", scope);
 
-                // 只有自己的 Client 才需要 secret
                 if (clientSecret != null) {
                     params.put("client_secret", clientSecret);
+                }
+                if (scope != null) {
+                    params.put("scope", scope);
                 }
 
                 MicrosoftRefreshResponse response = http.postFormGetJson(
@@ -130,22 +131,25 @@ public class MicrosoftAuthenticator {
                 );
 
                 if (response != null && response.getAccessToken() != null) {
-                    System.out.println("[TokenLogin] Success with client_id: " + clientId);
+                    System.out.println("[TokenLogin] Success with client: " + name);
+                    String newRefresh = response.getRefreshToken() != null
+                            ? response.getRefreshToken()
+                            : refreshToken;
                     return loginWithTokens(
-                            new AuthTokens(response.getAccessToken(), response.getRefreshToken()),
-                            true
+                            new AuthTokens(response.getAccessToken(), newRefresh),
+                            true,
+                            useDPrefix
                     );
                 }
             } catch (MicrosoftAuthenticationException e) {
-                System.out.println("[TokenLogin] Failed with client_id " + clientId + ": " + e.getMessage());
+                System.out.println("[TokenLogin] Failed with client " + name + ": " + e.getMessage());
                 lastException = e;
             } catch (Exception e) {
-                System.out.println("[TokenLogin] Unexpected error with client_id " + clientId + ": " + e.getMessage());
+                System.out.println("[TokenLogin] Unexpected error with client " + name + ": " + e.getMessage());
                 lastException = new MicrosoftAuthenticationException(e);
             }
         }
 
-        // 三種都失敗
         if (lastException != null) {
             throw lastException;
         }
@@ -154,15 +158,15 @@ public class MicrosoftAuthenticator {
 
     /**
      * Logs in a player using a Microsoft account tokens retrieved earlier.
-     * <b>If the token was retrieved using Azure AAD/MSAL, it should be prefixed with d=</b>
-     *
-     * @param tokens          Player Microsoft account tokens pair
-     * @param retrieveProfile Whether to retrieve the player profile
-     * @return The player Minecraft profile
-     * @throws MicrosoftAuthenticationException Thrown if one of the several HTTP requests failed at some point
+     * <b>If the token was retrieved using Azure AAD/MSAL / own OAuth client, useDPrefix should be true (adds d=).</b>
      */
     public MicrosoftAuthResult loginWithTokens(AuthTokens tokens, boolean retrieveProfile) throws MicrosoftAuthenticationException {
-        XboxLoginResponse xboxLiveResponse = xboxLiveLogin(tokens.getAccessToken());
+        // 預設不使用 d= 前綴（相容舊呼叫）
+        return loginWithTokens(tokens, retrieveProfile, false);
+    }
+
+    public MicrosoftAuthResult loginWithTokens(AuthTokens tokens, boolean retrieveProfile, boolean useDPrefix) throws MicrosoftAuthenticationException {
+        XboxLoginResponse xboxLiveResponse = xboxLiveLogin(tokens.getAccessToken(), useDPrefix);
         XboxLoginResponse xstsResponse = xstsLogin(xboxLiveResponse.getToken());
 
         String userHash = xstsResponse.getDisplayClaims().getUsers()[0].getUserHash();
@@ -209,7 +213,14 @@ public class MicrosoftAuthenticator {
     }
 
     protected XboxLoginResponse xboxLiveLogin(String accessToken) throws MicrosoftAuthenticationException {
-        XboxLiveLoginProperties properties = new XboxLiveLoginProperties("RPS", XBOX_LIVE_AUTH_HOST, accessToken);
+        return xboxLiveLogin(accessToken, false);
+    }
+
+    protected XboxLoginResponse xboxLiveLogin(String accessToken, boolean useDPrefix) throws MicrosoftAuthenticationException {
+        // 自己的 OAuth Client 取得的 token 需要加 d= 前綴（Tenacity 做法）
+        String rpsTicket = useDPrefix ? ("d=" + accessToken) : accessToken;
+
+        XboxLiveLoginProperties properties = new XboxLiveLoginProperties("RPS", XBOX_LIVE_AUTH_HOST, rpsTicket);
         XboxLoginRequest<XboxLiveLoginProperties> request = new XboxLoginRequest<>(
                 properties, XBOX_LIVE_AUTH_RELAY, "JWT"
         );
