@@ -3,6 +3,7 @@ package myau.management.altmanager;
 import myau.management.altmanager.gui.CrackedLoginGui;
 import myau.management.altmanager.gui.MicrosoftLoginGui;
 import myau.management.altmanager.microsoft.MicrosoftOAuthTranslation;
+import myau.management.altmanager.auth.CookieAuthenticator;
 import myau.management.altmanager.util.AltJsonHandler;
 import myau.ui.impl.gui.BackgroundRenderer;
 import myau.util.RenderUtil;
@@ -16,6 +17,7 @@ import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 
 import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
@@ -36,7 +38,7 @@ public class AltManagerGui extends GuiScreen {
     // Hover value tracking for delete buttons (key: account index)
     private final Map<Integer, Integer> deleteHoverValues = new HashMap<>();
     private GuiMainMenu parent;
-    private GuiButton crackedButton, tokenButton, oauthButton, backButton;
+    private GuiButton crackedButton, tokenButton, oauthButton, cookieButton, backButton;
     // Scrolling variables
     private int scrollOffset = 0;
     private double smoothScrollOffset = 0.0;
@@ -79,13 +81,14 @@ public class AltManagerGui extends GuiScreen {
 
         // Bottom action buttons - arranged in a more compact layout
         // Row 1: Four buttons side by side (dividing the width evenly)
-        int totalButtonWidth = 300; // Total width for all buttons in row 1
-        int singleButtonWidth = totalButtonWidth / 3; // ~100 pixels per button
+        int totalButtonWidth = 400; // Total width for all buttons in row 1
+        int singleButtonWidth = totalButtonWidth / 4; // ~100 pixels per button
         int startX = (this.width - totalButtonWidth) / 2; // Center the group of buttons
 
         this.crackedButton = new GuiButton(0, startX, baseY, singleButtonWidth - 5, buttonHeight, "Cracked Login");
         this.tokenButton = new GuiButton(1, startX + singleButtonWidth, baseY, singleButtonWidth - 5, buttonHeight, "Token Login");
         this.oauthButton = new GuiButton(3, startX + singleButtonWidth * 2, baseY, singleButtonWidth - 5, buttonHeight, "OAuth Login");
+        this.cookieButton = new GuiButton(4, startX + singleButtonWidth * 3, baseY, singleButtonWidth - 5, buttonHeight, "Cookie Login");
 
         int midX = this.width / 2;
         this.backButton = new GuiButton(2, midX - buttonWidth / 2, baseY + buttonSpacing, buttonWidth, buttonHeight, "Back");
@@ -93,6 +96,7 @@ public class AltManagerGui extends GuiScreen {
         this.buttonList.add(crackedButton);
         this.buttonList.add(tokenButton);
         this.buttonList.add(oauthButton);
+        this.buttonList.add(cookieButton);
         this.buttonList.add(backButton);
     }
 
@@ -407,6 +411,8 @@ public class AltManagerGui extends GuiScreen {
             this.mc.displayGuiScreen(parent);
         } else if (button.id == 3) {
             startOAuthLogin();
+        } else if (button.id == 4) {
+            startCookieLogin();
         }
     }
 
@@ -567,6 +573,68 @@ public class AltManagerGui extends GuiScreen {
                 });
             }).start();
         }));
+    }
+
+    /**
+     * 開啟系統檔案選擇視窗，選取匯出的 cookie txt 檔後，
+     * 交給 CookieAuthenticator 進行登入，成功後切換 session 並存入帳號清單。
+     */
+    private void startCookieLogin() {
+        status = "§6Select a cookie file...";
+        new Thread(() -> {
+            FileDialog dialog = new FileDialog((Frame) null, "Select Cookie File", FileDialog.LOAD);
+            dialog.setFile("*.txt");
+            dialog.setVisible(true);
+            String fileName = dialog.getFile();
+            String dir = dialog.getDirectory();
+
+            if (fileName == null || dir == null) {
+                mc.addScheduledTask(() -> status = "§eCookie login cancelled");
+                return;
+            }
+
+            File cookieFile = new File(dir, fileName);
+            mc.addScheduledTask(() -> status = "§6Authenticating with cookie...");
+
+            try {
+                CookieAuthenticator.CookieAuthResult result = CookieAuthenticator.authenticate(cookieFile);
+                mc.addScheduledTask(() -> applyCookieLoginResult(result));
+            } catch (Exception e) {
+                e.printStackTrace();
+                String errMsg = e.getMessage();
+                mc.addScheduledTask(() -> status = "§cCookie login failed: " + errMsg);
+            }
+        }).start();
+    }
+
+    private void applyCookieLoginResult(CookieAuthenticator.CookieAuthResult result) {
+        try {
+            net.minecraft.util.Session newSession =
+                    new net.minecraft.util.Session(result.username, result.uuid, result.accessToken, "mojang");
+            SessionUtil.setSession(mc, newSession);
+            status = "§aLogged in as " + result.username;
+
+            Alt existingAlt = null;
+            for (Alt alt : alts) {
+                if (alt.getName().equals(result.username)) {
+                    existingAlt = alt;
+                    break;
+                }
+            }
+            if (existingAlt != null) {
+                existingAlt.setUuid(result.uuid);
+            } else {
+                Alt alt = new Alt(result.username, "", result.username, false);
+                alt.setUuid(result.uuid);
+                alts.add(alt);
+            }
+
+            AltJsonHandler.saveAlts();
+            this.initGui();
+        } catch (Exception e) {
+            e.printStackTrace();
+            status = "§cSession switch failed";
+        }
     }
 
     // Helper method for color interpolation (similar to MixinGuiButton)
