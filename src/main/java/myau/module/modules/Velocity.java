@@ -43,15 +43,15 @@ public class Velocity extends Module {
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
-    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1);
-    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1);
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty horizontal = new PercentProperty("horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
-    public final BooleanProperty reduce = new BooleanProperty("Reduce", true, () -> this.mode.getValue() == 2);
-    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", false, () -> this.mode.getValue() == 2);
+    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty delayAr = new BooleanProperty("Delay", false, () -> this.mode.getValue() == 2);
+    public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
+    public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
     public final BooleanProperty tickExactEnable = new BooleanProperty("TickExact", true, () -> this.mode.getValue() == 2);
     public final IntProperty tick500 = new IntProperty("500", 3, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick1000 = new IntProperty("1000", 4, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
@@ -196,8 +196,11 @@ public class Velocity extends Module {
             }
         }
 
-        if (this.mode.getValue() == 2 && this.reduce.getValue() && event.getType() == EventType.PRE) {
+        if (this.mode.getValue() == 2 && event.getType() == EventType.PRE) {
             if (this.reduceTicks > 0) {
+                if(this.delayAr.getValue() && this.delayActive){
+                    return;
+                }
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                 if (killAura != null && killAura.isEnabled() 
@@ -265,8 +268,15 @@ public class Velocity extends Module {
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
+                // ATTACKREDUCE
+                if (this.mode.getValue() == 2 
+                    && !this.pendingExplosion 
+                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
+                }
+
                 // DELAY 模式
-                if (this.mode.getValue() == 1
+                if ((this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()))
                         && !this.delayActive
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
@@ -290,13 +300,6 @@ public class Velocity extends Module {
                     }
                         return;
                     }
-                }
-
-                if (this.mode.getValue() == 2 
-                    && this.reduce.getValue() 
-                    && !this.pendingExplosion 
-                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
-                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
                 if (this.debugLog.getValue()) {
