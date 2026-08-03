@@ -199,6 +199,9 @@ public class Velocity extends Module {
 
         if (this.mode.getValue() == 2 && this.reduce.getValue() && event.getType() == EventType.PRE) {
             if (this.reduceTicks > 0) {
+                if(this.delayAr.getValue() && this.delayActive){
+                    return;
+                }
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                 if (killAura != null && killAura.isEnabled() 
