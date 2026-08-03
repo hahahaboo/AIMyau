@@ -266,6 +266,14 @@ public class Velocity extends Module {
             if (packet.getEntityID() == mc.thePlayer.getEntityId()) {
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
+                // ATTACKREDUCE
+                if (this.mode.getValue() == 2 
+                    && this.reduce.getValue() 
+                    && !this.pendingExplosion 
+                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
+                }
+
                 // DELAY 模式
                 if ((this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()))
                         && !this.delayActive
@@ -291,13 +299,6 @@ public class Velocity extends Module {
                     }
                         return;
                     }
-                }
-
-                if (this.mode.getValue() == 2 
-                    && this.reduce.getValue() 
-                    && !this.pendingExplosion 
-                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
-                        this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
                 if (this.debugLog.getValue()) {
