@@ -48,9 +48,8 @@ public class Velocity extends Module {
     public final PercentProperty vertical = new PercentProperty("vertical", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
-    public final BooleanProperty reduce = new BooleanProperty("Reduce", true, () -> this.mode.getValue() == 2);
-    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", false, () -> this.mode.getValue() == 2);
-    public final BooleanProperty delayAr = new BooleanProperty("Delay", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty delayAr = new BooleanProperty("Delay", flase, () -> this.mode.getValue() == 2);
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
     public final BooleanProperty tickExactEnable = new BooleanProperty("TickExact", true, () -> this.mode.getValue() == 2);
@@ -197,7 +196,7 @@ public class Velocity extends Module {
             }
         }
 
-        if (this.mode.getValue() == 2 && this.reduce.getValue() && event.getType() == EventType.PRE) {
+        if (this.mode.getValue() == 2 && event.getType() == EventType.PRE) {
             if (this.reduceTicks > 0) {
                 if(this.delayAr.getValue() && this.delayActive){
                     return;
@@ -271,7 +270,6 @@ public class Velocity extends Module {
 
                 // ATTACKREDUCE
                 if (this.mode.getValue() == 2 
-                    && this.reduce.getValue() 
                     && !this.pendingExplosion 
                     && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
                         this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
