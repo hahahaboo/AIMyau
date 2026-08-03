@@ -5,7 +5,6 @@ import myau.management.altmanager.auth.model.request.XSTSAuthorizationProperties
 import myau.management.altmanager.auth.model.request.XboxLiveLoginProperties;
 import myau.management.altmanager.auth.model.request.XboxLoginRequest;
 import myau.management.altmanager.auth.model.response.*;
-import myau.management.altmanager.microsoft.MicrosoftOAuthTranslation;
 
 import java.io.UnsupportedEncodingException;
 import java.net.*;
@@ -105,16 +104,8 @@ public class MicrosoftAuthenticator {
      * 先試 Tenacity 專用 client（帶 secret，RpsTicket 需加 d= 前綴），
      * 失敗則退回 Vanilla 官方 client（無 secret，不加前綴）。
      */
-    public MicrosoftAuthResult loginWithRefreshTokenMultiClient(String refreshToken) throws MicrosoftAuthenticationException {
+    public MicrosoftAuthResult loginWithRefreshTokenNew(String refreshToken) throws MicrosoftAuthenticationException {
         RefreshClient[] clients = {
-                new RefreshClient(
-                        "AIMyau",
-                        MicrosoftOAuthTranslation.CLIENT_ID,
-                        MicrosoftOAuthTranslation.CLIENT_SECRET,
-                        MicrosoftOAuthTranslation.REDIRECT_URI,
-                        null,
-                        true
-                ),
                 new RefreshClient("Vanilla", VANILLA_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE, false)
         };
         MicrosoftRefreshResponse successResponse = null;
