@@ -5,6 +5,7 @@ import myau.management.altmanager.auth.model.request.XSTSAuthorizationProperties
 import myau.management.altmanager.auth.model.request.XboxLiveLoginProperties;
 import myau.management.altmanager.auth.model.request.XboxLoginRequest;
 import myau.management.altmanager.auth.model.response.*;
+import myau.management.altmanager.microsoft.MicrosoftOAuthTranslation;
 
 import java.io.UnsupportedEncodingException;
 import java.net.*;
@@ -36,6 +37,7 @@ public class MicrosoftAuthenticator {
 
     public static final String MINECRAFT_STORE_IDENTIFIER = "game_minecraft";
 
+    private static final String VANILLA_CLIENT_ID = "00000000402b5328";
 
     private final HttpClient http;
 
@@ -97,6 +99,86 @@ public class MicrosoftAuthenticator {
     }
 
     /**
+     * 使用 refresh token 登入，依序嘗試多個已知 OAuth Client，
+     * 直到有一個成功刷新 access token 為止。
+     * 邏輯對齊 MicrosoftLogin.login(refreshToken)：
+     * 先試 Tenacity 專用 client（帶 secret，RpsTicket 需加 d= 前綴），
+     * 失敗則退回 Vanilla 官方 client（無 secret，不加前綴）。
+     */
+    public MicrosoftAuthResult loginWithRefreshTokenMultiClient(String refreshToken) throws MicrosoftAuthenticationException {
+        RefreshClient[] clients = {
+                new RefreshClient(
+                        "AIMyau",
+                        MicrosoftOAuthTranslation.CLIENT_ID,
+                        MicrosoftOAuthTranslation.CLIENT_SECRET,
+                        MicrosoftOAuthTranslation.REDIRECT_URI,
+                        null,
+                        true
+                ),
+                new RefreshClient("Vanilla", VANILLA_CLIENT_ID, null, MICROSOFT_REDIRECTION_ENDPOINT, XBOX_LIVE_SERVICE_SCOPE, false)
+        };
+        MicrosoftRefreshResponse successResponse = null;
+        RefreshClient successClient = null;
+
+        for (RefreshClient client : clients) {
+            Map<String, String> params = new HashMap<>();
+            params.put("client_id", client.clientId);
+            params.put("refresh_token", refreshToken);
+            params.put("grant_type", "refresh_token");
+            params.put("redirect_uri", client.redirectUri);
+            if (client.clientSecret != null) {
+                params.put("client_secret", client.clientSecret);
+            }
+            if (client.scope != null) {
+                params.put("scope", client.scope);
+            }
+
+            try {
+                MicrosoftRefreshResponse response = http.postFormGetJson(MICROSOFT_TOKEN_ENDPOINT, params, MicrosoftRefreshResponse.class);
+                if (response != null && response.getAccessToken() != null) {
+                    successResponse = response;
+                    successClient = client;
+                    break;
+                }
+            } catch (MicrosoftAuthenticationException ignored) {
+                // 這個 client 失敗，換下一個試試
+            }
+        }
+
+        if (successResponse == null || successClient == null) {
+            throw new MicrosoftAuthenticationException("Unable to refresh access token with any known client");
+        }
+
+        String newRefreshToken = successResponse.getRefreshToken() != null
+                ? successResponse.getRefreshToken()
+                : refreshToken;
+
+        return loginWithTokens(
+                new AuthTokens(successResponse.getAccessToken(), newRefreshToken),
+                true,
+                successClient.useDPrefix
+        );
+    }
+
+    private static final class RefreshClient {
+        private final String name;
+        private final String clientId;
+        private final String clientSecret;
+        private final String redirectUri;
+        private final String scope;
+        private final boolean useDPrefix;
+
+        private RefreshClient(String name, String clientId, String clientSecret, String redirectUri, String scope, boolean useDPrefix) {
+            this.name = name;
+            this.clientId = clientId;
+            this.clientSecret = clientSecret;
+            this.redirectUri = redirectUri;
+            this.scope = scope;
+            this.useDPrefix = useDPrefix;
+        }
+    }
+
+    /**
      * Logs in a player using a Microsoft account tokens retrieved earlier.
      * <b>If the token was retrieved using Azure AAD/MSAL, it should be prefixed with d=</b>
      *
@@ -106,7 +188,11 @@ public class MicrosoftAuthenticator {
      * @throws MicrosoftAuthenticationException Thrown if one of the several HTTP requests failed at some point
      */
     public MicrosoftAuthResult loginWithTokens(AuthTokens tokens, boolean retrieveProfile) throws MicrosoftAuthenticationException {
-        XboxLoginResponse xboxLiveResponse = xboxLiveLogin(tokens.getAccessToken());
+        return loginWithTokens(tokens, retrieveProfile, false);
+    }
+
+    public MicrosoftAuthResult loginWithTokens(AuthTokens tokens, boolean retrieveProfile, boolean useDPrefix) throws MicrosoftAuthenticationException {
+        XboxLoginResponse xboxLiveResponse = xboxLiveLogin(tokens.getAccessToken(), useDPrefix);
         XboxLoginResponse xstsResponse = xstsLogin(xboxLiveResponse.getToken());
 
         String userHash = xstsResponse.getDisplayClaims().getUsers()[0].getUserHash();
@@ -153,7 +239,13 @@ public class MicrosoftAuthenticator {
     }
 
     protected XboxLoginResponse xboxLiveLogin(String accessToken) throws MicrosoftAuthenticationException {
-        XboxLiveLoginProperties properties = new XboxLiveLoginProperties("RPS", XBOX_LIVE_AUTH_HOST, accessToken);
+        return xboxLiveLogin(accessToken, false);
+    }
+
+    protected XboxLoginResponse xboxLiveLogin(String accessToken, boolean useDPrefix) throws MicrosoftAuthenticationException {
+        XboxLiveLoginProperties properties = new XboxLiveLoginProperties(
+                "RPS", XBOX_LIVE_AUTH_HOST, (useDPrefix ? "d=" : "") + accessToken
+        );
         XboxLoginRequest<XboxLiveLoginProperties> request = new XboxLoginRequest<>(
                 properties, XBOX_LIVE_AUTH_RELAY, "JWT"
         );
