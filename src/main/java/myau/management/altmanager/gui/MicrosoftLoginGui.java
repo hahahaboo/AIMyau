@@ -126,7 +126,7 @@ public class MicrosoftLoginGui extends GuiScreen {
                 MicrosoftAuthenticator auth = new MicrosoftAuthenticator();
 
                 try {
-                    MicrosoftAuthResult result = auth.loginWithRefreshTokenMultiClient(cleanToken);
+                    MicrosoftAuthResult result = auth.loginWithRefreshTokenNew(cleanToken);
                     if (result != null) {
                         handleLoginSuccess(result.getAccessToken(), result.getProfile().getName(), result.getProfile().getId());
                     }
