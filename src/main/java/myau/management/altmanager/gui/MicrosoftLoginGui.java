@@ -120,18 +120,19 @@ public class MicrosoftLoginGui extends GuiScreen {
                 }
 
                 // 第二步：如果是你提供的这种 mCgg... 格式，尝试作为 Refresh Token 刷新
+                // 改用與 MicrosoftLogin.login(refreshToken) 相同的多 Client 嘗試邏輯
+                // （先試 Tenacity 專用 client，失敗再退回 Vanilla 官方 client）
                 AltManagerGui.status = "§eRefreshing Microsoft Session...";
                 MicrosoftAuthenticator auth = new MicrosoftAuthenticator();
 
                 try {
-                    // 如果这里报 400，说明这个 Token 的 ClientID 不匹配或已彻底失效
-                    MicrosoftAuthResult result = auth.loginWithRefreshToken(cleanToken);
+                    MicrosoftAuthResult result = auth.loginWithRefreshTokenMultiClient(cleanToken);
                     if (result != null) {
                         handleLoginSuccess(result.getAccessToken(), result.getProfile().getName(), result.getProfile().getId());
                     }
                 } catch (Exception e) {
-                    // 捕获 400 错误
-                    if (e.getMessage().contains("400")) {
+                    // 捕获 400 错误（順帶修正 e.getMessage() 可能為 null 造成的 NPE）
+                    if (e.getMessage() != null && e.getMessage().contains("400")) {
                         mc.addScheduledTask(() -> AltManagerGui.status = "§cBad Request (400): Token Incompatible");
                     } else {
                         throw e;
