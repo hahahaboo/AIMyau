@@ -17,9 +17,10 @@ import java.util.function.Consumer;
 
 public class MicrosoftOAuthTranslation {
 
-    private static final String CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17";
-    private static final String CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
-    private static final int PORT = 8247;
+    public static final String CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17";
+    public static final String CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
+    public static final int PORT = 8247;
+    public static final String REDIRECT_URI = "http://localhost:" + PORT;
     static ExecutorService executor = Executors.newCachedThreadPool();
     static Gson gson = new Gson();
     private static SimpleHttpServer server;
