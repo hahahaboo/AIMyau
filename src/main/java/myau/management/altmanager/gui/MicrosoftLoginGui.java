@@ -3,6 +3,10 @@ package myau.management.altmanager.gui;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import myau.management.altmanager.AltManagerGui;
+import myau.management.altmanager.auth.refresh.RefreshTokenAuthentication;
+import myau.management.altmanager.auth.refresh.exception.AuthenticationException;
+import myau.management.altmanager.auth.refresh.model.MinecraftProfileResponse;
+import myau.management.altmanager.auth.refresh.model.MinecraftTokenResponse;
 import myau.ui.impl.gui.BackgroundRenderer;
 import myau.util.font.FontManager;
 import net.minecraft.client.gui.GuiButton;
@@ -116,8 +120,19 @@ public class MicrosoftLoginGui extends GuiScreen {
                         return;
                     }
                 }else{
-                    //refresh token
-                    mc.addScheduledTask(() -> AltManagerGui.status = "§cNot supported Refresh token");
+                    // Refresh token：走 org.localts 移植過來的完整鏈路
+                    // OAuth refresh -> OAuth access -> XBL -> XSTS -> MC -> 檢查持有 -> 取得 profile
+                    AltManagerGui.status = "§eRefreshing token...";
+                    try {
+                        MinecraftTokenResponse mcToken = RefreshTokenAuthentication.authenticateWithRefreshToken(cleanToken);
+                        MinecraftProfileResponse profile = RefreshTokenAuthentication.getMinecraftProfile(mcToken);
+                        // 這裡儲存的是原始 refresh token，而不是短效的 Minecraft access token，
+                        // 讓這個 Alt 之後也可以被 AltManagerGui 的 hasRefreshToken() 流程正常重新登入
+                        handleLoginSuccess(mcToken.getAccessToken(), profile.getUsername(), profile.getUuid().toString(), cleanToken);
+                    } catch (AuthenticationException e) {
+                        String errorMessage = e.getMessage();
+                        mc.addScheduledTask(() -> AltManagerGui.status = "§c" + errorMessage);
+                    }
                     return;
                 }
             } catch (Exception e) {
@@ -127,9 +142,9 @@ public class MicrosoftLoginGui extends GuiScreen {
         }).start();
     }
 
-    private void handleLoginSuccess(String token, String username, String uuid) {
+    private void handleLoginSuccess(String sessionToken, String username, String uuid, String storedToken) {
         // 1. 创建 Minecraft Session
-        net.minecraft.util.Session newSession = new net.minecraft.util.Session(username, uuid, token, "mojang");
+        net.minecraft.util.Session newSession = new net.minecraft.util.Session(username, uuid, sessionToken, "mojang");
 
         try {
             // 2. 反射或通过工具类设置当前游戏的 Session
@@ -149,11 +164,11 @@ public class MicrosoftLoginGui extends GuiScreen {
 
                 if (existingAlt != null) {
                     existingAlt.setUuid(uuid);
-                    existingAlt.setRefreshToken(token);
+                    existingAlt.setRefreshToken(storedToken);
                 } else {
                     myau.management.altmanager.Alt alt = new myau.management.altmanager.Alt(username, "", username, false);
                     alt.setUuid(uuid);
-                    alt.setRefreshToken(token);
+                    alt.setRefreshToken(storedToken);
                     AltManagerGui.alts.add(alt);
                 }
 
