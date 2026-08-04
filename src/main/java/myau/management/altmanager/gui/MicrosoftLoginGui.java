@@ -3,8 +3,6 @@ package myau.management.altmanager.gui;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import myau.management.altmanager.AltManagerGui;
-import myau.management.altmanager.auth.MicrosoftAuthResult;
-import myau.management.altmanager.auth.MicrosoftAuthenticator;
 import myau.ui.impl.gui.BackgroundRenderer;
 import myau.util.font.FontManager;
 import net.minecraft.client.gui.GuiButton;
@@ -117,27 +115,11 @@ public class MicrosoftLoginGui extends GuiScreen {
                         mc.addScheduledTask(() -> AltManagerGui.status = "§cInvalid Access Token (401)");
                         return;
                     }
+                }else{
+                    //refresh token
+                    mc.addScheduledTask(() -> AltManagerGui.status = "§cNot supported Refresh token");
+                    return;
                 }
-
-                // 第二步：如果是你提供的这种 mCgg... 格式，尝试作为 Refresh Token 刷新
-                AltManagerGui.status = "§eRefreshing Microsoft Session...";
-                MicrosoftAuthenticator auth = new MicrosoftAuthenticator();
-
-                try {
-                    // 如果这里报 400，说明这个 Token 的 ClientID 不匹配或已彻底失效
-                    MicrosoftAuthResult result = auth.loginWithRefreshToken(cleanToken);
-                    if (result != null) {
-                        handleLoginSuccess(result.getAccessToken(), result.getProfile().getName(), result.getProfile().getId());
-                    }
-                } catch (Exception e) {
-                    // 捕获 400 错误
-                    if (e.getMessage().contains("400")) {
-                        mc.addScheduledTask(() -> AltManagerGui.status = "§cBad Request (400): Token Incompatible");
-                    } else {
-                        throw e;
-                    }
-                }
-
             } catch (Exception e) {
                 e.printStackTrace();
                 mc.addScheduledTask(() -> AltManagerGui.status = "§cLogin Failed");
