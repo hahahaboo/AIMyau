@@ -69,8 +69,7 @@ public class SessionChanger {
             } else {
                 System.out.println("OAuth login failed");
                 timeSinceFail = System.currentTimeMillis();
-                AltManagerGui.status = "§cOAuth login failed" +
-                        (loginData.errorMessage != null ? ": " + loginData.errorMessage : "");
+                AltManagerGui.status = "§cOAuth login failed";
             }
         }).start();
     }

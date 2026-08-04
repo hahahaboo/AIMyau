@@ -3,7 +3,6 @@ package myau.management.altmanager.auth.refresh;
 import com.google.gson.Gson;
 import myau.management.altmanager.auth.refresh.exception.AuthenticationException;
 import myau.management.altmanager.auth.refresh.model.EntitlementsResponse;
-import myau.management.altmanager.auth.refresh.model.MicrosoftTokenResponse;
 import myau.management.altmanager.auth.refresh.model.MinecraftProfileResponse;
 import myau.management.altmanager.auth.refresh.model.MinecraftTokenResponse;
 import myau.management.altmanager.auth.refresh.model.XboxLiveTokenResponse;
@@ -37,55 +36,16 @@ public class RefreshTokenAuthentication {
             })
             .build();
 
-    /**
-     * Result of a full refresh-token login, including the (possibly rotated) refresh token.
-     */
-    public static final class AuthResult {
-        private final MinecraftTokenResponse minecraftToken;
-        private final String refreshToken;
-
-        public AuthResult(MinecraftTokenResponse minecraftToken, String refreshToken) {
-            this.minecraftToken = minecraftToken;
-            this.refreshToken = refreshToken;
-        }
-
-        public MinecraftTokenResponse getMinecraftToken() {
-            return minecraftToken;
-        }
-
-        public String getRefreshToken() {
-            return refreshToken;
-        }
-
-        public String getAccessToken() {
-            return minecraftToken.getAccessToken();
-        }
-    }
-
     /* OAuth refresh -> OAuth access -> XBL -> XSTS -> MC */
     public static MinecraftTokenResponse authenticateWithRefreshToken(String refreshToken) throws IOException, AuthenticationException {
-        return authenticateWithRefreshTokenFull(refreshToken).getMinecraftToken();
-    }
+        XboxLiveTokenResponse xboxLiveResponse = XboxLiveTokenRequest.getXboxLiveToken(
+                RefreshTokenRequest.refreshToken(refreshToken).getAccessToken()
+        );
 
-    /**
-     * Full login that also returns the refreshed (possibly new) refresh token so callers can persist it.
-     */
-    public static AuthResult authenticateWithRefreshTokenFull(String refreshToken) throws IOException, AuthenticationException {
-        MicrosoftTokenResponse msToken = RefreshTokenRequest.refreshToken(refreshToken);
-
-        XboxLiveTokenResponse xboxLiveResponse = XboxLiveTokenRequest.getXboxLiveToken(msToken.getAccessToken());
-
-        MinecraftTokenResponse mcToken = MinecraftTokenRequest.getMinecraftAccessToken(
+        return MinecraftTokenRequest.getMinecraftAccessToken(
                 XstsTokenRequest.getXstsToken(xboxLiveResponse.getToken()).getToken(),
                 xboxLiveResponse.getUserHash()
         );
-
-        // Prefer rotated refresh token from Microsoft when present
-        String storedRefresh = msToken.getRefreshToken() != null && !msToken.getRefreshToken().isEmpty()
-                ? msToken.getRefreshToken()
-                : refreshToken;
-
-        return new AuthResult(mcToken, storedRefresh);
     }
 
     /* MC -> Check game ownership -> Fetch profile */
