@@ -94,6 +94,8 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.30")
     // If you don't want to log in with your real minecraft account, remove this line
     runtimeOnly("me.djtheredstoner:DevAuth-forge-legacy:1.2.1")
+    // Refresh-token 登入使用的 HTTP client（Java 8 相容版本）
+    shadowImpl("com.squareup.okhttp3:okhttp:4.9.3")
 }
 // Tasks:
 tasks.withType(JavaCompile::class) {
