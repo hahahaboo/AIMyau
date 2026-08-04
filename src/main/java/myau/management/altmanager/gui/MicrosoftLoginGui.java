@@ -6,7 +6,6 @@ import myau.management.altmanager.AltManagerGui;
 import myau.management.altmanager.auth.refresh.RefreshTokenAuthentication;
 import myau.management.altmanager.auth.refresh.exception.AuthenticationException;
 import myau.management.altmanager.auth.refresh.model.MinecraftProfileResponse;
-import myau.management.altmanager.auth.refresh.model.MinecraftTokenResponse;
 import myau.ui.impl.gui.BackgroundRenderer;
 import myau.util.font.FontManager;
 import net.minecraft.client.gui.GuiButton;
@@ -112,23 +111,30 @@ public class MicrosoftLoginGui extends GuiScreen {
                     AltManagerGui.status = "§eAttempting Direct Login...";
                     try {
                         String[] profile = getProfileInfo(cleanToken); // 尝试直接获取 profile
-                        handleLoginSuccess(cleanToken, profile[0], profile[1], cleanToken);
+                        // Access token 直登沒有可用的 refresh token，不寫入 refreshToken 欄位
+                        handleLoginSuccess(cleanToken, profile[0], profile[1], null);
                         return;
                     } catch (IOException e) {
                         // 如果报 401，说明它是微软 Token，需要走完整的微软链（本代码暂未实现该特定路径）
                         mc.addScheduledTask(() -> AltManagerGui.status = "§cInvalid Access Token (401)");
                         return;
                     }
-                }else{
-                    // Refresh token：走 org.localts 移植過來的完整鏈路
+                } else {
+                    // Refresh token：custom client 優先，失敗再 fallback launcher client
                     // OAuth refresh -> OAuth access -> XBL -> XSTS -> MC -> 檢查持有 -> 取得 profile
                     AltManagerGui.status = "§eRefreshing token...";
                     try {
-                        MinecraftTokenResponse mcToken = RefreshTokenAuthentication.authenticateWithRefreshToken(cleanToken);
-                        MinecraftProfileResponse profile = RefreshTokenAuthentication.getMinecraftProfile(mcToken);
-                        // 這裡儲存的是原始 refresh token，而不是短效的 Minecraft access token，
-                        // 讓這個 Alt 之後也可以被 AltManagerGui 的 hasRefreshToken() 流程正常重新登入
-                        handleLoginSuccess(mcToken.getAccessToken(), profile.getUsername(), profile.getUuid().toString(), cleanToken);
+                        RefreshTokenAuthentication.AuthResult authResult =
+                                RefreshTokenAuthentication.authenticateWithRefreshTokenFull(cleanToken);
+                        MinecraftProfileResponse profile =
+                                RefreshTokenAuthentication.getMinecraftProfile(authResult.getMinecraftToken());
+                        // 儲存 Microsoft 回傳的（可能已輪換的）refresh token，方便之後點擊帳號重登
+                        handleLoginSuccess(
+                                authResult.getAccessToken(),
+                                profile.getUsername(),
+                                profile.getUuid().toString(),
+                                authResult.getRefreshToken()
+                        );
                     } catch (AuthenticationException e) {
                         String errorMessage = e.getMessage();
                         mc.addScheduledTask(() -> AltManagerGui.status = "§c" + errorMessage);
@@ -164,11 +170,15 @@ public class MicrosoftLoginGui extends GuiScreen {
 
                 if (existingAlt != null) {
                     existingAlt.setUuid(uuid);
-                    existingAlt.setRefreshToken(storedToken);
+                    if (storedToken != null && !storedToken.isEmpty()) {
+                        existingAlt.setRefreshToken(storedToken);
+                    }
                 } else {
                     myau.management.altmanager.Alt alt = new myau.management.altmanager.Alt(username, "", username, false);
                     alt.setUuid(uuid);
-                    alt.setRefreshToken(storedToken);
+                    if (storedToken != null && !storedToken.isEmpty()) {
+                        alt.setRefreshToken(storedToken);
+                    }
                     AltManagerGui.alts.add(alt);
                 }
 
