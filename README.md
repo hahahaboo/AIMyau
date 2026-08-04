@@ -4,6 +4,8 @@ base on [MyauPlus](https://github.com/UnfairGaming/MyauPlus)
 
 support by：
 
+Claude
+
 Grok
 
 Gemini
