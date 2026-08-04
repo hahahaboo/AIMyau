@@ -20,6 +20,7 @@ public final class RefreshTokenRequest {
     private static final String CUSTOM_CLIENT_ID = "9fbc7315-7200-4b2b-a655-bb38c865da17";
     private static final String CUSTOM_CLIENT_SECRET = "Bzn8Q~YryydJsydgnnxHgJq.NM3Oo4.AEEohLbBb";
     private static final String CUSTOM_REDIRECT_URI = "http://localhost:8247";
+    private static final String CUSTOM_SCOPE = "XboxLive.signin offline_access";
 
     // Minecraft Launcher style client (fallback)
     private static final String LAUNCHER_CLIENT_ID = "00000000402b5328";
@@ -62,6 +63,7 @@ public final class RefreshTokenRequest {
                 .add("grant_type", "refresh_token")
                 .add("refresh_token", refreshToken)
                 .add("redirect_uri", CUSTOM_REDIRECT_URI)
+                .add("scope", CUSTOM_SCOPE)
                 .build();
     }
 
