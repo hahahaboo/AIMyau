@@ -2,6 +2,7 @@ package myau.management.altmanager.auth.refresh.request;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import myau.management.altmanager.auth.refresh.exception.AuthenticationException;
 import myau.management.altmanager.auth.refresh.model.XstsTokenResponse;
 import okhttp3.MediaType;
@@ -24,7 +25,7 @@ public final class XstsTokenRequest {
         JsonArray userTokens = new JsonArray();
 
         properties.addProperty("SandboxId", "RETAIL");
-        userTokens.add(accessToken);
+        userTokens.add(new JsonPrimitive(accessToken));
         properties.add("UserTokens", userTokens);
 
         payload.add("Properties", properties);
