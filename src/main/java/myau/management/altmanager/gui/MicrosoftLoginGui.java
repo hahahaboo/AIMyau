@@ -112,7 +112,7 @@ public class MicrosoftLoginGui extends GuiScreen {
                     AltManagerGui.status = "§eAttempting Direct Login...";
                     try {
                         String[] profile = getProfileInfo(cleanToken); // 尝试直接获取 profile
-                        handleLoginSuccess(cleanToken, profile[0], profile[1]);
+                        handleLoginSuccess(cleanToken, profile[0], profile[1], cleanToken);
                         return;
                     } catch (IOException e) {
                         // 如果报 401，说明它是微软 Token，需要走完整的微软链（本代码暂未实现该特定路径）
