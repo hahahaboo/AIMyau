@@ -614,22 +614,7 @@ public class AltManagerGui extends GuiScreen {
             SessionUtil.setSession(mc, newSession);
             status = "§aLogged in as " + result.username;
 
-            Alt existingAlt = null;
-            for (Alt alt : alts) {
-                if (alt.getName().equals(result.username)) {
-                    existingAlt = alt;
-                    break;
-                }
-            }
-            if (existingAlt != null) {
-                existingAlt.setUuid(result.uuid);
-            } else {
-                Alt alt = new Alt(result.username, "", result.username, false);
-                alt.setUuid(result.uuid);
-                alts.add(alt);
-            }
-
-            AltJsonHandler.saveAlts();
+            // Cookie Login 帳號不寫入 alt 清單、不儲存到檔案，僅切換 session
             this.initGui();
         } catch (Exception e) {
             e.printStackTrace();
