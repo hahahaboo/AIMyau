@@ -142,9 +142,9 @@ public class MicrosoftLoginGui extends GuiScreen {
         }).start();
     }
 
-    private void handleLoginSuccess(String sessionToken, String username, String uuid, String storedToken) {
+    private void handleLoginSuccess(String token, String username, String uuid) {
         // 1. 创建 Minecraft Session
-        net.minecraft.util.Session newSession = new net.minecraft.util.Session(username, uuid, sessionToken, "mojang");
+        net.minecraft.util.Session newSession = new net.minecraft.util.Session(username, uuid, token, "mojang");
 
         try {
             // 2. 反射或通过工具类设置当前游戏的 Session
@@ -153,27 +153,7 @@ public class MicrosoftLoginGui extends GuiScreen {
             mc.addScheduledTask(() -> {
                 AltManagerGui.status = "§aLogged in as " + username;
 
-                // 3. 更新账号列表逻辑
-                myau.management.altmanager.Alt existingAlt = null;
-                for (myau.management.altmanager.Alt alt : AltManagerGui.alts) {
-                    if (alt.getName().equals(username)) {
-                        existingAlt = alt;
-                        break;
-                    }
-                }
-
-                if (existingAlt != null) {
-                    existingAlt.setUuid(uuid);
-                    existingAlt.setRefreshToken(storedToken);
-                } else {
-                    myau.management.altmanager.Alt alt = new myau.management.altmanager.Alt(username, "", username, false);
-                    alt.setUuid(uuid);
-                    alt.setRefreshToken(storedToken);
-                    AltManagerGui.alts.add(alt);
-                }
-
-                // 4. 保存到文件并返回主界面
-                myau.management.altmanager.util.AltJsonHandler.saveAlts();
+                // 3. Token Login 帳號不寫入 alt 清單、不儲存到檔案，僅切換 session
                 this.mc.displayGuiScreen(parent);
             });
         } catch (Exception e) {
