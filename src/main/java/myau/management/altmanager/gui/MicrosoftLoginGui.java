@@ -66,7 +66,7 @@ public class MicrosoftLoginGui extends GuiScreen {
             mc.fontRendererObj.drawStringWithShadow("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
             mc.fontRendererObj.drawStringWithShadow("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
         }
-        this.usernameField.drawTextBox();
+        this.tokenField.drawTextBox();
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
     @Override
