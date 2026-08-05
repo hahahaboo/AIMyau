@@ -7,6 +7,7 @@ import myau.management.altmanager.util.AltJsonHandler;
 import myau.management.altmanager.util.NameGenerator;
 import myau.ui.impl.gui.BackgroundRenderer;
 import myau.util.font.FontManager;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
@@ -51,26 +52,20 @@ public class CrackedLoginGui extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         BackgroundRenderer.draw(this.width, this.height);
-        if (FontManager.productSans20 != null) {
-            FontManager.productSans20.drawCenteredString("Cracked Login", this.width / 2.0f, 20, 0xFFFFFF);
-            FontManager.productSans20.drawString("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
-            FontManager.productSans20.drawString("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
+        // Use custom font renderer if available
+        if (mc.fontRendererObj != null) {
+            mc.fontRendererObj.drawString("Cracked Login", (int) (this.width / 2.0f - FontManager.productSans20.getStringWidth("Cracked Login") / 2.0f), 20, 0xFFFFFF);
+            mc.fontRendererObj.drawString("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
+            mc.fontRendererObj.drawString("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
         } else {
-            drawCenteredString(this.fontRendererObj, "Cracked Login", this.width / 2, 20, 0xFFFFFF);
-            this.fontRendererObj.drawStringWithShadow("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
-            this.fontRendererObj.drawStringWithShadow("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
+            // Fallback to standard Minecraft font renderer
+            FontRenderer fontRenderer = mc.fontRendererObj;
+            mc.fontRendererObj.drawStringWithShadow("Cracked Login", this.width / 2.0f - fontRenderer.getStringWidth("Cracked Login") / 2.0f, 20, 0xFFFFFF);
+            mc.fontRendererObj.drawStringWithShadow("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
+            mc.fontRendererObj.drawStringWithShadow("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
         }
         this.usernameField.drawTextBox();
         super.drawScreen(mouseX, mouseY, partialTicks);
-
-        // Draw status text again to ensure it's on top of everything
-        if (FontManager.productSans20 != null) {
-            FontManager.productSans20.drawString("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
-            FontManager.productSans20.drawString("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
-        } else {
-            this.fontRendererObj.drawStringWithShadow("Current Alt: §a" + mc.getSession().getUsername(), 5, 5, 0xAAAAAA);
-            this.fontRendererObj.drawStringWithShadow("Status: " + AltManagerGui.status, 5, 20, 0xAAAAAA);
-        }
     }
 
     @Override
