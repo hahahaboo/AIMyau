@@ -112,7 +112,7 @@ public class MicrosoftLoginGui extends GuiScreen {
                     AltManagerGui.status = "§eAttempting Direct Login...";
                     try {
                         String[] profile = getProfileInfo(cleanToken); // 尝试直接获取 profile
-                        handleLoginSuccess(cleanToken, profile[0], profile[1], cleanToken);
+                        handleLoginSuccess(cleanToken, profile[0], profile[1]);
                         return;
                     } catch (IOException e) {
                         // 如果报 401，说明它是微软 Token，需要走完整的微软链（本代码暂未实现该特定路径）
@@ -128,7 +128,7 @@ public class MicrosoftLoginGui extends GuiScreen {
                         MinecraftProfileResponse profile = RefreshTokenAuthentication.getMinecraftProfile(mcToken);
                         // 這裡儲存的是原始 refresh token，而不是短效的 Minecraft access token，
                         // 讓這個 Alt 之後也可以被 AltManagerGui 的 hasRefreshToken() 流程正常重新登入
-                        handleLoginSuccess(mcToken.getAccessToken(), profile.getUsername(), profile.getUuid().toString(), cleanToken);
+                        handleLoginSuccess(mcToken.getAccessToken(), profile.getUsername(), profile.getUuid().toString());
                     } catch (AuthenticationException e) {
                         String errorMessage = e.getMessage();
                         mc.addScheduledTask(() -> AltManagerGui.status = "§c" + errorMessage);
