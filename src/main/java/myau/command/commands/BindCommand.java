@@ -47,7 +47,7 @@ public class BindCommand extends Command {
             String keyInput = args.get(2).toUpperCase();
             int keyIndex;
 
-            if (keyInput.equalsIgnoreCase("NONE") || keyInput.equalsIgnoreCase("NULL") || keyInput.equalsIgnoreCase("0")) {
+            if (keyInput.equalsIgnoreCase("NONE") || keyInput.equalsIgnoreCase("NULL")) {
                 keyIndex = 0;
             } else {
                 keyIndex = Keyboard.getKeyIndex(keyInput);
