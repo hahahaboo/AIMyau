@@ -27,8 +27,8 @@ public class MacroCommand extends Command {
 
         String sub = args.get(1).toLowerCase(Locale.ROOT);
 
-        // .macro list / .macro l
-        if (sub.equals("list") || sub.equals("l")) {
+        // .macro list
+        if (sub.equals("list")) {
             Map<Integer, List<String>> all = Myau.macroManager.getAll();
             if (all.isEmpty()) {
                 ChatUtil.sendFormatted(String.format("%sNo macros&r", Myau.clientName));
@@ -38,7 +38,7 @@ public class MacroCommand extends Command {
             for (Map.Entry<Integer, List<String>> entry : all.entrySet()) {
                 String keyName = KeyBindUtil.getKeyName(entry.getKey());
                 for (String cmd : entry.getValue()) {
-                    ChatUtil.sendFormatted(String.format("&7»&r <%s>: %s&r", keyName, cmd));
+                    ChatUtil.sendFormatted(String.format("&7»&r &l[%s]&r %s&r", keyName, cmd));
                 }
             }
             return;
