@@ -52,7 +52,7 @@ public class ConfigCommand extends Command {
                         return;
                     }
                     string name = args.get(2);
-                    if(name=="!"){
+                    if("!".equals(name)){
                         name = "default";
                     }
                     new Config(name, false).load();
