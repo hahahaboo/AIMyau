@@ -93,7 +93,7 @@ public class MacroCommand extends Command {
         String cmd = name.toLowerCase(Locale.ROOT);
         ChatUtil.sendFormatted(
                 String.format(
-                        "%sUsage: .%s &olist&r/&ol&r | .%s <&okey&r> &oclear&r | .%s <&okey&r> <&ocommand&r>&r",
+                        "%sUsage: .%s &olist&r | .%s <&okey&r> &oclear&r | .%s <&okey&r> <&ocommand&r>&r",
                         Myau.clientName, cmd, cmd, cmd
                 )
         );
