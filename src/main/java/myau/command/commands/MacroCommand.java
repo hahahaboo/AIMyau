@@ -46,20 +46,15 @@ public class MacroCommand extends Command {
 
         // 解析 key
         String keyInput = args.get(1).toUpperCase(Locale.ROOT);
-        int keyIndex;
-        if (keyInput.equals("NONE") || keyInput.equals("NULL") || keyInput.equals("0")) {
-            keyIndex = 0;
-        } else {
-            keyIndex = Keyboard.getKeyIndex(keyInput);
-            if (keyIndex == 0) {
-                int buttonIndex = Mouse.getButtonIndex(keyInput);
-                if (buttonIndex != -1) {
-                    keyIndex = buttonIndex - 100;
-                }
+        int keyIndex = Keyboard.getKeyIndex(keyInput);
+        if (keyIndex == 0) {
+            int buttonIndex = Mouse.getButtonIndex(keyInput);
+            if (buttonIndex != -1) {
+                keyIndex = buttonIndex - 100;
             }
         }
 
-        if (keyIndex == 0 && !keyInput.equals("NONE") && !keyInput.equals("NULL") && !keyInput.equals("0")) {
+        if (keyIndex == 0) {
             ChatUtil.sendFormatted(String.format("%sInvalid key (&o%s&r)&r", Myau.clientName, args.get(1)));
             return;
         }
