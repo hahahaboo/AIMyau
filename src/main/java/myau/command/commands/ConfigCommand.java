@@ -51,7 +51,7 @@ public class ConfigCommand extends Command {
                         );
                         return;
                     }
-                    string name = args.get(2);
+                    String name = args.get(2);
                     if("!".equals(name)){
                         name = "default";
                     }
