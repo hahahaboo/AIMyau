@@ -27,6 +27,7 @@ public class Myau {
     public static FloatManager floatManager;
     public static FriendManager friendManager;
     public static LagManager lagManager;
+    public static MacroManager macroManager;
     public static ModuleManager moduleManager;
     public static PlayerStateManager playerStateManager;
     public static PropertyManager propertyManager;
@@ -44,6 +45,7 @@ public class Myau {
         floatManager = new FloatManager();
         friendManager = new FriendManager();
         lagManager = new LagManager();
+        macroManager = new MacroManager();
         moduleManager = new ModuleManager();
         playerStateManager = new PlayerStateManager();
         propertyManager = new PropertyManager();
@@ -55,6 +57,7 @@ public class Myau {
         EventManager.register(delayManager);
         EventManager.register(floatManager);
         EventManager.register(lagManager);
+        EventManager.register(macroManager);
         EventManager.register(moduleManager);
         EventManager.register(notificationRenderer);
         EventManager.register(rotationManager);
@@ -138,6 +141,7 @@ public class Myau {
         commandManager.commands.add(new IgnCommand());
         commandManager.commands.add(new ItemCommand());
         commandManager.commands.add(new ListCommand());
+        commandManager.commands.add(new MacroCommand());
         commandManager.commands.add(new ModuleCommand());
         commandManager.commands.add(new PlayerCommand());
         commandManager.commands.add(new TargetCommand());
