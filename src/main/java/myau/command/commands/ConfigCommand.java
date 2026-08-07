@@ -51,7 +51,11 @@ public class ConfigCommand extends Command {
                         );
                         return;
                     }
-                    new Config(args.get(2), false).load();
+                    string name = args.get(2);
+                    if(name=="!"){
+                        name = "default";
+                    }
+                    new Config(name, false).load();
                     return;
                 case "s":
                 case "save":
