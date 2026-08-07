@@ -10,7 +10,7 @@ import myau.util.ChatUtil;
 import net.minecraft.client.Minecraft;
 
 import java.io.*;
-import java.util.ArrayList;
+import java.util.*;
 
 public class Config {
     public static Minecraft mc = Minecraft.getMinecraft();
@@ -66,6 +66,24 @@ public class Config {
                     }
                 }
             }
+            // Macros
+            Myau.macroManager.clearAll();
+            JsonElement macrosElement = jsonObject.get("macros");
+            if (macrosElement != null && macrosElement.isJsonObject()) {
+                JsonObject macrosObj = macrosElement.getAsJsonObject();
+                for (Map.Entry<String, JsonElement> entry : macrosObj.entrySet()) {
+                    try {
+                        int key = Integer.parseInt(entry.getKey());
+                        JsonArray arr = entry.getValue().getAsJsonArray();
+                        for (JsonElement e : arr) {
+                            String cmd = e.getAsString();
+                            if (cmd != null && cmd.startsWith(".")) {
+                                Myau.macroManager.add(key, cmd);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
             ChatUtil.sendFormatted(String.format("%sConfig has been loaded (&a&o%s&r)&r", Myau.clientName, file.getName()));
         } catch (Exception e) {
             ((IAccessorMinecraft) mc).getLogger().error(e.getMessage());
@@ -96,6 +114,17 @@ public class Config {
                 }
                 object.add(module.getName(), moduleObject);
             }
+            // Macros
+            JsonObject macrosObj = new JsonObject();
+            for (Map.Entry<Integer, List<String>> entry : Myau.macroManager.getAll().entrySet()) {
+                JsonArray arr = new JsonArray();
+                for (String cmd : entry.getValue()) {
+                    arr.add(new JsonPrimitive(cmd));
+                }
+                macrosObj.add(String.valueOf(entry.getKey()), arr);
+            }
+            object.add("macros", macrosObj);
+            
             PrintWriter printWriter = new PrintWriter(new FileWriter(file));
             printWriter.println(gson.toJson(object));
             printWriter.close();
