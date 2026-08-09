@@ -6,9 +6,12 @@ import myau.events.TickEvent;
 import myau.mixin.IAccessorMinecraft;
 import myau.module.Category;
 import myau.module.Module;
+import myau.util.BlockUtil;
+import myau.util.RotationUtil;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
-import myau.util.RotationUtil;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockObsidian;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
@@ -24,14 +27,12 @@ import java.util.Locale;
 public class FastPlace extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final DecimalFormat df = new DecimalFormat("0.0#", new DecimalFormatSymbols(Locale.US));
+    private long delayMS = 0L;
     public final FloatProperty delay = new FloatProperty("delay", 1.0F, 1.0F, 3.0F);
     public final BooleanProperty blocksOnly = new BooleanProperty("blocks-only", true);
     public final BooleanProperty placeFix = new BooleanProperty("place-fix", true);
-    private long delayMS = 0L;
-
-    public FastPlace() {
-        super("FastPlace", "Allows you to place blocks faster.", Category.PLAYER, 0, false, false);
-    }
+    public final BooleanProperty skipObsidian = new BooleanProperty("skip-obsidian", true);
+    public final BooleanProperty skipInteractable = new BooleanProperty("skip-interactable", true);
 
     private boolean canPlace() {
         ItemStack stack = mc.thePlayer.getHeldItem();
@@ -41,6 +42,13 @@ public class FastPlace extends Module {
                 return false;
             }
             if (item instanceof ItemBlock) {
+                Block block = ((ItemBlock) item).getBlock();
+                if (skipObsidian.getValue() && block instanceof BlockObsidian) {
+                    return false;
+                }
+                if (skipInteractable.getValue() && BlockUtil.isInteractable(block)) {
+                    return false;
+                }
                 if (!(Boolean) this.placeFix.getValue()) {
                     return true;
                 }
@@ -53,6 +61,10 @@ public class FastPlace extends Module {
             }
         }
         return !(Boolean) this.blocksOnly.getValue();
+    }
+
+    public FastPlace() {
+        super("FastPlace", "Allows you to place blocks faster.", Category.PLAYER, 0, false, false);
     }
 
     @EventTarget
