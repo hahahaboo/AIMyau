@@ -12,7 +12,7 @@ import org.lwjgl.input.Mouse;
 
 public class InvClicker extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final IntProperty triggerTicks = new IntProperty("ticks", 2, 0, 20);
+    public final IntProperty triggerTicks = new IntProperty("start-delay", 2, 0, 20);
     public int ticks;
 
     public InvClicker() {
