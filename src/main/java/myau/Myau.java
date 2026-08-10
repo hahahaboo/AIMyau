@@ -92,6 +92,7 @@ public class Myau {
         moduleManager.modules.put(GhostHand.class, new GhostHand());
         moduleManager.modules.put(HUD.class, new HUD());
         moduleManager.modules.put(Indicators.class, new Indicators());
+        moduleManager.modules.put(InvClicker.class, new InvClicker());
         moduleManager.modules.put(InvManager.class, new InvManager());
         moduleManager.modules.put(InvWalk.class, new InvWalk());
         moduleManager.modules.put(ItemESP.class, new ItemESP());
