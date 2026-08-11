@@ -35,12 +35,14 @@ public class InvWalk extends Module {
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "UNSPRINT", "LEGIT"});
     public final IntProperty openDelay = new IntProperty("open-delay", 0, 0, 20, () -> this.mode.getValue() == 2);
     public final IntProperty closeDelay = new IntProperty("close-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
+    public final IntProperty moveDelay = new IntProperty("move-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
 
     private boolean keysPressed = false;
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
     private C16PacketClientStatus pendingStatus = null;
     private int openDelayTicks = -1;
     private int closeDelayTicks = -1;
+    private int moveDelayTicks = 0;
 
     public InvWalk() {
         super("InvWalk", "Allows you to walk while in inventories.", Category.MOVEMENT, 0, false, false);
@@ -98,7 +100,7 @@ public class InvWalk extends Module {
                 if (!(mc.currentScreen instanceof GuiInventory)) {
                     return false;
                 }
-                return this.closeDelayTicks == -1 && this.clickQueue.isEmpty();
+                return this.closeDelayTicks == -1 && this.moveDelayTicks == 0 && this.clickQueue.isEmpty();
 
             default: // VANILLA
                 return true;
@@ -150,6 +152,10 @@ public class InvWalk extends Module {
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || this.mode.getValue() != 2 || event.getType() != EventType.PRE) return;
 
+        if (this.moveDelayTicks >0) {
+            this.moveDelayTicks--;
+        }
+
         if (this.openDelayTicks >= 0) {
             this.openDelayTicks--;
             return;
@@ -166,6 +172,7 @@ public class InvWalk extends Module {
                 PacketUtil.sendPacketNoEvent(new C0DPacketCloseWindow(0));
             }
             this.closeDelayTicks = -1;
+            this.moveDelayTicks = this.moveDelay.getValue();
         }
     }
 
@@ -231,6 +238,7 @@ public class InvWalk extends Module {
         this.clickQueue.clear();
         this.openDelayTicks = -1;
         this.closeDelayTicks = -1;
+        this.moveDelayTicks = 0;
     }
 
     @Override
