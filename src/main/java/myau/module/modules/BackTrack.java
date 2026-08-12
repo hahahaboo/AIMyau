@@ -115,12 +115,13 @@ public class BackTrack extends Module {
             target = null;
             vec3 = null;
         }
-        
-        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), distanceMax.getValue()) == null) {
+
+        if (rayTrace.getValue() && !hasLineOfSight(vec3)) {
             currentLatency = 0;
             releaseAll();
             target = null;
             vec3 = null;
+            return;
         }
 
         if (releaseStyle.getValue() == 0) { // PULSE
@@ -324,6 +325,12 @@ public class BackTrack extends Module {
             }
             packetQueue.clear();
         }
+    }
+
+    private boolean hasLineOfSight(Vec3 point) {
+        if (point == null) return true;
+        Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0F);
+        return mc.theWorld.rayTraceBlocks(eyePos, point, false, true, false) == null;
     }
 
     private void receivePacket(Packet<?> packet) {
