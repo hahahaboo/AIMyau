@@ -327,20 +327,23 @@ public class BackTrack extends Module {
         }
     }
 
-    private boolean canRayTraceToVec(Vec3 target) {
-        if (target == null) return false;
+    private boolean canRayTraceToVec(Vec3 point) {
+        if (point == null) return false;
 
         Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0F);
-        double dx = target.xCoord - eyePos.xCoord;
-        double dy = target.yCoord - eyePos.yCoord;
-        double dz = target.zCoord - eyePos.zCoord;
+        double dx = point.xCoord - eyePos.xCoord;
+        double dy = point.yCoord - eyePos.yCoord;
+        double dz = point.zCoord - eyePos.zCoord;
         double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
         // 超出 distanceMax 範圍，視為打不到
         if (dist > (double) distanceMax.getValue()) return false;
 
-        // 方塊沒擋住視線 → rayTraceBlocks 回傳 null 代表沒撞到方塊 → 可以看到
-        return mc.theWorld.rayTraceBlocks(eyePos, target, false, true, false) == null;
+        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+
+        // 用 RotationUtil.rayTrace 在 distanceMax 範圍內打，null = 沒撞到方塊 = 視線暢通
+        return RotationUtil.rayTrace(yaw, pitch, (double) distanceMax.getValue(), 1.0F) == null;
     }
 
     private void receivePacket(Packet<?> packet) {
