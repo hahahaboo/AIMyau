@@ -1,6 +1,6 @@
-package leader.events;
+package myau.events;
 
-import leader.event.events.Event;
+import myau.event.events.Event;
 import net.minecraft.entity.Entity;
 
 public class AttackEvent implements Event {
