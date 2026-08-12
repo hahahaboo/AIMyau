@@ -116,14 +116,6 @@ public class BackTrack extends Module {
             vec3 = null;
         }
 
-        if (rayTrace.getValue() && !canRayTraceToVec(vec3)) {
-            currentLatency = 0;
-            releaseAll();
-            target = null;
-            vec3 = null;
-            return;
-        }
-
         if (releaseStyle.getValue() == 0) { // PULSE
             if (!cycleTimer.hasTimeElapsed(currentLatency)) return;
             while (!packetQueue.isEmpty()) {
@@ -159,6 +151,24 @@ public class BackTrack extends Module {
         }
     }
 
+    @EventTarget
+    public void onUpdate(UpdateEvent event){
+       if (!isEnabled() || target == null || realTargetPos == null || event.getType() != EventType.PRE) {
+          return;
+       }
+
+       float size = target.getCollisionBorderSize();
+       double width = target.width / 2.0 + size;
+       double height = target.height + size;
+       AxisAlignedBB aabb = new AxisAlignedBB(
+               realTargetPos.xCoord - width, realTargetPos.yCoord, realTargetPos.zCoord - width,
+               realTargetPos.xCoord + width, realTargetPos.yCoord + height, realTargetPos.zCoord + width
+       );
+       if (rayTrance.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), maxDistance.getValue()) == null) {
+           resetAndRelease();
+       }
+    }
+    
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (!isEnabled()) return;
@@ -325,25 +335,6 @@ public class BackTrack extends Module {
             }
             packetQueue.clear();
         }
-    }
-
-    private boolean canRayTraceToVec(Vec3 point) {
-        if (point == null) return false;
-
-        Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0F);
-        double dx = point.xCoord - eyePos.xCoord;
-        double dy = point.yCoord - eyePos.yCoord;
-        double dz = point.zCoord - eyePos.zCoord;
-        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-        // 超出 distanceMax 範圍，視為打不到
-        if (dist > (double) distanceMax.getValue()) return false;
-
-        float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
-        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
-
-        // 用 RotationUtil.rayTrace 在 distanceMax 範圍內打，null = 沒撞到方塊 = 視線暢通
-        return RotationUtil.rayTrace(yaw, pitch, (double) distanceMax.getValue(), 1.0F) == null;
     }
 
     private void receivePacket(Packet<?> packet) {
