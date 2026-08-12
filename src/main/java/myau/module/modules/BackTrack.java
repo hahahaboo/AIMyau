@@ -52,7 +52,7 @@ public class BackTrack extends Module {
     private Vec3 vec3;
     private EntityPlayer target;
     private int currentLatency;
-    private int lastLatency = 0;
+    private int lastLatency;
 
     public BackTrack() {
         super("BackTrack", "Allows you to hit past opponents", Category.COMBAT, 0, false, false);
@@ -73,6 +73,7 @@ public class BackTrack extends Module {
         vec3 = null;
         target = null;
         currentLatency = 0;
+        lastLatency = 0;
     }
 
     @Override
@@ -87,6 +88,7 @@ public class BackTrack extends Module {
         vec3 = null;
         target = null;
         currentLatency = 0;
+        lastLatency = 0;
     }
 
     @EventTarget
