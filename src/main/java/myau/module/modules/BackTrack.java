@@ -1,13 +1,7 @@
 package myau.module.modules;
 
 import myau.Myau;
-import myau.event.EventTarget;
-import myau.event.types.EventType;
-import myau.events.AttackEvent;
-import myau.events.LoadWorldEvent;
-import myau.events.PacketEvent;
-import myau.events.Render3DEvent;
-import myau.events.TickEvent;
+import myau.events.*;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
 import myau.module.Module;
