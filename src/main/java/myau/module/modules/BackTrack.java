@@ -59,10 +59,11 @@ public class BackTrack extends Module {
 
     @Override
     public String[] getSuffix() {
+        int lastLatency = 0;
         if(currentLatency > 0){
-            int lastLatency = currentLatency;
+            lastLatency = currentLatency;
         }
-        return new String[]{lastLatency + "ms"};
+        return lastLatency > 0 ? new String[]{lastLatency + "ms"} : null;
     }
 
     @Override
