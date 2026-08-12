@@ -3,6 +3,7 @@ package myau.module.modules;
 import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.*;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
@@ -147,7 +148,7 @@ public class BackTrack extends Module {
         }
     }
 
-    @EventTarget
+    @EventTarget(Priority.LOWEST)
     public void onUpdate(UpdateEvent event){
         if (!isEnabled() || target == null || vec3 == null || event.getType() != EventType.PRE) {
             return;
