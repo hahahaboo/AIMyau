@@ -183,12 +183,6 @@ public class BackTrack extends Module {
                             vec3 = ent.getPositionVector();
                         }
                         target = (EntityPlayer) ent;
-
-                        double distance = mc.thePlayer.getDistanceToEntity(target);
-                        if (distance >= distanceMin.getValue() && distance <= distanceMax.getValue()) {
-                            currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
-                            cycleTimer.reset();
-                        }
                         if (onlyHighSpeed.getValue()) {
                             double dx = target.posX - target.prevPosX;
                             double dy = target.posY - target.prevPosY;
@@ -197,6 +191,11 @@ public class BackTrack extends Module {
                             if (speed < highSpeedThreshold.getValue()) {
                                 return; 
                             }
+                        }
+                        double distance = mc.thePlayer.getDistanceToEntity(target);
+                        if (distance >= distanceMin.getValue() && distance <= distanceMax.getValue()) {
+                            currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
+                            cycleTimer.reset();
                         }
                     }
                 }
