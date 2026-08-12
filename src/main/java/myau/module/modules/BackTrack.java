@@ -3,15 +3,13 @@ package myau.module.modules;
 import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
-import myau.events.AttackEvent;
-import myau.events.LoadWorldEvent;
-import myau.events.PacketEvent;
-import myau.events.Render3DEvent;
-import myau.events.TickEvent;
+import myau.event.types.Priority;
+import myau.events.*;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.*;
+import myau.util.RotationUtil;
 import myau.util.RenderUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
@@ -40,10 +38,13 @@ public class BackTrack extends Module {
     public final IntProperty latencyMax = new IntProperty("Latency-Max", 100, 50, 1000);
     public final FloatProperty distanceMin = new FloatProperty("Distance-Min", 0.0F, 0.0F, 6.0F);
     public final FloatProperty distanceMax = new FloatProperty("Distance-Max", 4.0F, 0.5F, 6.0F);
-    public final ModeProperty espMode = new ModeProperty("ESP", 0, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
-    public final ColorProperty espColor = new ColorProperty("Color", 0xFFFFFFFF);
     public final ModeProperty releaseStyle = new ModeProperty("Style", 0, new String[]{"PULSE", "SMOOTH"});
+    private final BooleanProperty rayTrace = new BooleanProperty("Ray-Trace",true);
     public final BooleanProperty smart = new BooleanProperty("Smart", true);
+    private final BooleanProperty onlyHighSpeed = new BooleanProperty("Only-On-Target-High-Speed", false);
+    private final FloatProperty highSpeedThreshold = new FloatProperty("HighSpeed-Threshold", 0.2F, 0.01F, 1.0F, this.onlyHighSpeed::getValue);
+    public final ModeProperty espMode = new ModeProperty("ESP", 1, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
+    public final ColorProperty espColor = new ColorProperty("Color", 0xFFFFFFFF, () -> this.espMode.getValue() != 0);
 
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<>();
     private final List<Packet<?>> skipPackets = new ArrayList<>();
@@ -51,6 +52,7 @@ public class BackTrack extends Module {
     private Vec3 vec3;
     private EntityPlayer target;
     private int currentLatency;
+    private int lastLatency;
 
     public BackTrack() {
         super("BackTrack", "Allows you to hit past opponents", Category.COMBAT, 0, false, false);
@@ -58,7 +60,10 @@ public class BackTrack extends Module {
 
     @Override
     public String[] getSuffix() {
-        return currentLatency > 0 ? new String[]{currentLatency + "ms"} : null;
+        if(currentLatency > 0){
+            lastLatency = currentLatency;
+        }
+        return lastLatency > 0 ? new String[]{lastLatency + "ms"} : null;
     }
 
     @Override
@@ -68,6 +73,7 @@ public class BackTrack extends Module {
         vec3 = null;
         target = null;
         currentLatency = 0;
+        lastLatency = 0;
     }
 
     @Override
@@ -82,6 +88,7 @@ public class BackTrack extends Module {
         vec3 = null;
         target = null;
         currentLatency = 0;
+        lastLatency = 0;
     }
 
     @EventTarget
@@ -147,6 +154,27 @@ public class BackTrack extends Module {
         }
     }
 
+    @EventTarget(Priority.LOWEST)
+    public void onUpdate(UpdateEvent event){
+        if (!isEnabled() || target == null || vec3 == null || event.getType() != EventType.PRE) {
+            return;
+        }
+
+        float size = target.getCollisionBorderSize();
+        double width = target.width / 2.0 + size;
+        double height = target.height + size;
+        AxisAlignedBB aabb = new AxisAlignedBB(
+                vec3.xCoord - width, vec3.yCoord, vec3.zCoord - width,
+                vec3.xCoord + width, vec3.yCoord + height, vec3.zCoord + width
+        );
+        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), distanceMax.getValue()) == null) {
+            currentLatency = 0;
+            releaseAll();
+            target = null;
+            vec3 = null;
+        }
+    }
+    
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (!isEnabled()) return;
@@ -161,7 +189,15 @@ public class BackTrack extends Module {
                             vec3 = ent.getPositionVector();
                         }
                         target = (EntityPlayer) ent;
-
+                        if (onlyHighSpeed.getValue()) {
+                            double dx = target.posX - target.prevPosX;
+                            double dy = target.posY - target.prevPosY;
+                            double dz = target.posZ - target.prevPosZ;
+                            double speed = Math.sqrt(dx * dx + dy * dy + dz * dz); 
+                            if (speed < highSpeedThreshold.getValue()) {
+                                return; 
+                            }
+                        }
                         double distance = mc.thePlayer.getDistanceToEntity(target);
                         if (distance >= distanceMin.getValue() && distance <= distanceMax.getValue()) {
                             currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
