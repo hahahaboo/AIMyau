@@ -52,6 +52,7 @@ public class BackTrack extends Module {
     private Vec3 vec3;
     private EntityPlayer target;
     private int currentLatency;
+    private int lastLatency = 0;
 
     public BackTrack() {
         super("BackTrack", "Allows you to hit past opponents", Category.COMBAT, 0, false, false);
@@ -59,7 +60,6 @@ public class BackTrack extends Module {
 
     @Override
     public String[] getSuffix() {
-        int lastLatency = 0;
         if(currentLatency > 0){
             lastLatency = currentLatency;
         }
