@@ -1,4 +1,4 @@
-package myau.module.modules.combat;
+package myau.module.modules;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
