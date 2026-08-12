@@ -116,7 +116,7 @@ public class BackTrack extends Module {
             vec3 = null;
         }
 
-        if (rayTrace.getValue() && !hasLineOfSight(vec3)) {
+        if (rayTrace.getValue() && !canRayTraceToVec(vec3)) {
             currentLatency = 0;
             releaseAll();
             target = null;
@@ -327,10 +327,20 @@ public class BackTrack extends Module {
         }
     }
 
-    private boolean hasLineOfSight(Vec3 point) {
-        if (point == null) return true;
+    private boolean canRayTraceToVec(Vec3 target) {
+        if (target == null) return false;
+
         Vec3 eyePos = mc.thePlayer.getPositionEyes(1.0F);
-        return mc.theWorld.rayTraceBlocks(eyePos, point, false, true, false) == null;
+        double dx = target.xCoord - eyePos.xCoord;
+        double dy = target.yCoord - eyePos.yCoord;
+        double dz = target.zCoord - eyePos.zCoord;
+        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+        // 超出 distanceMax 範圍，視為打不到
+        if (dist > (double) distanceMax.getValue()) return false;
+
+        // 方塊沒擋住視線 → rayTraceBlocks 回傳 null 代表沒撞到方塊 → 可以看到
+        return mc.theWorld.rayTraceBlocks(eyePos, target, false, true, false) == null;
     }
 
     private void receivePacket(Packet<?> packet) {
