@@ -12,6 +12,7 @@ import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.*;
+import myau.util.RotationUtil;
 import myau.util.RenderUtil;
 import myau.util.TimerUtil;
 import net.minecraft.client.Minecraft;
@@ -40,10 +41,13 @@ public class BackTrack extends Module {
     public final IntProperty latencyMax = new IntProperty("Latency-Max", 100, 50, 1000);
     public final FloatProperty distanceMin = new FloatProperty("Distance-Min", 0.0F, 0.0F, 6.0F);
     public final FloatProperty distanceMax = new FloatProperty("Distance-Max", 4.0F, 0.5F, 6.0F);
-    public final ModeProperty espMode = new ModeProperty("ESP", 0, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
-    public final ColorProperty espColor = new ColorProperty("Color", 0xFFFFFFFF);
     public final ModeProperty releaseStyle = new ModeProperty("Style", 0, new String[]{"PULSE", "SMOOTH"});
+    private final BooleanProperty rayTrace = new BooleanProperty("Ray-Trace",true);
     public final BooleanProperty smart = new BooleanProperty("Smart", true);
+    private final BooleanProperty onlyHighSpeed = new BooleanProperty("Only On Target High Speed", false);
+    private final FloatProperty highSpeedThreshold = new FloatProperty("HighSpeed Threshold", 0.2F, 0.01F, 1.0F, this.onlyHighSpeed::getValue);
+    public final ModeProperty espMode = new ModeProperty("ESP", 1, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
+    public final ColorProperty espColor = new ColorProperty("Color", 0xFFFFFFFF, () -> this.espMode.getValue() != 0);
 
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<>();
     private final List<Packet<?>> skipPackets = new ArrayList<>();
@@ -111,6 +115,10 @@ public class BackTrack extends Module {
             target = null;
             vec3 = null;
         }
+        
+        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), maxDistance.getValue()) == null) {
+            releaseAll();
+        }
 
         if (releaseStyle.getValue() == 0) { // PULSE
             if (!cycleTimer.hasTimeElapsed(currentLatency)) return;
@@ -166,6 +174,15 @@ public class BackTrack extends Module {
                         if (distance >= distanceMin.getValue() && distance <= distanceMax.getValue()) {
                             currentLatency = latencyMin.getValue() + new Random().nextInt(Math.max(1, latencyMax.getValue() - latencyMin.getValue()));
                             cycleTimer.reset();
+                        }
+                        if (onlyHighSpeed.getValue()) {
+                            double dx = target.posX - target.prevPosX;
+                            double dy = player.posY - target.prevPosY;
+                            double dz = target.posZ - target.prevPosZ;
+                            double speed = Math.sqrt(dx * dx + dy * dy + dz * dz); 
+                            if (speed < highSpeedThreshold.getValue()) {
+                                return; 
+                            }
                         }
                     }
                 }
