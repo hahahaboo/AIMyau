@@ -149,7 +149,7 @@ public class BackTrack extends Module {
 
     @EventTarget
     public void onUpdate(UpdateEvent event){
-        if (!isEnabled() || target == null || realTargetPos == null || event.getType() != EventType.PRE) {
+        if (!isEnabled() || target == null || vec3 == null || event.getType() != EventType.PRE) {
             return;
         }
 
@@ -157,10 +157,10 @@ public class BackTrack extends Module {
         double width = target.width / 2.0 + size;
         double height = target.height + size;
         AxisAlignedBB aabb = new AxisAlignedBB(
-                realTargetPos.xCoord - width, realTargetPos.yCoord, realTargetPos.zCoord - width,
-                realTargetPos.xCoord + width, realTargetPos.yCoord + height, realTargetPos.zCoord + width
+                vec3.xCoord - width, vec3.yCoord, vec3.zCoord - width,
+                vec3.xCoord + width, vec3.yCoord + height, vec3.zCoord + width
         );
-        if (rayTrance.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), maxDistance.getValue()) == null) {
+        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), distanceMax.getValue()) == null) {
             currentLatency = 0;
             releaseAll();
             target = null;
