@@ -44,8 +44,8 @@ public class BackTrack extends Module {
     public final ModeProperty releaseStyle = new ModeProperty("Style", 0, new String[]{"PULSE", "SMOOTH"});
     private final BooleanProperty rayTrace = new BooleanProperty("Ray-Trace",true);
     public final BooleanProperty smart = new BooleanProperty("Smart", true);
-    private final BooleanProperty onlyHighSpeed = new BooleanProperty("Only On Target High Speed", false);
-    private final FloatProperty highSpeedThreshold = new FloatProperty("HighSpeed Threshold", 0.2F, 0.01F, 1.0F, this.onlyHighSpeed::getValue);
+    private final BooleanProperty onlyHighSpeed = new BooleanProperty("Only-On-Target-High-Speed", false);
+    private final FloatProperty highSpeedThreshold = new FloatProperty("HighSpeed-Threshold", 0.2F, 0.01F, 1.0F, this.onlyHighSpeed::getValue);
     public final ModeProperty espMode = new ModeProperty("ESP", 1, new String[]{"NONE", "BOX", "FILLED", "MODEL", "WIREFRAME"});
     public final ColorProperty espColor = new ColorProperty("Color", 0xFFFFFFFF, () -> this.espMode.getValue() != 0);
 
@@ -116,8 +116,11 @@ public class BackTrack extends Module {
             vec3 = null;
         }
         
-        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), maxDistance.getValue()) == null) {
+        if (rayTrace.getValue() && RotationUtil.rayTrace(aabb, event.getNewYaw(), event.getNewPitch(), distanceMax.getValue()) == null) {
+            currentLatency = 0;
             releaseAll();
+            target = null;
+            vec3 = null;
         }
 
         if (releaseStyle.getValue() == 0) { // PULSE
@@ -177,7 +180,7 @@ public class BackTrack extends Module {
                         }
                         if (onlyHighSpeed.getValue()) {
                             double dx = target.posX - target.prevPosX;
-                            double dy = player.posY - target.prevPosY;
+                            double dy = target.posY - target.prevPosY;
                             double dz = target.posZ - target.prevPosZ;
                             double speed = Math.sqrt(dx * dx + dy * dy + dz * dz); 
                             if (speed < highSpeedThreshold.getValue()) {
