@@ -159,8 +159,9 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
-                                float threshold = this.aimPoint.getValue() * 15.0F;
-                                if (RotationUtil.angleToEntity(player) > threshold) {
+                                float hThreshold = this.aimPoint.getValue() * 15.0F;
+                                float vThreshold = this.aimPoint.getValue() * 14.0F;
+                                if (RotationUtil.angleToEntity(player) > hThreshold || RotationUtil.pitchToEntity(player) > vThreshold) {
                                     AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
                                     double collisionBorderSize = player.getCollisionBorderSize();
                                     float[] rotation = RotationUtil.getRotationsToBox(
