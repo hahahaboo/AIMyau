@@ -164,7 +164,7 @@ public class AimAssist extends Module {
                                 if (this.aimPoint.getValue()) {
                                     float hThreshold = this.hAimPoint.getValue() * 15.0F;
                                     float vThreshold = this.vAimPoint.getValue() * 14.0F;
-                                    if (RotationUtil.angleToEntity(player) <= hThreshold || RotationUtil.pitchToEntity(player) <= vThreshold) {
+                                    if (RotationUtil.angleToEntity(player) <= hThreshold && RotationUtil.pitchToEntity(player) <= vThreshold) {
                                         return;
                                     }
                                 }
