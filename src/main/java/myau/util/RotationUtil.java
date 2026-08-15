@@ -135,6 +135,21 @@ public class RotationUtil {
         return Math.abs(MathHelper.wrapAngleTo180_float(targetPitch - RotationUtil.mc.thePlayer.rotationPitch)) * 2.0f;
     }
 
+    public static boolean isRayTraceAble(Entity entity, double reach) {
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB expandedBox = entity.getEntityBoundingBox().expand(borderSize, borderSize, borderSize);
+    
+        // 用玩家當前視角發射射線
+        MovingObjectPosition mop = RotationUtil.rayTrace(
+            expandedBox,
+            mc.thePlayer.rotationYaw,
+            mc.thePlayer.rotationPitch,
+            reach
+        );
+    
+        return mop != null;   // 有打到 hitbox 就代表還瞄得到
+    }
+
     public static float getYawBetween(double x1, double z1, double x2, double z2) {
         return MathHelper.wrapAngleTo180_float((float) (Math.atan2(z2 - z1, x2 - x1) * 180.0 / Math.PI) - 90.0f - RotationUtil.mc.thePlayer.rotationYaw);
     }
