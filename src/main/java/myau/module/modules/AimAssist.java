@@ -31,9 +31,11 @@ public class AimAssist extends Module {
     public final FloatProperty vRandom = new FloatProperty("vertical-random", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
-    public final FloatProperty aimPoint = new FloatProperty("aim-point", 0.0F, 0.0F, 1.0F);
     public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
     public final ModeProperty sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
+    public final ModeProperty aimMode = new ModeProperty("aim-mode", 0, new String[]{"AimPoint", "HitBox"});
+    public final FloatProperty hAimPoint = new FloatProperty("horizontal-expend", 0.0F, 0.0F, 1.0F, () -> this.aimMode.getValue() == 0);
+    public final FloatProperty vAimPoint = new FloatProperty("vertical-expend", 0.0F, 0.0F, 1.0F, () -> this.aimMode.getValue() == 0);
     public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
@@ -159,54 +161,60 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
-                                float threshold = this.aimPoint.getValue() * 15.0F;
-                                if (RotationUtil.angleToEntity(player) > threshold) {
-                                    AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
-                                    double collisionBorderSize = player.getCollisionBorderSize();
-                                    float[] rotation = RotationUtil.getRotationsToBox(
-                                            axisAlignedBB.expand(collisionBorderSize, collisionBorderSize, collisionBorderSize),
-                                            mc.thePlayer.rotationYaw,
-                                            mc.thePlayer.rotationPitch,
-                                            180.0F,
-                                            (float) this.smoothing.getValue() / 100.0F
-                                    );
-
-                                    float hRand = this.hRandom.getValue() / 2.0F;
-                                    float vRand = this.vRandom.getValue() / 2.0F;
-
-                                    float hBase = this.hSpeed.getValue();
-                                    float hMin = Math.max(0.0F, hBase - hRand);
-                                    float hMax = Math.min(10.0F, hBase + hRand);
-                                    float yaw = RandomUtil.nextFloat(hMin, hMax);
-
-                                    float vBase = this.vSpeed.getValue();
-                                    float vMin = Math.max(0.0F, vBase - vRand);
-                                    float vMax = Math.min(10.0F, vBase + vRand);
-                                    float pitch = RandomUtil.nextFloat(vMin, vMax);
-
-                                    float targetYaw = rotation[0];
-                                    float targetPitch = rotation[1] + this.currentPitchOffset;
-
-                                    float interpYaw = mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw;
-                                    float interpPitch = mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch;
-
-                                    float[] complied = RotationUtil.GCDfix(
-                                            interpYaw,
-                                            interpPitch,
-                                            mc.thePlayer.rotationYaw,
-                                            mc.thePlayer.rotationPitch
-                                    );
-                                    interpYaw = complied[0];
-                                    interpPitch = complied[1];
-
-                                    Myau.rotationManager
-                                            .setRotation(
-                                                    interpYaw,
-                                                    interpPitch,
-                                                    0,
-                                                    false
-                                            );
+                                if (this.aimMode.getValue() == 0) {
+                                    float hThreshold = this.hAimPoint.getValue() * 15.0F;
+                                    float vThreshold = this.vAimPoint.getValue() * 14.0F;
+                                    if (RotationUtil.angleToEntity(player) <= hThreshold && RotationUtil.pitchToEntity(player) <= vThreshold) {
+                                        return;
+                                    }
+                                }else if(RotationUtil.isRayTraceAble(player, this.range.getValue())){
+                                    return;
                                 }
+                                AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
+                                double collisionBorderSize = player.getCollisionBorderSize();
+                                float[] rotation = RotationUtil.getRotationsToBox(
+                                        axisAlignedBB.expand(collisionBorderSize, collisionBorderSize, collisionBorderSize),
+                                        mc.thePlayer.rotationYaw,
+                                        mc.thePlayer.rotationPitch,
+                                        180.0F,
+                                        (float) this.smoothing.getValue() / 100.0F
+                                );
+
+                                float hRand = this.hRandom.getValue() / 2.0F;
+                                float vRand = this.vRandom.getValue() / 2.0F;
+
+                                float hBase = this.hSpeed.getValue();
+                                float hMin = Math.max(0.0F, hBase - hRand);
+                                float hMax = Math.min(10.0F, hBase + hRand);
+                                float yaw = RandomUtil.nextFloat(hMin, hMax);
+
+                                float vBase = this.vSpeed.getValue();
+                                float vMin = Math.max(0.0F, vBase - vRand);
+                                float vMax = Math.min(10.0F, vBase + vRand);
+                                float pitch = RandomUtil.nextFloat(vMin, vMax);
+
+                                float targetYaw = rotation[0];
+                                float targetPitch = rotation[1] + this.currentPitchOffset;
+
+                                float interpYaw = mc.thePlayer.rotationYaw + (targetYaw - mc.thePlayer.rotationYaw) * 0.1F * yaw;
+                                float interpPitch = mc.thePlayer.rotationPitch + (targetPitch - mc.thePlayer.rotationPitch) * 0.1F * pitch;
+
+                                float[] complied = RotationUtil.GCDfix(
+                                        interpYaw,
+                                        interpPitch,
+                                        mc.thePlayer.rotationYaw,
+                                        mc.thePlayer.rotationPitch
+                                );
+                                interpYaw = complied[0];
+                                interpPitch = complied[1];
+
+                                Myau.rotationManager
+                                        .setRotation(
+                                                interpYaw,
+                                                interpPitch,
+                                                0,
+                                                false
+                                        );
                             }
                         }
                     }
