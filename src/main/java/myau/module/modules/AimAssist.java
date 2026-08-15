@@ -32,8 +32,9 @@ public class AimAssist extends Module {
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
     public final BooleanProperty aimPoint = new BooleanProperty("aim-point", false);
-    public final FloatProperty hAimPoint = new FloatProperty("horizontal-expend", 0.0F, 0.0F, 1.0F, this.aimPoint::getValue);
-    public final FloatProperty vAimPoint = new FloatProperty("vertical-expend", 0.0F, 0.0F, 1.0F, this.aimPoint::getValue);
+    public final ModeProperty aimMode = new ModeProperty("sort", 0, new String[]{"AimPoint", "HitBox"});
+    public final FloatProperty hAimPoint = new FloatProperty("horizontal-expend", 0.0F, 0.0F, 1.0F, !this.aimMode::getValue);
+    public final FloatProperty vAimPoint = new FloatProperty("vertical-expend", 0.0F, 0.0F, 1.0F, !this.aimMode::getValue);
     public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
     public final ModeProperty sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
     public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
@@ -161,12 +162,14 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
-                                if (this.aimPoint.getValue()) {
+                                if (this.aimMode.getValue() == 0) {
                                     float hThreshold = this.hAimPoint.getValue() * 15.0F;
                                     float vThreshold = this.vAimPoint.getValue() * 14.0F;
                                     if (RotationUtil.angleToEntity(player) <= hThreshold && RotationUtil.pitchToEntity(player) <= vThreshold) {
                                         return;
                                     }
+                                }else if(!RotationUtil.isRayTraceAble(player, this.range.getValue())){
+                                    return;
                                 }
                                 AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
                                 double collisionBorderSize = player.getCollisionBorderSize();
