@@ -31,12 +31,11 @@ public class AimAssist extends Module {
     public final FloatProperty vRandom = new FloatProperty("vertical-random", 0.0F, 0.0F, 10.0F);
     public final PercentProperty smoothing = new PercentProperty("smoothing", 50);
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 8.0F);
-    public final BooleanProperty aimPoint = new BooleanProperty("aim-point", false);
+    public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
+    public final ModeProperty sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
     public final ModeProperty aimMode = new ModeProperty("sort", 0, new String[]{"AimPoint", "HitBox"});
     public final FloatProperty hAimPoint = new FloatProperty("horizontal-expend", 0.0F, 0.0F, 1.0F, () -> this.aimMode.getValue() == 0);
     public final FloatProperty vAimPoint = new FloatProperty("vertical-expend", 0.0F, 0.0F, 1.0F, () -> this.aimMode.getValue() == 0);
-    public final IntProperty fov = new IntProperty("fov", 90, 30, 360);
-    public final ModeProperty sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
     public final BooleanProperty randomPitch = new BooleanProperty("random-pitch", false);
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
@@ -168,7 +167,7 @@ public class AimAssist extends Module {
                                     if (RotationUtil.angleToEntity(player) <= hThreshold && RotationUtil.pitchToEntity(player) <= vThreshold) {
                                         return;
                                     }
-                                }else if(!RotationUtil.isRayTraceAble(player, this.range.getValue())){
+                                }else if(RotationUtil.isRayTraceAble(player, this.range.getValue())){
                                     return;
                                 }
                                 AxisAlignedBB axisAlignedBB = player.getEntityBoundingBox();
