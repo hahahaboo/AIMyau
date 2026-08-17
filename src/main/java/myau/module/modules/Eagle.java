@@ -21,10 +21,11 @@ import java.util.Objects;
 public class Eagle extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private int sneakDelay = 0;
+    private boolean jumpStatus = false;
     public final IntProperty minDelay = new IntProperty("min-delay", 2, 0, 10);
     public final IntProperty maxDelay = new IntProperty("max-delay", 3, 0, 10);
     public final BooleanProperty directionCheck = new BooleanProperty("direction-check", true);
-    public final BooleanProperty jumpCheck = new BooleanProperty("jump-check", true);
+    public final BooleanProperty jumpFix = new BooleanProperty("jump-fix", false);
     public final BooleanProperty pitchCheck = new BooleanProperty("pitch-check", true);
     public final BooleanProperty blocksOnly = new BooleanProperty("blocks-only", true);
     public final BooleanProperty sneakOnly = new BooleanProperty("sneaking-only", false);
@@ -36,8 +37,6 @@ public class Eagle extends Module {
 
     private boolean shouldSneak() {
         if (this.directionCheck.getValue() && mc.gameSettings.keyBindForward.isKeyDown()) {
-            return false;
-        } else if (this.jumpCheck.getValue() && mc.gameSettings.keyBindJump.isKeyDown()) {
             return false;
         } else if (this.pitchCheck.getValue() && mc.thePlayer.rotationPitch < 69.0F) {
             return false;
@@ -68,6 +67,23 @@ public class Eagle extends Module {
     public void onMoveInput(MoveInputEvent event) {
         if (this.isEnabled() && mc.currentScreen == null) {
 
+            // === jump-fix 邏輯開始 ===
+            if (this.jumpFix.getValue()) {
+                // 當玩家輸入 jump 時，記錄 jumpStatus 並取消這次 jump
+                if (mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump) {
+                    this.jumpStatus = true;
+                    mc.thePlayer.movementInput.jump = false;
+                }
+
+                // 當目前 sneak 為 true 且 jumpStatus 也為 true → 鬆開 sneak 並 jump，重設狀態
+                if (mc.thePlayer.movementInput.sneak && this.jumpStatus) {
+                    mc.thePlayer.movementInput.sneak = false;
+                    mc.thePlayer.movementInput.jump = true;
+                    this.jumpStatus = false;
+                }
+            }
+            // === jump-fix 邏輯結束 ===
+
             if (sneakOnly.getValue() && Keyboard.isKeyDown(mc.gameSettings.keyBindSneak.getKeyCode()) && shouldSneak()) {
                 mc.thePlayer.movementInput.sneak = false;
                 mc.thePlayer.movementInput.moveForward /= 0.3F;
@@ -83,10 +99,11 @@ public class Eagle extends Module {
             }
         }
     }
-
+    
     @Override
     public void onDisabled() {
         this.sneakDelay = 0;
+        this.jumpStatus = false;
     }
 
     @Override
