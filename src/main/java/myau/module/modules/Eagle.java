@@ -22,6 +22,7 @@ public class Eagle extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private int sneakDelay = 0;
     private boolean jumpStatus = false;
+    private boolean sneakStatus = false;
     public final IntProperty minDelay = new IntProperty("min-delay", 2, 0, 10);
     public final IntProperty maxDelay = new IntProperty("max-delay", 3, 0, 10);
     public final BooleanProperty directionCheck = new BooleanProperty("direction-check", true);
@@ -56,6 +57,10 @@ public class Eagle extends Module {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.sneakDelay > 0) {
                 this.sneakDelay--;
+                this.sneakStatus = true;
+            }
+            if (this.sneakDelay == 0) {
+                this.sneakStatus = false;
             }
             if (this.sneakDelay == 0 && this.canMoveSafely()) {
                 this.sneakDelay = RandomUtils.nextInt(this.minDelay.getValue(), this.maxDelay.getValue() + 1);
@@ -70,14 +75,16 @@ public class Eagle extends Module {
             // === jump-fix 邏輯開始 ===
             if (this.jumpFix.getValue()) {
                 // 當玩家輸入 jump 時，記錄 jumpStatus 並取消這次 jump
-                if (mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump) {
+                if ((mc.gameSettings.keyBindJump.isKeyDown() || mc.thePlayer.movementInput.jump) && !this.jumpStatus && shouldSneak()) {
                     this.jumpStatus = true;
                     mc.thePlayer.movementInput.jump = false;
                 }
 
                 // 當目前 sneak 為 true 且 jumpStatus 也為 true → 鬆開 sneak 並 jump，重設狀態
-                if (mc.thePlayer.movementInput.sneak && this.jumpStatus) {
+                if (this.sneakStatus && this.jumpStatus) {
                     mc.thePlayer.movementInput.sneak = false;
+                    mc.thePlayer.movementInput.moveForward /= 0.3F;
+                    mc.thePlayer.movementInput.moveStrafe /= 0.3F;
                     mc.thePlayer.movementInput.jump = true;
                     this.jumpStatus = false;
                 }
@@ -104,6 +111,7 @@ public class Eagle extends Module {
     public void onDisabled() {
         this.sneakDelay = 0;
         this.jumpStatus = false;
+        this.sneakStatus = false;
     }
 
     @Override
