@@ -37,7 +37,7 @@ public class Eagle extends Module {
     private boolean shouldSneak() {
         if (this.directionCheck.getValue() && mc.gameSettings.keyBindForward.isKeyDown()) {
             return false;
-        } else if (this.jumpCheck.getValue() && mc.gameSettings.keyBindJump.isKeyDown()) {
+        } else if (this.jumpCheck.getValue() && mc.thePlayer.movementInput.jump) {
             return false;
         } else if (this.pitchCheck.getValue() && mc.thePlayer.rotationPitch < 69.0F) {
             return false;
