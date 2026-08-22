@@ -29,14 +29,14 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     // 尺寸參數
     @Unique private static final float MAIN_CIRCLE_RADIUS = 18f;
-    @Unique private static final float OUTER_RADIUS = 122f;
-    @Unique private static final float INNER_RADIUS = 70f;
-    @Unique private static final float BUTTON_RADIUS = 96f;          // 兩弧正中間
-    @Unique private static final float SMALL_CIRCLE_RADIUS = 15f;
+    @Unique private static final float OUTER_RADIUS = 125f;
+    @Unique private static final float INNER_RADIUS = 72f;
+    @Unique private static final float BUTTON_RADIUS = 98.5f;        // 兩弧正中間
+    @Unique private static final float SMALL_CIRCLE_RADIUS = 15.5f;
 
-    // 1/4 圓弧：從正上方 (-90°) 向左下延伸到正左方 (-180°)
-    @Unique private static final float START_ANGLE = -90f;           // 按鈕1 位置（主圓正上方）
-    @Unique private static final float END_ANGLE   = -180f;          // 最左側
+    // 真正的 1/4 圓：從主圓正上方 (-90°) 向左下延伸到正左方 (-180°)
+    @Unique private static final float START_ANGLE = -90f;
+    @Unique private static final float END_ANGLE   = -180f;
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -101,7 +101,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cx = this.width - 42;
         float cy = this.height - 42;
 
-        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 40f;
+        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 42f;
         double dist = Math.sqrt((mouseX - cx) * (mouseX - cx) + (mouseY - cy) * (mouseY - cy));
 
         isHoveringRadial = dist <= hitRadius;
@@ -131,14 +131,13 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     /**
      * 1/4 圓弧均勻分布
      * 按鈕1 → 主圓正上方 (-90°)
-     * 按鈕2~5 → 沿圓弧向左下依序排列，直到 -180°
+     * 按鈕2~5 → 沿圓弧向左下依序排列，直到 -180°（正左方）
      */
     @Unique
     private float[] getButtonPos(int index, float cx, float cy) {
-        // 0 ~ 1 的均勻比例
-        float t = (index - 1) / 4.0f;
+        float t = (index - 1) / 4.0f;   // 0 ~ 1
 
-        // 從 -90° 線性插值到 -180°
+        // 從 -90° 線性插值到 -180°（真正的四分之一圓）
         float angle = START_ANGLE + (END_ANGLE - START_ANGLE) * t;
         float rad = (float) Math.toRadians(angle);
 
