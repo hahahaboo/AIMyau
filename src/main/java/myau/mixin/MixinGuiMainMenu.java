@@ -27,16 +27,17 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private final float[] buttonHoverAnim = new float[6];
 
-    // 尺寸參數
+    // 尺寸（1/4 圓延伸到螢幕邊緣）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 18f;
-    @Unique private static final float OUTER_RADIUS = 120f;
-    @Unique private static final float INNER_RADIUS = 68f;
-    @Unique private static final float BUTTON_RADIUS = 94f;          // 兩弧正中間
-    @Unique private static final float SMALL_CIRCLE_RADIUS = 15f;
+    @Unique private static final float OUTER_RADIUS = 165f;      // 較大，接近螢幕邊緣
+    @Unique private static final float INNER_RADIUS = 95f;
+    @Unique private static final float BUTTON_RADIUS = 130f;     // 兩弧正中間
+    @Unique private static final float SMALL_CIRCLE_RADIUS = 16f;
 
-    // 角度：按鈕1固定在正上方(-90°)，其餘往左方排列
-    @Unique private static final float BUTTON1_ANGLE = -90f;         // 正上方
-    @Unique private static final float END_ANGLE     = -175f;         // 最左邊
+    // 1/4 圓角度（90°）
+    // 從接近水平右方 → 正上方偏左（按鈕1接近正上方）
+    @Unique private static final float START_ANGLE = -15f;       // 最右邊
+    @Unique private static final float END_ANGLE   = -105f;      // 接近正上方（按鈕1在這附近）
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -101,23 +102,23 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cx = this.width - 42;
         float cy = this.height - 42;
 
-        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 38f;
+        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 42f;
         double dist = Math.sqrt((mouseX - cx) * (mouseX - cx) + (mouseY - cy) * (mouseY - cy));
 
         isHoveringRadial = dist <= hitRadius;
 
         float target = isHoveringRadial ? 1.0f : 0.0f;
-        radialExpand = AnimationUtil.animate(target, radialExpand, 0.16f, 1.0f);
+        radialExpand = AnimationUtil.animate(target, radialExpand, 0.15f, 1.0f);
 
         hoveredButton = -1;
-        if (radialExpand > 0.5f) {
+        if (radialExpand > 0.48f) {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
                 double d = Math.sqrt((mouseX - pos[0]) * (mouseX - pos[0]) + (mouseY - pos[1]) * (mouseY - pos[1]));
-                boolean hover = d <= SMALL_CIRCLE_RADIUS + 9;
+                boolean hover = d <= SMALL_CIRCLE_RADIUS + 10;
 
                 float hoverTarget = hover ? 1.0f : 0.0f;
-                buttonHoverAnim[i] = AnimationUtil.animate(hoverTarget, buttonHoverAnim[i], 0.26f, 1.0f);
+                buttonHoverAnim[i] = AnimationUtil.animate(hoverTarget, buttonHoverAnim[i], 0.25f, 1.0f);
 
                 if (hover) hoveredButton = i;
             }
@@ -129,23 +130,15 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     }
 
     /**
-     * 角度邏輯：
-     * 按鈕1 → 固定在主圓正上方 (-90°)
-     * 按鈕2~5 → 從正上方開始，沿著圓弧往左方依序排列
+     * 5 個按鈕在 90° 圓弧上均勻分布
+     * index 1 最靠近正上方，index 5 最靠近水平右方
      */
     @Unique
     private float[] getButtonPos(int index, float cx, float cy) {
-        float angle;
-
-        if (index == 1) {
-            // 按鈕1：正上方
-            angle = BUTTON1_ANGLE;
-        } else {
-            // 按鈕2~5：從正上方往左均勻分布
-            // index 2 → 靠近正上方，index 5 → 最左邊
-            float t = (index - 2) / 3.0f;          // 0 ~ 1
-            angle = BUTTON1_ANGLE + (END_ANGLE - BUTTON1_ANGLE) * t;
-        }
+        // 均勻分布：index 1 → END_ANGLE（接近正上方）
+        //           index 5 → START_ANGLE（接近水平）
+        float t = (index - 1) / 4.0f;
+        float angle = END_ANGLE + (START_ANGLE - END_ANGLE) * t;   // 從上往右下排
 
         float rad = (float) Math.toRadians(angle);
         float r = BUTTON_RADIUS * radialExpand;
@@ -168,28 +161,28 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
 
-        // 兩條弧線（從正上方畫到最左邊）
+        // 1/4 圓兩條弧線
         if (radialExpand > 0.04f) {
-            float alpha = radialExpand * 0.78f;
+            float alpha = radialExpand * 0.80f;
             GlStateManager.color(1f, 1f, 1f, alpha);
 
-            drawArc(cx, cy, OUTER_RADIUS * radialExpand, BUTTON1_ANGLE, END_ANGLE, 2.5f);
-            drawArc(cx, cy, INNER_RADIUS * radialExpand, BUTTON1_ANGLE, END_ANGLE, 2.0f);
+            drawArc(cx, cy, OUTER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.5f);
+            drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.0f);
         }
 
-        // 5 個按鈕
-        if (radialExpand > 0.2f) {
+        // 5 個按鈕（均勻分布，不會重疊）
+        if (radialExpand > 0.18f) {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
                 float hover = buttonHoverAnim[i];
-                float scale = 1.0f + hover * 0.30f;
-                float r = SMALL_CIRCLE_RADIUS * Math.min(1f, (radialExpand - 0.2f) / 0.55f) * scale;
+                float scale = 1.0f + hover * 0.28f;
+                float r = SMALL_CIRCLE_RADIUS * Math.min(1f, (radialExpand - 0.18f) / 0.55f) * scale;
 
                 GlStateManager.pushMatrix();
                 GlStateManager.translate(pos[0], pos[1], 0);
                 GlStateManager.scale(scale, scale, 1);
 
-                float alpha = 0.72f + hover * 0.28f;
+                float alpha = 0.75f + hover * 0.25f;
                 GlStateManager.color(1f, 1f, 1f, alpha);
                 drawCircle(0, 0, r, false);
 
@@ -204,7 +197,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GlStateManager.color(1f, 1f, 1f, 0.92f);
         drawCircle(cx, cy, mainR, false);
 
-        if (radialExpand > 0.3f) {
+        if (radialExpand > 0.28f) {
             GlStateManager.color(1f, 1f, 1f, 0.88f * radialExpand);
             drawCircle(cx, cy, 5.8f * radialExpand, true);
         }
@@ -220,17 +213,23 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glLineWidth(1.9f + hover * 0.5f);
 
         switch (id) {
-            case 1: // Singleplayer - 房子
-                GL11.glBegin(GL11.GL_LINE_STRIP);
-                GL11.glVertex2f(-size * 0.7f, 0);
-                GL11.glVertex2f(0, -size * 0.72f);
-                GL11.glVertex2f(size * 0.7f, 0);
-                GL11.glEnd();
+            case 1: // Singleplayer - 禮物盒 / 房子
+                // 簡單禮物盒
                 GL11.glBegin(GL11.GL_LINE_LOOP);
-                GL11.glVertex2f(-size * 0.52f, 0);
-                GL11.glVertex2f(size * 0.52f, 0);
-                GL11.glVertex2f(size * 0.52f, size * 0.68f);
-                GL11.glVertex2f(-size * 0.52f, size * 0.68f);
+                GL11.glVertex2f(-size * 0.55f, -size * 0.15f);
+                GL11.glVertex2f(size * 0.55f, -size * 0.15f);
+                GL11.glVertex2f(size * 0.55f, size * 0.55f);
+                GL11.glVertex2f(-size * 0.55f, size * 0.55f);
+                GL11.glEnd();
+                // 蝴蝶結
+                GL11.glBegin(GL11.GL_LINE_STRIP);
+                GL11.glVertex2f(-size * 0.35f, -size * 0.35f);
+                GL11.glVertex2f(0, -size * 0.15f);
+                GL11.glVertex2f(size * 0.35f, -size * 0.35f);
+                GL11.glEnd();
+                GL11.glBegin(GL11.GL_LINES);
+                GL11.glVertex2f(0, -size * 0.15f);
+                GL11.glVertex2f(0, size * 0.55f);
                 GL11.glEnd();
                 break;
 
@@ -259,7 +258,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 4: // Settings - 齒輪
+            case 4: // Settings - 太陽 / 齒輪
                 drawCircle(0, 0, size * 0.32f, false);
                 for (int i = 0; i < 8; i++) {
                     float a = (float) (i * Math.PI / 4);
@@ -302,7 +301,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     private void drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float lineWidth) {
         GL11.glLineWidth(lineWidth);
         GL11.glBegin(GL11.GL_LINE_STRIP);
-        int steps = 52;
+        int steps = 60;
         for (int i = 0; i <= steps; i++) {
             float t = (float) i / steps;
             float angle = (float) Math.toRadians(startDeg + (endDeg - startDeg) * t);
@@ -364,7 +363,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         }
 
         // 扇形按鈕
-        if (radialExpand > 0.65f && hoveredButton != -1) {
+        if (radialExpand > 0.62f && hoveredButton != -1) {
             GuiScreen parent = (GuiScreen) (Object) this;
             switch (hoveredButton) {
                 case 1:
