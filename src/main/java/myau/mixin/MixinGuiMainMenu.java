@@ -37,8 +37,8 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // 新角度：從右側邊框附近 → 下側邊框附近（右下角 1/4 圓）
     // 0° = 正右方（接近右側邊框）
     // 90° = 正下方（接近下側邊框）
-    @Unique private static final float START_ANGLE = 0f;
-    @Unique private static final float END_ANGLE   = 90f;
+    @Unique private static final float START_ANGLE = -90f;
+    @Unique private static final float END_ANGLE   = -180f;
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -153,8 +153,8 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // ==================== 繪製扇形選單 ====================
     @Unique
     private void drawRadialMenu(int mouseX, int mouseY) {
-        float cx = this.width - 42;
-        float cy = this.height - 42;
+        float cx = this.width;
+        float cy = this.height;
 
         GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
