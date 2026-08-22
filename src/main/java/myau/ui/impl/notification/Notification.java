@@ -17,8 +17,8 @@ import java.awt.*;
 public class Notification {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final FontRenderer ICON_FONT = FontManager.noti20;
-    private static final FontRenderer TITLE_FONT = FontManager.productSans20;
-    private static final FontRenderer DESC_FONT = FontManager.productSans16;
+    private static final FontRenderer TITLE_FONT = FontManager.tenacity20;
+    private static final FontRenderer DESC_FONT = FontManager.tenacity16;
     private final NotificationType notificationType;
     private final String title;
     private final String description;
