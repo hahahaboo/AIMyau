@@ -27,16 +27,18 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private final float[] buttonHoverAnim = new float[6];
 
-    // ===== 加大距離與間距的尺寸參數 =====
+    // 尺寸參數（保持較大間距）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 18f;
-    @Unique private static final float OUTER_RADIUS = 155f;          // 外弧（加大）
-    @Unique private static final float INNER_RADIUS = 95f;           // 內弧（加大）
-    @Unique private static final float BUTTON_RADIUS = 125f;         // 按鈕放在兩弧正中間，離主圓更遠
+    @Unique private static final float OUTER_RADIUS = 155f;
+    @Unique private static final float INNER_RADIUS = 95f;
+    @Unique private static final float BUTTON_RADIUS = 125f;         // 兩弧正中間
     @Unique private static final float SMALL_CIRCLE_RADIUS = 16f;
 
-    // 維持嚴格 1/4 圓
-    @Unique private static final float START_ANGLE = -90f;           // 按鈕1（主圓正上方）
-    @Unique private static final float END_ANGLE   = -180f;          // 正左方
+    // 新角度：從右側邊框附近 → 下側邊框附近（右下角 1/4 圓）
+    // 0° = 正右方（接近右側邊框）
+    // 90° = 正下方（接近下側邊框）
+    @Unique private static final float START_ANGLE = 0f;
+    @Unique private static final float END_ANGLE   = 90f;
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -101,8 +103,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cx = this.width - 42;
         float cy = this.height - 42;
 
-        // 命中範圍跟著加大的半徑一起增加
-        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 48f;
+        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 50f;
         double dist = Math.sqrt((mouseX - cx) * (mouseX - cx) + (mouseY - cy) * (mouseY - cy));
 
         isHoveringRadial = dist <= hitRadius;
@@ -130,16 +131,20 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     }
 
     /**
-     * 1/4 圓弧均勻分布，距離已加大
+     * 從右側邊框附近 → 下側邊框附近
+     * 按鈕平均分配在 0° ~ 90° 的 1/4 圓上
      */
     @Unique
     private float[] getButtonPos(int index, float cx, float cy) {
-        float t = (index - 1) / 4.0f;
+        float t = (index - 1) / 4.0f;   // 0 ~ 1
 
+        // 0°（右） → 90°（下）
         float angle = START_ANGLE + (END_ANGLE - START_ANGLE) * t;
         float rad = (float) Math.toRadians(angle);
 
         float r = BUTTON_RADIUS * radialExpand;
+
+        // 注意：螢幕座標系 y 向下為正，所以 sin 正值會往下
         float x = cx + (float) Math.cos(rad) * r;
         float y = cy + (float) Math.sin(rad) * r;
         return new float[]{x, y};
@@ -158,7 +163,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
 
-        // 兩條弧線（1/4 圓，距離已加大）
+        // 兩條弧線（從右到下的 1/4 圓）
         if (radialExpand > 0.04f) {
             float alpha = radialExpand * 0.78f;
             GlStateManager.color(1f, 1f, 1f, alpha);
@@ -167,7 +172,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.0f);
         }
 
-        // 5 個按鈕
+        // 5 個按鈕（平均分配在兩弧之間）
         if (radialExpand > 0.2f) {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
