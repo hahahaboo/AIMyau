@@ -66,15 +66,21 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         ci.cancel();
     }
 
-    // ==================== 右上角 Theme 斜線 ====================
+    // ==================== 右上角 Theme 斜線（三角形點擊區域） ====================
     @Unique
     private void drawThemeButton(int mouseX, int mouseY) {
+        // 斜線兩端
         float x1 = this.width - 48;
         float y1 = 16;
         float x2 = this.width - 14;
         float y2 = 48;
 
-        boolean hover = mouseX >= x1 - 12 && mouseX <= x2 + 12 && mouseY >= y1 - 12 && mouseY <= y2 + 12;
+        // 螢幕右上角
+        float cornerX = this.width;
+        float cornerY = 0;
+
+        // 判斷是否在「斜線 + 兩個邊框」圍成的三角形內
+        boolean hover = isPointInTriangle(mouseX, mouseY, x1, y1, x2, y2, cornerX, cornerY);
 
         GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
@@ -95,6 +101,27 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
+    }
+
+    // ==================== 三角形命中測試 ====================
+    @Unique
+    private boolean isPointInTriangle(float px, float py,
+                                      float x1, float y1,
+                                      float x2, float y2,
+                                      float x3, float y3) {
+        float d1 = sign(px, py, x1, y1, x2, y2);
+        float d2 = sign(px, py, x2, y2, x3, y3);
+        float d3 = sign(px, py, x3, y3, x1, y1);
+
+        boolean hasNeg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+        boolean hasPos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+
+        return !(hasNeg && hasPos);
+    }
+
+    @Unique
+    private float sign(float px, float py, float x1, float y1, float x2, float y2) {
+        return (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
     }
 
     // ==================== 狀態更新 ====================
@@ -349,12 +376,15 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     public void onMouseClicked(int mouseX, int mouseY, int mouseButton, CallbackInfo ci) {
         if (mouseButton != 0) return;
 
-        // Theme 按鈕
+        // Theme 按鈕（三角形區域）
         float x1 = this.width - 48;
         float y1 = 16;
         float x2 = this.width - 14;
         float y2 = 48;
-        if (mouseX >= x1 - 12 && mouseX <= x2 + 12 && mouseY >= y1 - 12 && mouseY <= y2 + 12) {
+        float cornerX = this.width;
+        float cornerY = 0;
+
+        if (isPointInTriangle(mouseX, mouseY, x1, y1, x2, y2, cornerX, cornerY)) {
             this.mc.displayGuiScreen(new GuiBackgroundSelector((GuiScreen) (Object) this));
             ci.cancel();
             return;
