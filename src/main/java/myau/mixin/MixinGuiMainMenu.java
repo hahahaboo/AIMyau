@@ -137,9 +137,11 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique
     private float[] getButtonPos(int index, float cx, float cy) {
         float t = (index - 1) / 4.0f;   // 0 ~ 1
+        float sa = START_ANGLE - 15;
+        float ea = END_ANGLE + 15;
 
         // 0°（右） → 90°（下）
-        float angle = START_ANGLE + (END_ANGLE - START_ANGLE) * t;
+        float angle = sa + (ea - sa) * t;
         float rad = (float) Math.toRadians(angle);
 
         float r = BUTTON_RADIUS * radialExpand;
