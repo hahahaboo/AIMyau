@@ -100,8 +100,8 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // ==================== 狀態更新 ====================
     @Unique
     private void updateRadialState(int mouseX, int mouseY) {
-        float cx = this.width - 42;
-        float cy = this.height - 42;
+        float cx = this.width;
+        float cy = this.height;
 
         float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 50f;
         double dist = Math.sqrt((mouseX - cx) * (mouseX - cx) + (mouseY - cy) * (mouseY - cy));
