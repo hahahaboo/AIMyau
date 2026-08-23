@@ -42,7 +42,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique private static final int BG_HOVER       = new Color(40, 40, 45, 200).getRGB();
     @Unique private static final int OUTLINE_NORMAL = new Color(255, 255, 255, 60).getRGB();
     @Unique private static final int OUTLINE_HOVER  = new Color(255, 255, 255, 180).getRGB();
-    @Unique private static final int SHADOW_COLOR   = new Color(0, 0, 0, 90).getRGB();
+    @Unique private static final int SHADOW_COLOR   = new Color(0, 0, 0, 90).getRGB();   // 影子顏色
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -57,27 +57,14 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Inject(method = "drawScreen", at = @At("HEAD"), cancellable = true)
     public void onDrawScreen(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
-        // 1. Shader 背景
         BackgroundRenderer.draw(this.width, this.height);
 
-        // 2. 展開時加強背景暗化（虛化效果）
-        if (radialExpand > 0.01f) {
-            int alpha = (int) (140 * radialExpand); // 最高約 140 的黑色遮罩，夠明顯
-            drawRect(0, 0, this.width, this.height, new Color(0, 0, 0, alpha).getRGB());
-        }
-
-        // 3. 標題
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
         drawTitle(this.width / 2.0f, this.height / 2.0f - 80);
 
-        // 4. Theme 按鈕
         drawThemeButton(mouseX, mouseY);
-
-        // 5. 扇形選單
         updateRadialState(mouseX, mouseY);
         drawRadialMenu(mouseX, mouseY);
-
-        // 6. Footer
         drawFooter();
 
         ci.cancel();
@@ -222,15 +209,15 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GlStateManager.translate(pos[0], pos[1], 0);
                 GlStateManager.scale(scale, scale, 1);
 
-                // 影子
+                // ===== 影子 =====
                 setColor(SHADOW_COLOR);
-                drawCircle(1.5f, 2.5f, r + 1.0f, true);
+                drawCircle(1.5f, 2.5f, r + 1.0f, true);   // 稍微往右下偏移
 
-                // 背景
+                // 背景圓
                 setColor(finalBg);
                 drawCircle(0, 0, r, true);
 
-                // 邊框
+                // 邊框圓
                 setColor(finalOutline);
                 GL11.glLineWidth(1.5f);
                 drawCircle(0, 0, r, false);
@@ -243,7 +230,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             }
         }
 
-        // 主圓
+        // 右下角主圓
         float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
         float mainHover = radialExpand * 0.6f;
 
