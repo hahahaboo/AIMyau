@@ -129,7 +129,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cx = this.width;
         float cy = this.height;
 
-        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 50f;
+        float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 5f;
         double dist = Math.sqrt((mouseX - cx + 42) * (mouseX - cx + 42) + (mouseY - cy + 42) * (mouseY - cy + 42));
 
         isHoveringRadial = dist <= hitRadius;
