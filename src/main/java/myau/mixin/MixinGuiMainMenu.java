@@ -29,9 +29,9 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     // 尺寸參數（保持較大間距）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
-    @Unique private static final float OUTER_RADIUS = 200f;
-    @Unique private static final float INNER_RADIUS = 100f;
-    @Unique private static final float BUTTON_RADIUS = 150f;         // 兩弧正中間
+    @Unique private static final float OUTER_RADIUS = 250f;
+    @Unique private static final float INNER_RADIUS = 180f;
+    @Unique private static final float BUTTON_RADIUS = (OUTER_RADIUS + INNER_RADIUS) / 2;         // 兩弧正中間
     @Unique private static final float SMALL_CIRCLE_RADIUS = 18f;
 
     // 新角度：從右側邊框附近 → 下側邊框附近（右下角 1/4 圓）
@@ -104,7 +104,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cy = this.height;
 
         float hitRadius = MAIN_CIRCLE_RADIUS + (OUTER_RADIUS - MAIN_CIRCLE_RADIUS) * radialExpand + 50f;
-        double dist = Math.sqrt((mouseX - cx) * (mouseX - cx) + (mouseY - cy) * (mouseY - cy));
+        double dist = Math.sqrt((mouseX - cx + 42) * (mouseX - cx + 42) + (mouseY - cy + 42) * (mouseY - cy + 42));
 
         isHoveringRadial = dist <= hitRadius;
 
@@ -197,11 +197,11 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         // 右下角主圓
         float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
         GlStateManager.color(1f, 1f, 1f, 0.92f);
-        drawCircle(cx, cy, mainR, false);
+        drawCircle(cx - 42, cy - 42, mainR, false);
 
         if (radialExpand > 0.3f) {
             GlStateManager.color(1f, 1f, 1f, 0.88f * radialExpand);
-            drawCircle(cx, cy, 5.8f * radialExpand, true);
+            drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
 
         GlStateManager.enableTexture2D();
