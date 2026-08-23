@@ -27,7 +27,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private final float[] buttonHoverAnim = new float[6];
 
-    // 尺寸參數（保持你已設定好的值，完全不動）
+    // 尺寸參數（保持你已設定好的數值，完全不動）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
     @Unique private static final float OUTER_RADIUS = 250f;
     @Unique private static final float INNER_RADIUS = 180f;
@@ -36,6 +36,12 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private static final float START_ANGLE = -90f;
     @Unique private static final float END_ANGLE   = -180f;
+
+    // ModernGuiButton 同款顏色
+    @Unique private static final int BG_NORMAL     = new Color(20, 20, 20, 120).getRGB();
+    @Unique private static final int BG_HOVER      = new Color(40, 40, 45, 200).getRGB();
+    @Unique private static final int OUTLINE_NORMAL = new Color(255, 255, 255, 60).getRGB();
+    @Unique private static final int OUTLINE_HOVER  = new Color(255, 255, 255, 180).getRGB();
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -63,7 +69,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         ci.cancel();
     }
 
-    // ==================== Theme 斜線（三角形點擊區域） ====================
+    // ==================== Theme 按鈕（三角形） ====================
     @Unique
     private void drawThemeButton(int mouseX, int mouseY) {
         float x1 = this.width - 48;
@@ -165,7 +171,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         return new float[]{x, y};
     }
 
-    // ==================== 繪製扇形選單（新樣式） ====================
+    // ==================== 繪製扇形選單（樣式改為 ModernGuiButton） ====================
     @Unique
     private void drawRadialMenu(int mouseX, int mouseY) {
         float cx = this.width;
@@ -177,75 +183,86 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
-        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
 
-        // 兩條弧線
+        // 兩條弧線（維持白色半透明）
         if (radialExpand > 0.04f) {
-            float alpha = radialExpand * 0.70f;
+            float alpha = radialExpand * 0.78f;
             GlStateManager.color(1f, 1f, 1f, alpha);
 
-            drawArc(cx, cy, OUTER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.2f);
-            drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 1.8f);
+            drawArc(cx, cy, OUTER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.5f);
+            drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.0f);
         }
 
-        // 5 個按鈕（新樣式：半透明填充 + 白色描邊）
+        // 5 個按鈕（使用 ModernGuiButton 同款顏色）
         if (radialExpand > 0.2f) {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
                 float hover = buttonHoverAnim[i];
-                float scale = 1.0f + hover * 0.28f;
+                float scale = 1.0f + hover * 0.30f;
                 float r = SMALL_CIRCLE_RADIUS * Math.min(1f, (radialExpand - 0.2f) / 0.55f) * scale;
+
+                // 計算 ModernGuiButton 同款顏色
+                int finalBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, hover);
+                int finalOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, hover);
 
                 GlStateManager.pushMatrix();
                 GlStateManager.translate(pos[0], pos[1], 0);
                 GlStateManager.scale(scale, scale, 1);
 
-                // 填充（深色半透明，hover 時變亮）
-                int bgAlpha = (int) (90 + hover * 80);
-                GlStateManager.color(0.08f, 0.08f, 0.10f, bgAlpha / 255f);
+                // 背景圓
+                setColor(finalBg);
                 drawCircle(0, 0, r, true);
 
-                // 描邊（白色）
-                float outlineAlpha = 0.55f + hover * 0.40f;
-                GlStateManager.color(1f, 1f, 1f, outlineAlpha);
-                GL11.glLineWidth(1.8f + hover * 0.8f);
+                // 邊框圓
+                setColor(finalOutline);
+                GL11.glLineWidth(1.5f);
                 drawCircle(0, 0, r, false);
 
-                // 圖示
+                // 圖示（白色）
+                GlStateManager.color(1f, 1f, 1f, 0.9f + hover * 0.1f);
                 drawIcon(i, r * 0.55f, hover);
 
                 GlStateManager.popMatrix();
             }
         }
 
-        // 主圓（同樣樣式）
+        // 右下角主圓（同樣使用 ModernGuiButton 樣式）
         float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
-        float mainX = cx - 42;
-        float mainY = cy - 42;
+        float mainHover = radialExpand; // 展開時稍微亮一點
 
-        // 填充
-        GlStateManager.color(0.08f, 0.08f, 0.10f, 0.55f + radialExpand * 0.25f);
-        drawCircle(mainX, mainY, mainR, true);
+        int mainBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, mainHover * 0.6f);
+        int mainOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, mainHover * 0.6f);
 
-        // 描邊
-        GlStateManager.color(1f, 1f, 1f, 0.85f);
-        GL11.glLineWidth(2.0f);
-        drawCircle(mainX, mainY, mainR, false);
+        setColor(mainBg);
+        drawCircle(cx - 42, cy - 42, mainR, true);
 
-        // 展開時中心小圓
+        setColor(mainOutline);
+        GL11.glLineWidth(1.8f);
+        drawCircle(cx - 42, cy - 42, mainR, false);
+
         if (radialExpand > 0.3f) {
-            GlStateManager.color(1f, 1f, 1f, 0.75f * radialExpand);
-            drawCircle(mainX, mainY, 6.0f * radialExpand, true);
+            // 中間小實心圓
+            setColor(AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, radialExpand));
+            drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
 
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
     }
 
+    // 顏色輔助
+    @Unique
+    private void setColor(int color) {
+        float a = (color >> 24 & 255) / 255.0f;
+        float r = (color >> 16 & 255) / 255.0f;
+        float g = (color >> 8 & 255) / 255.0f;
+        float b = (color & 255) / 255.0f;
+        GlStateManager.color(r, g, b, a);
+    }
+
     // ==================== 圖示 ====================
     @Unique
     private void drawIcon(int id, float size, float hover) {
-        GlStateManager.color(1f, 1f, 1f, 0.90f + hover * 0.10f);
         GL11.glLineWidth(1.9f + hover * 0.5f);
 
         switch (id) {
