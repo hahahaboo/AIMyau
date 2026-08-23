@@ -28,11 +28,11 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique private final float[] buttonHoverAnim = new float[6];
 
     // 尺寸參數（保持較大間距）
-    @Unique private static final float MAIN_CIRCLE_RADIUS = 18f;
-    @Unique private static final float OUTER_RADIUS = 155f;
-    @Unique private static final float INNER_RADIUS = 95f;
-    @Unique private static final float BUTTON_RADIUS = 125f;         // 兩弧正中間
-    @Unique private static final float SMALL_CIRCLE_RADIUS = 16f;
+    @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
+    @Unique private static final float OUTER_RADIUS = 200f;
+    @Unique private static final float INNER_RADIUS = 100f;
+    @Unique private static final float BUTTON_RADIUS = 150f;         // 兩弧正中間
+    @Unique private static final float SMALL_CIRCLE_RADIUS = 18f;
 
     // 新角度：從右側邊框附近 → 下側邊框附近（右下角 1/4 圓）
     // 0° = 正右方（接近右側邊框）
@@ -116,7 +116,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
                 double d = Math.sqrt((mouseX - pos[0]) * (mouseX - pos[0]) + (mouseY - pos[1]) * (mouseY - pos[1]));
-                boolean hover = d <= SMALL_CIRCLE_RADIUS + 10;
+                boolean hover = d <= SMALL_CIRCLE_RADIUS + 7.5f;
 
                 float hoverTarget = hover ? 1.0f : 0.0f;
                 buttonHoverAnim[i] = AnimationUtil.animate(hoverTarget, buttonHoverAnim[i], 0.26f, 1.0f);
