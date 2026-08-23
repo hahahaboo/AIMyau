@@ -60,7 +60,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         BackgroundRenderer.draw(this.width, this.height);
 
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
-        drawTitle(this.width / 2.0f, this.height / 2.0f - 80);
+        drawTitle(20f, this.height - 55f);   // 左下角
 
         drawThemeButton(mouseX, mouseY);
         updateRadialState(mouseX, mouseY);
@@ -414,7 +414,8 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique
     private void drawTitle(float x, float y) {
         GlStateManager.pushMatrix();
-        float s = 1.0f + (1.0f - animProgress) * 0.15f;
+
+        float s = 1.0f + (1.0f - animProgress) * 0.12f;
         int alpha = (int) (255 * animProgress);
         int color = new Color(255, 255, 255, alpha).getRGB();
         int subColor = new Color(200, 200, 200, Math.max(0, alpha - 60)).getRGB();
@@ -424,13 +425,17 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GlStateManager.translate(-x, -y, 0);
 
         if (FontManager.nunitoBold80 != null) {
-            FontManager.nunitoBold80.drawCenteredString("AIMyau", x, y, color);
+            // 主標題（左對齊）
+            FontManager.nunitoBold80.drawString("AIMyau", x, y - 38, color);
+
+            // 副標題
             if (FontManager.productSans16 != null) {
-                FontManager.productSans16.drawCenteredString(Myau.clientVersion, x, y + 42, subColor);
+                FontManager.productSans16.drawString(Myau.clientVersion, x, y, subColor);
             }
         } else {
-            GlStateManager.scale(3.2, 3.2, 1);
-            this.drawCenteredString(this.fontRendererObj, "AIMyau", (int) (x / 3.2), (int) (y / 3.2), color);
+            // 後備原版字體
+            GlStateManager.scale(2.8, 2.8, 1);
+            this.drawString(this.fontRendererObj, "AIMyau", (int) (x / 2.8), (int) ((y - 38) / 2.8), color);
         }
         GlStateManager.popMatrix();
     }
