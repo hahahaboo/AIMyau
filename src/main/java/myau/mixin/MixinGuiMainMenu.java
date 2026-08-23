@@ -27,7 +27,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private final float[] buttonHoverAnim = new float[6];
 
-    // 尺寸參數（保持你已設定好的數值，完全不動）
+    // 尺寸參數（完全依照你設定好的數值）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
     @Unique private static final float OUTER_RADIUS = 250f;
     @Unique private static final float INNER_RADIUS = 180f;
@@ -38,10 +38,11 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique private static final float END_ANGLE   = -180f;
 
     // ModernGuiButton 同款顏色
-    @Unique private static final int BG_NORMAL     = new Color(20, 20, 20, 120).getRGB();
-    @Unique private static final int BG_HOVER      = new Color(40, 40, 45, 200).getRGB();
+    @Unique private static final int BG_NORMAL      = new Color(20, 20, 20, 120).getRGB();
+    @Unique private static final int BG_HOVER       = new Color(40, 40, 45, 200).getRGB();
     @Unique private static final int OUTLINE_NORMAL = new Color(255, 255, 255, 60).getRGB();
     @Unique private static final int OUTLINE_HOVER  = new Color(255, 255, 255, 180).getRGB();
+    @Unique private static final int SHADOW_COLOR   = new Color(0, 0, 0, 90).getRGB();
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -56,20 +57,33 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Inject(method = "drawScreen", at = @At("HEAD"), cancellable = true)
     public void onDrawScreen(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+        // 1. Shader 背景
         BackgroundRenderer.draw(this.width, this.height);
 
+        // 2. 展開時加強背景暗化（虛化效果）
+        if (radialExpand > 0.01f) {
+            int alpha = (int) (140 * radialExpand); // 最高約 140 的黑色遮罩，夠明顯
+            drawRect(0, 0, this.width, this.height, new Color(0, 0, 0, alpha).getRGB());
+        }
+
+        // 3. 標題
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
         drawTitle(this.width / 2.0f, this.height / 2.0f - 80);
 
+        // 4. Theme 按鈕
         drawThemeButton(mouseX, mouseY);
+
+        // 5. 扇形選單
         updateRadialState(mouseX, mouseY);
         drawRadialMenu(mouseX, mouseY);
+
+        // 6. Footer
         drawFooter();
 
         ci.cancel();
     }
 
-    // ==================== Theme 按鈕（三角形） ====================
+    // ==================== Theme 按鈕 ====================
     @Unique
     private void drawThemeButton(int mouseX, int mouseY) {
         float x1 = this.width - 48;
@@ -171,7 +185,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         return new float[]{x, y};
     }
 
-    // ==================== 繪製扇形選單（樣式改為 ModernGuiButton） ====================
+    // ==================== 繪製扇形選單 ====================
     @Unique
     private void drawRadialMenu(int mouseX, int mouseY) {
         float cx = this.width;
@@ -184,7 +198,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
 
-        // 兩條弧線（維持白色半透明）
+        // 兩條弧線
         if (radialExpand > 0.04f) {
             float alpha = radialExpand * 0.78f;
             GlStateManager.color(1f, 1f, 1f, alpha);
@@ -193,7 +207,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.0f);
         }
 
-        // 5 個按鈕（使用 ModernGuiButton 同款顏色）
+        // 5 個按鈕
         if (radialExpand > 0.2f) {
             for (int i = 1; i <= 5; i++) {
                 float[] pos = getButtonPos(i, cx, cy);
@@ -201,7 +215,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 float scale = 1.0f + hover * 0.30f;
                 float r = SMALL_CIRCLE_RADIUS * Math.min(1f, (radialExpand - 0.2f) / 0.55f) * scale;
 
-                // 計算 ModernGuiButton 同款顏色
                 int finalBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, hover);
                 int finalOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, hover);
 
@@ -209,16 +222,20 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GlStateManager.translate(pos[0], pos[1], 0);
                 GlStateManager.scale(scale, scale, 1);
 
-                // 背景圓
+                // 影子
+                setColor(SHADOW_COLOR);
+                drawCircle(1.5f, 2.5f, r + 1.0f, true);
+
+                // 背景
                 setColor(finalBg);
                 drawCircle(0, 0, r, true);
 
-                // 邊框圓
+                // 邊框
                 setColor(finalOutline);
                 GL11.glLineWidth(1.5f);
                 drawCircle(0, 0, r, false);
 
-                // 圖示（白色）
+                // 圖示
                 GlStateManager.color(1f, 1f, 1f, 0.9f + hover * 0.1f);
                 drawIcon(i, r * 0.55f, hover);
 
@@ -226,22 +243,27 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             }
         }
 
-        // 右下角主圓（同樣使用 ModernGuiButton 樣式）
+        // 主圓
         float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
-        float mainHover = radialExpand; // 展開時稍微亮一點
+        float mainHover = radialExpand * 0.6f;
 
-        int mainBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, mainHover * 0.6f);
-        int mainOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, mainHover * 0.6f);
+        int mainBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, mainHover);
+        int mainOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, mainHover);
 
+        // 主圓影子
+        setColor(SHADOW_COLOR);
+        drawCircle(cx - 42 + 1.8f, cy - 42 + 2.8f, mainR + 1.2f, true);
+
+        // 主圓背景
         setColor(mainBg);
         drawCircle(cx - 42, cy - 42, mainR, true);
 
+        // 主圓邊框
         setColor(mainOutline);
         GL11.glLineWidth(1.8f);
         drawCircle(cx - 42, cy - 42, mainR, false);
 
         if (radialExpand > 0.3f) {
-            // 中間小實心圓
             setColor(AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, radialExpand));
             drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
@@ -250,7 +272,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GlStateManager.popMatrix();
     }
 
-    // 顏色輔助
     @Unique
     private void setColor(int color) {
         float a = (color >> 24 & 255) / 255.0f;
@@ -266,7 +287,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GL11.glLineWidth(1.9f + hover * 0.5f);
 
         switch (id) {
-            case 1: // Singleplayer - 房子
+            case 1:
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.7f, 0);
                 GL11.glVertex2f(0, -size * 0.72f);
@@ -280,7 +301,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 2: // Multiplayer - 雙人
+            case 2:
                 drawCircle(-size * 0.38f, -size * 0.22f, size * 0.26f, false);
                 GL11.glBegin(GL11.GL_LINES);
                 GL11.glVertex2f(-size * 0.38f, size * 0.05f);
@@ -293,7 +314,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 3: // Alt Manager - 鑰匙
+            case 3:
                 drawCircle(-size * 0.22f, 0, size * 0.36f, false);
                 GL11.glBegin(GL11.GL_LINES);
                 GL11.glVertex2f(size * 0.12f, 0);
@@ -305,7 +326,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 4: // Settings - 齒輪
+            case 4:
                 drawCircle(0, 0, size * 0.32f, false);
                 for (int i = 0; i < 8; i++) {
                     float a = (float) (i * Math.PI / 4);
@@ -320,7 +341,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 }
                 break;
 
-            case 5: // Exit - X
+            case 5:
                 GL11.glBegin(GL11.GL_LINES);
                 GL11.glVertex2f(-size * 0.52f, -size * 0.52f);
                 GL11.glVertex2f(size * 0.52f, size * 0.52f);
@@ -398,7 +419,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     public void onMouseClicked(int mouseX, int mouseY, int mouseButton, CallbackInfo ci) {
         if (mouseButton != 0) return;
 
-        // Theme 按鈕（三角形區域）
         float x1 = this.width - 48;
         float y1 = 16;
         float x2 = this.width - 14;
@@ -412,7 +432,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             return;
         }
 
-        // 扇形按鈕
         if (radialExpand > 0.65f && hoveredButton != -1) {
             GuiScreen parent = (GuiScreen) (Object) this;
             switch (hoveredButton) {
