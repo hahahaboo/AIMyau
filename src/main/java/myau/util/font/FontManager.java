@@ -13,7 +13,7 @@ import static myau.config.Config.mc;
 public class FontManager {
     public static FontRenderer
             regular12, regular14, regular16, regular18, regular22,
-            icon20,
+            icon48,
             productSans12, productSans16, productSans18, productSans20, productSans24, productSans28, productSans32, productSansLight, productSansMedium,
             tenacity12, tenacity16, tenacity20, tenacity24, tenacity28, tenacity32, tenacity80,
             vision12, vision16, vision20, vision24, vision28, vision32,
@@ -47,7 +47,7 @@ public class FontManager {
             regular22 = new FontRenderer(FontUtil.getResource(locationMap, "regular.ttf", 22));
 
             // Icon Font
-            icon20 = new FontRenderer(FontUtil.getResource(locationMap, "icon.ttf", 20));
+            icon48 = new FontRenderer(FontUtil.getResource(locationMap, "icon.ttf", 48));
 
             // Product Sans (Google Style)
             productSans12 = new FontRenderer(FontUtil.getResource(locationMap, "product_sans_regular.ttf", 12));
@@ -138,9 +138,9 @@ public class FontManager {
             regular22.destroy();
             regular22 = null;
         }
-        if (icon20 != null) {
-            icon20.destroy();
-            icon20 = null;
+        if (icon48 != null) {
+            icon48.destroy();
+            icon48 = null;
         }
         if (productSans12 != null) {
             productSans12.destroy();
