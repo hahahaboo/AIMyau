@@ -272,14 +272,37 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // ==================== 圖示 ====================
     @Unique
     private void drawIcon(int id, float size, float hover) {
+        // 優先使用 icon font
+        if (FontManager.icon20 != null) {
+            String iconChar;
+            switch (id) {
+                case 1: iconChar = "A"; break;
+                case 2: iconChar = "B"; break;
+                case 3: iconChar = "C"; break;
+                case 4: iconChar = "D"; break;
+                case 5: iconChar = "E"; break;
+                default: return;
+            }
+
+            int color = new Color(255, 255, 255, (int)(230 + hover * 25)).getRGB();
+
+            // 根據按鈕大小調整縮放
+            float scale = (size * 1.6f) / FontManager.icon20.getHeight();
+
+            GlStateManager.pushMatrix();
+            GlStateManager.scale(scale, scale, 1f);
+            FontManager.icon20.drawCenteredString(iconChar, 0, -FontManager.icon20.getHeight() / 2f + 1f, color);
+            GlStateManager.popMatrix();
+            return;
+        }
+
+        // ===== 以下是後備手繪（如果 icon font 不存在才會執行）=====
         GL11.glLineWidth(1.9f + hover * 0.5f);
         GlStateManager.color(1f, 1f, 1f, 0.92f + hover * 0.08f);
 
         switch (id) {
-            case 1: // Singleplayer - user-solid
-                // 頭
+            case 1: // Singleplayer
                 drawCircle(0, -size * 0.32f, size * 0.30f, false);
-                // 身體（半圓肩膀 + 身體）
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.55f, size * 0.15f);
                 GL11.glVertex2f(-size * 0.45f, size * 0.55f);
@@ -288,8 +311,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 2: // Multiplayer - users-solid
-                // 中間主要人物
+            case 2: // Multiplayer
                 drawCircle(0, -size * 0.38f, size * 0.28f, false);
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.48f, size * 0.12f);
@@ -297,54 +319,17 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glVertex2f(size * 0.38f, size * 0.52f);
                 GL11.glVertex2f(size * 0.48f, size * 0.12f);
                 GL11.glEnd();
-
-                // 左邊人物
                 drawCircle(-size * 0.70f, -size * 0.18f, size * 0.20f, false);
-                GL11.glBegin(GL11.GL_LINE_STRIP);
-                GL11.glVertex2f(-size * 0.92f, size * 0.22f);
-                GL11.glVertex2f(-size * 0.70f, size * 0.52f);
-                GL11.glVertex2f(-size * 0.48f, size * 0.22f);
-                GL11.glEnd();
-
-                // 右邊人物
                 drawCircle(size * 0.70f, -size * 0.18f, size * 0.20f, false);
-                GL11.glBegin(GL11.GL_LINE_STRIP);
-                GL11.glVertex2f(size * 0.48f, size * 0.22f);
-                GL11.glVertex2f(size * 0.70f, size * 0.52f);
-                GL11.glVertex2f(size * 0.92f, size * 0.22f);
-                GL11.glEnd();
                 break;
 
-            case 3: // Alt Manager - user-gear
-                // 人物頭
+            case 3: // Alt Manager
                 drawCircle(-size * 0.28f, -size * 0.28f, size * 0.26f, false);
-                // 人物身體
-                GL11.glBegin(GL11.GL_LINE_STRIP);
-                GL11.glVertex2f(-size * 0.55f, size * 0.12f);
-                GL11.glVertex2f(-size * 0.42f, size * 0.52f);
-                GL11.glVertex2f(-size * 0.08f, size * 0.52f);
-                GL11.glVertex2f(size * 0.05f, size * 0.12f);
-                GL11.glEnd();
-
-                // 齒輪（右側）
                 drawCircle(size * 0.38f, size * 0.05f, size * 0.28f, false);
-                for (int i = 0; i < 6; i++) {
-                    float a = (float) (i * Math.PI / 3);
-                    float x1 = size * 0.38f + (float) Math.cos(a) * size * 0.28f;
-                    float y1 = size * 0.05f + (float) Math.sin(a) * size * 0.28f;
-                    float x2 = size * 0.38f + (float) Math.cos(a) * size * 0.48f;
-                    float y2 = size * 0.05f + (float) Math.sin(a) * size * 0.48f;
-                    GL11.glBegin(GL11.GL_LINES);
-                    GL11.glVertex2f(x1, y1);
-                    GL11.glVertex2f(x2, y2);
-                    GL11.glEnd();
-                }
                 break;
 
-            case 4: // Settings - gear-solid
-                // 中心圓
+            case 4: // Settings
                 drawCircle(0, 0, size * 0.28f, false);
-                // 齒輪齒
                 for (int i = 0; i < 8; i++) {
                     float a = (float) (i * Math.PI / 4);
                     float x1 = (float) Math.cos(a) * size * 0.28f;
@@ -356,28 +341,20 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                     GL11.glVertex2f(x2, y2);
                     GL11.glEnd();
                 }
-                // 中心小圓
-                drawCircle(0, 0, size * 0.12f, false);
                 break;
 
-            case 5: // Exit - arrow-right-from-bracket
-                // 門框（左側矩形）
+            case 5: // Exit
                 GL11.glBegin(GL11.GL_LINE_LOOP);
                 GL11.glVertex2f(-size * 0.55f, -size * 0.50f);
                 GL11.glVertex2f(-size * 0.15f, -size * 0.50f);
                 GL11.glVertex2f(-size * 0.15f, size * 0.50f);
                 GL11.glVertex2f(-size * 0.55f, size * 0.50f);
                 GL11.glEnd();
-
-                // 箭頭（向右）
                 GL11.glBegin(GL11.GL_LINES);
-                // 箭身
                 GL11.glVertex2f(-size * 0.05f, 0);
                 GL11.glVertex2f(size * 0.55f, 0);
-                // 箭頭上
                 GL11.glVertex2f(size * 0.30f, -size * 0.28f);
                 GL11.glVertex2f(size * 0.55f, 0);
-                // 箭頭下
                 GL11.glVertex2f(size * 0.30f, size * 0.28f);
                 GL11.glVertex2f(size * 0.55f, 0);
                 GL11.glEnd();
