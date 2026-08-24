@@ -291,7 +291,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
             GlStateManager.pushMatrix();
             GlStateManager.scale(scale, scale, 1f);
-            FontManager.icon48.drawCenteredString(iconChar, 0, -FontManager.icon20.getHeight() / 2f + 1f, color);
+            FontManager.icon48.drawCenteredString(iconChar, 0, -FontManager.icon48.getHeight() / 2f + 1f, color);
             GlStateManager.popMatrix();
             return;
         }
