@@ -287,7 +287,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             int color = new Color(255, 255, 255, (int)(230 + hover * 25)).getRGB();
 
             // 根據按鈕大小調整縮放
-            float scale = (size * 1.6f) / FontManager.icon20.getHeight();
+            float scale = (size * 1.6f) / (float) FontManager.icon20.getHeight();
 
             GlStateManager.pushMatrix();
             GlStateManager.scale(scale, scale, 1f);
@@ -320,12 +320,39 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glVertex2f(size * 0.48f, size * 0.12f);
                 GL11.glEnd();
                 drawCircle(-size * 0.70f, -size * 0.18f, size * 0.20f, false);
+                GL11.glBegin(GL11.GL_LINE_STRIP);
+                GL11.glVertex2f(-size * 0.92f, size * 0.22f);
+                GL11.glVertex2f(-size * 0.70f, size * 0.52f);
+                GL11.glVertex2f(-size * 0.48f, size * 0.22f);
+                GL11.glEnd();
                 drawCircle(size * 0.70f, -size * 0.18f, size * 0.20f, false);
+                GL11.glBegin(GL11.GL_LINE_STRIP);
+                GL11.glVertex2f(size * 0.48f, size * 0.22f);
+                GL11.glVertex2f(size * 0.70f, size * 0.52f);
+                GL11.glVertex2f(size * 0.92f, size * 0.22f);
+                GL11.glEnd();
                 break;
 
             case 3: // Alt Manager
                 drawCircle(-size * 0.28f, -size * 0.28f, size * 0.26f, false);
+                GL11.glBegin(GL11.GL_LINE_STRIP);
+                GL11.glVertex2f(-size * 0.55f, size * 0.12f);
+                GL11.glVertex2f(-size * 0.42f, size * 0.52f);
+                GL11.glVertex2f(-size * 0.08f, size * 0.52f);
+                GL11.glVertex2f(size * 0.05f, size * 0.12f);
+                GL11.glEnd();
                 drawCircle(size * 0.38f, size * 0.05f, size * 0.28f, false);
+                for (int i = 0; i < 6; i++) {
+                    float a = (float) (i * Math.PI / 3);
+                    float x1 = size * 0.38f + (float) Math.cos(a) * size * 0.28f;
+                    float y1 = size * 0.05f + (float) Math.sin(a) * size * 0.28f;
+                    float x2 = size * 0.38f + (float) Math.cos(a) * size * 0.48f;
+                    float y2 = size * 0.05f + (float) Math.sin(a) * size * 0.48f;
+                    GL11.glBegin(GL11.GL_LINES);
+                    GL11.glVertex2f(x1, y1);
+                    GL11.glVertex2f(x2, y2);
+                    GL11.glEnd();
+                }
                 break;
 
             case 4: // Settings
@@ -341,6 +368,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                     GL11.glVertex2f(x2, y2);
                     GL11.glEnd();
                 }
+                drawCircle(0, 0, size * 0.12f, false);
                 break;
 
             case 5: // Exit
