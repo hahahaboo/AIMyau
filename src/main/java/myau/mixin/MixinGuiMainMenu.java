@@ -272,30 +272,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // ==================== 圖示 ====================
     @Unique
     private void drawIcon(int id, float size, float hover) {
-        // 優先使用 icon font
-        if (FontManager.icon48 != null) {
-            String iconChar;
-            switch (id) {
-                case 1: iconChar = "A"; break;
-                case 2: iconChar = "B"; break;
-                case 3: iconChar = "C"; break;
-                case 4: iconChar = "D"; break;
-                case 5: iconChar = "E"; break;
-                default: return;
-            }
-
-            int color = new Color(255, 255, 255, (int)(230 + hover * 25)).getRGB();
-
-            // 根據按鈕大小調整縮放
-            float scale = (size * 1.6f) / (float) FontManager.icon48.getHeight();
-
-            GlStateManager.pushMatrix();
-            GlStateManager.scale(scale, scale, 1f);
-            FontManager.icon48.drawCenteredString(iconChar, 0, -FontManager.icon48.getHeight() / 2f + 1f, color);
-            GlStateManager.popMatrix();
-            return;
-        }
-
+        
         // ===== 以下是後備手繪（如果 icon font 不存在才會執行）=====
         GL11.glLineWidth(1.9f + hover * 0.5f);
         GlStateManager.color(1f, 1f, 1f, 0.92f + hover * 0.08f);
