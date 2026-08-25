@@ -59,8 +59,18 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     public void onDrawScreen(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
         BackgroundRenderer.draw(this.width, this.height);
 
+        // ===== 自訂背景後強制還原 UI 繪製狀態（修復 radial 無透明度）=====
+        GlStateManager.enableBlend();
+        GlStateManager.disableDepth();
+        GlStateManager.disableLighting();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.enableAlpha();
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+        // ================================================================
+
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
-        drawTitle(20f, this.height - 55f);   // 左下角
+        drawTitle(20f, this.height - 55f);
 
         drawThemeButton(mouseX, mouseY);
         updateRadialState(mouseX, mouseY);
