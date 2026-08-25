@@ -126,7 +126,7 @@ public class BackgroundRenderer {
                     "    vec3 opos = vec3(32.5 + time * 6.4, 32.5, 32.5);\n" +
                     "    float gggxd = (uv.x - 0.5) * (resolution.x / resolution.y); float ggyd = (1.-uv.y - 0.5); float ggzd = 1.;\n" +
                     "    float gggzd = ggzd * yCos + ggyd * ySin;\n" +
-                    "    vec3 _posd = vec3(gggxd * xCos + gggzd * xSin, ggyd * yCos - ggzd * xSin, gggzd * xCos - gggxd * xSin);\n" +
+                    "    vec3 _posd = vec3(gggxd * xCos + gggzd * xSin, ggyd * yCos - ggzd * ySin, gggzd * xCos - gggxd * xSin);\n" +
                     "    vec3 col = vec3(0.); float br = 1.; vec3 bdist = vec3(255. - 100., 255. - 0., 255. - 50.); float ddist = 0.; float closest = 32.;\n" +
                     "    for (int d = 0; d < 3; d++) {\n" +
                     "        float dimLength = _posd[d]; float ll = abs(1. / dimLength); vec3 posd = _posd * ll;\n" +
