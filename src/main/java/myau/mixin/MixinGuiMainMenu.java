@@ -242,8 +242,10 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         drawCircle(cx - 42 + 1.8f, cy - 42 + 2.8f, mainR + 1.2f, true);
 
         // ===== 新增：中心半透明白色遮罩 =====
-        setColor(new Color(255, 255, 255, 120).getRGB());
+        setColor(new Color(255, 255, 255, 175).getRGB());
         drawCircle(cx - 42, cy - 42, mainR, true);
+        setColor(new Color(255, 255, 255, 200).getRGB());
+        drawCircle(cx - 42, cy - 42, mainR * 0.55f, true);
         // ==================================
 
         // 主圓邊框
