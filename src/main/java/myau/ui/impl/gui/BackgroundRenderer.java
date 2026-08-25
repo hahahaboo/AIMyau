@@ -192,10 +192,7 @@ public class BackgroundRenderer {
     
     public static void init() {
         if (currentBackgroundIndex == 6) {
-            // 自訂圖片背景：若路徑有效就載入，不初始化 Shader
-            if (customFilePath != null && customTextureId == -1) {
-                loadSavedCustomBackground(customFilePath);
-            }
+            // 不在這裡強制建貼圖，等 draw() 延遲載入
             return;
         }
         if (backgroundShader == null) {
@@ -313,12 +310,19 @@ public class BackgroundRenderer {
     }
 
     public static void draw(int width, int height) {
-        // 自訂圖片背景優先
-        if (currentBackgroundIndex == 6 && customTextureId != -1) {
-            drawCustomImage(width, height);
+        // 自訂圖片：在渲染執行緒上延遲載入（避免 Config.load 過早建貼圖）
+        if (currentBackgroundIndex == 6) {
+            if (customTextureId == -1 && customFilePath != null && !customFilePath.isEmpty()) {
+                loadCustomImage(new File(customFilePath));
+            }
+            if (customTextureId != -1) {
+                drawCustomImage(width, height);
+                return;
+            }
+            // 貼圖載入失敗時退回漸層，避免整屏空白
+            drawGradient(width, height, new Color(20, 20, 30).getRGB(), new Color(5, 5, 10).getRGB());
             return;
         }
-
         if (backgroundShader != null && backgroundShader.getProgramID() != 0) {
             GlStateManager.disableCull();
             GlStateManager.disableAlpha();
