@@ -5,14 +5,26 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 public class BackgroundRenderer {
     public static int currentBackgroundIndex = 1;
     private static ShaderUtil backgroundShader;
     private static long initTime = System.currentTimeMillis();
+
+    // --- Custom background (image only) ---
+    private static DynamicTexture customTexture = null;
+    private static int customTextureId = -1;
+    private static String customFilePath = null;
+    private static final File BACKGROUND_DIR = new File("./config/AIMyau/background");
 
     // --- Shader 1: Abstract FBM ---
     private static final String SHADER_1 =
@@ -177,8 +189,15 @@ public class BackgroundRenderer {
                     "    col += 1. - m; col *= 1. - 1.5 * dot(uv,uv);\n" +
                     "    gl_FragColor = vec4(col, 1.);\n" +
                     "}";
-
+    
     public static void init() {
+        if (currentBackgroundIndex == 6) {
+            // 自訂圖片背景：若路徑有效就載入，不初始化 Shader
+            if (customFilePath != null && customTextureId == -1) {
+                loadSavedCustomBackground(customFilePath);
+            }
+            return;
+        }
         if (backgroundShader == null) {
             reloadShader(currentBackgroundIndex);
         }
@@ -186,6 +205,17 @@ public class BackgroundRenderer {
 
     public static void reloadShader(int index) {
         currentBackgroundIndex = index;
+
+        // 切回 1~5 時清掉自訂貼圖
+        if (index != 6) {
+            unloadCustomTexture();
+        }
+
+        if (index == 6) {
+            backgroundShader = null;
+            return;
+        }
+
         String shaderSource;
         switch (index) {
             case 1: shaderSource = SHADER_1; break;
@@ -202,7 +232,93 @@ public class BackgroundRenderer {
         initTime = System.currentTimeMillis();
     }
 
+    /**
+     * 選擇自訂背景圖片後呼叫。
+     * 會把檔案複製到 .minecraft/config/AIMyau/background/ 並載入。
+     */
+    public static void setCustomBackground(File selected) {
+        if (selected == null || !selected.exists()) return;
+
+        try {
+            if (!BACKGROUND_DIR.exists()) {
+                BACKGROUND_DIR.mkdirs();
+            }
+
+            String name = selected.getName();
+            String ext = "";
+            int dot = name.lastIndexOf('.');
+            if (dot >= 0) {
+                ext = name.substring(dot).toLowerCase();
+            }
+
+            // 只接受圖片
+            if (!ext.matches("\\.(png|jpg|jpeg|gif)")) {
+                System.out.println("[AIMyau] 不支援的檔案格式: " + ext);
+                return;
+            }
+
+            File dest = new File(BACKGROUND_DIR, "custom_bg" + ext);
+
+            Files.copy(
+                    selected.toPath(),
+                    dest.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            customFilePath = dest.getAbsolutePath();
+            currentBackgroundIndex = 6;
+            loadCustomImage(dest);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void loadCustomImage(File file) {
+        try {
+            unloadCustomTexture();
+
+            BufferedImage img = ImageIO.read(file);
+            if (img == null) return;
+
+            customTexture = new DynamicTexture(img);
+            customTextureId = customTexture.getGlTextureId();
+        } catch (Exception e) {
+            e.printStackTrace();
+            unloadCustomTexture();
+        }
+    }
+
+    private static void unloadCustomTexture() {
+        if (customTexture != null) {
+            customTexture.deleteGlTexture();
+            customTexture = null;
+            customTextureId = -1;
+        }
+    }
+
+    /** 由 Config.load() 呼叫 */
+    public static void loadSavedCustomBackground(String path) {
+        if (path == null || path.isEmpty()) return;
+        File f = new File(path);
+        if (!f.exists()) return;
+
+        customFilePath = path;
+        currentBackgroundIndex = 6;
+        loadCustomImage(f);
+    }
+
+    public static String getCustomFilePath() {
+        return customFilePath;
+    }
+
     public static void draw(int width, int height) {
+        // 自訂圖片背景優先
+        if (currentBackgroundIndex == 6 && customTextureId != -1) {
+            drawCustomImage(width, height);
+            return;
+        }
+
         if (backgroundShader != null && backgroundShader.getProgramID() != 0) {
             GlStateManager.disableCull();
             GlStateManager.disableAlpha();
@@ -232,6 +348,27 @@ public class BackgroundRenderer {
         } else {
             drawGradient(width, height, new Color(20, 20, 30).getRGB(), new Color(5, 5, 10).getRGB());
         }
+    }
+
+    private static void drawCustomImage(int width, int height) {
+        GlStateManager.enableTexture2D();
+        GlStateManager.bindTexture(customTextureId);
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.disableAlpha();
+
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(7, DefaultVertexFormats.POSITION_TEX);
+        wr.pos(0, height, 0).tex(0, 1).endVertex();
+        wr.pos(width, height, 0).tex(1, 1).endVertex();
+        wr.pos(width, 0, 0).tex(1, 0).endVertex();
+        wr.pos(0, 0, 0).tex(0, 0).endVertex();
+        tessellator.draw();
+
+        GlStateManager.enableAlpha();
+        GlStateManager.disableBlend();
     }
 
     private static void drawGradient(int width, int height, int topColor, int bottomColor) {
