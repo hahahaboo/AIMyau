@@ -27,9 +27,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
     @Unique private final float[] buttonHoverAnim = new float[6];
 
-    // 主圓脈衝動畫
-    @Unique private float mainPulse = 0.0f;
-
     // 尺寸參數（完全依照你設定好的數值）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
     @Unique private static final float OUTER_RADIUS = 250f;
@@ -45,7 +42,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique private static final int BG_HOVER       = new Color(40, 40, 45, 200).getRGB();
     @Unique private static final int OUTLINE_NORMAL = new Color(255, 255, 255, 60).getRGB();
     @Unique private static final int OUTLINE_HOVER  = new Color(255, 255, 255, 180).getRGB();
-    @Unique private static final int SHADOW_COLOR   = new Color(0, 0, 0, 90).getRGB();
+    @Unique private static final int SHADOW_COLOR   = new Color(0, 0, 0, 90).getRGB();   // 影子顏色
 
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
@@ -55,7 +52,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         this.radialExpand = 0.0f;
         this.isHoveringRadial = false;
         this.hoveredButton = -1;
-        this.mainPulse = 0.0f;
         for (int i = 0; i < buttonHoverAnim.length; i++) buttonHoverAnim[i] = 0f;
     }
 
@@ -64,7 +60,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         BackgroundRenderer.draw(this.width, this.height);
 
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
-        drawTitle(20f, this.height - 55f);
+        drawTitle(20f, this.height - 55f);   // 左下角
 
         drawThemeButton(mouseX, mouseY);
         updateRadialState(mouseX, mouseY);
@@ -130,10 +126,6 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     // ==================== 狀態更新 ====================
     @Unique
     private void updateRadialState(int mouseX, int mouseY) {
-        // 脈衝動畫
-        mainPulse += 0.04f;
-        if (mainPulse > Math.PI * 2) mainPulse -= Math.PI * 2;
-
         float cx = this.width;
         float cy = this.height;
 
@@ -218,7 +210,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GlStateManager.translate(pos[0], pos[1], 0);
                 GlStateManager.scale(scale, scale, 1);
 
-                // 影子
+                // ===== 影子 =====
                 setColor(SHADOW_COLOR);
                 drawCircle(1.5f, 2.5f, r + 1.0f, true);
 
@@ -239,45 +231,34 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             }
         }
 
-        // ===== 右下角主圓（光暈 + 脈衝） =====
-        float baseMainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
-
-        // 脈衝縮放（約 ±6%）
-        float pulseScale = 1.0f + (float) Math.sin(mainPulse) * 0.06f;
-        float mainR = baseMainR * pulseScale;
-
+        // 右下角主圓
+        float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
         float mainHover = radialExpand * 0.6f;
+
         int mainBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, mainHover);
         int mainOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, mainHover);
 
-        float mx = cx - 42;
-        float my = cy - 42;
-
-        // 1. 外圈光暈（多層半透明圓）
-        for (int i = 3; i >= 1; i--) {
-            float glowR = mainR + i * 4.5f;
-            float glowAlpha = (0.12f / i) * (0.6f + radialExpand * 0.4f);
-            GlStateManager.color(1f, 1f, 1f, glowAlpha);
-            drawCircle(mx, my, glowR, true);
-        }
-
-        // 2. 主圓陰影
+        // 主圓影子
         setColor(SHADOW_COLOR);
-        drawCircle(mx + 1.8f, my + 2.8f, mainR + 1.2f, true);
+        drawCircle(cx - 42 + 1.8f, cy - 42 + 2.8f, mainR + 1.2f, true);
 
-        // 3. 主圓背景
+        // 主圓背景
         setColor(mainBg);
-        drawCircle(mx, my, mainR, true);
+        drawCircle(cx - 42, cy - 42, mainR, true);
 
-        // 4. 主圓邊框
+        // ===== 新增：中心半透明黑色遮罩 =====
+        setColor(new Color(0, 0, 0, 90).getRGB());
+        drawCircle(cx - 42, cy - 42, mainR * 0.55f, true);
+        // ==================================
+
+        // 主圓邊框
         setColor(mainOutline);
-        GL11.glLineWidth(2.0f);
-        drawCircle(mx, my, mainR, false);
+        GL11.glLineWidth(1.8f);
+        drawCircle(cx - 42, cy - 42, mainR, false);
 
-        // 5. 展開時的中心小圓
         if (radialExpand > 0.3f) {
             setColor(AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, radialExpand));
-            drawCircle(mx, my, 5.8f * radialExpand * pulseScale, true);
+            drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
 
         GlStateManager.enableTexture2D();
@@ -320,21 +301,21 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             );
             GlStateManager.popMatrix();
 
-            // 還原狀態
+            // ===== 重要：還原狀態，否則後面的圓會消失 =====
             GlStateManager.disableTexture2D();
             GlStateManager.enableBlend();
             GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
             GlStateManager.color(1f, 1f, 1f, 1f);
+            // =============================================
 
             return;
         }
-
-        // 後備手繪
+        // ===== 以下是後備手繪（如果 icon font 不存在才會執行）=====
         GL11.glLineWidth(1.9f + hover * 0.5f);
         GlStateManager.color(1f, 1f, 1f, 0.92f + hover * 0.08f);
 
         switch (id) {
-            case 1:
+            case 1: // Singleplayer
                 drawCircle(0, -size * 0.32f, size * 0.30f, false);
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.55f, size * 0.15f);
@@ -344,7 +325,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 2:
+            case 2: // Multiplayer
                 drawCircle(0, -size * 0.38f, size * 0.28f, false);
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.48f, size * 0.12f);
@@ -366,7 +347,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 GL11.glEnd();
                 break;
 
-            case 3:
+            case 3: // Alt Manager
                 drawCircle(-size * 0.28f, -size * 0.28f, size * 0.26f, false);
                 GL11.glBegin(GL11.GL_LINE_STRIP);
                 GL11.glVertex2f(-size * 0.55f, size * 0.12f);
@@ -388,7 +369,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 }
                 break;
 
-            case 4:
+            case 4: // Settings
                 drawCircle(0, 0, size * 0.28f, false);
                 for (int i = 0; i < 8; i++) {
                     float a = (float) (i * Math.PI / 4);
@@ -404,7 +385,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 drawCircle(0, 0, size * 0.12f, false);
                 break;
 
-            case 5:
+            case 5: // Exit
                 GL11.glBegin(GL11.GL_LINE_LOOP);
                 GL11.glVertex2f(-size * 0.55f, -size * 0.50f);
                 GL11.glVertex2f(-size * 0.15f, -size * 0.50f);
@@ -465,6 +446,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
         if (FontManager.nunitoBold80 != null) {
             FontManager.nunitoBold80.drawString("AIMyau", x, y - 38, color);
+
             if (FontManager.productSans16 != null) {
                 FontManager.productSans16.drawString(Myau.clientVersion, x, y, subColor);
             }
