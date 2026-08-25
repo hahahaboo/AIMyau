@@ -18,14 +18,6 @@ public class Config {
     public String name;
     public File file;
 
-    /** Config.load 時呼叫：只記錄路徑，貼圖等到第一次 draw 再建 */
-    public static void prepareCustomBackground(String path) {
-        if (path == null || path.isEmpty()) return;
-        customFilePath = path;
-        currentBackgroundIndex = 6;
-        // 刻意不在這裡 loadCustomImage，避免啟動時 GL 未就緒
-    }
-
     public Config(String name, boolean newConfig) {
         this.name = name;
         this.file = new File("./config/AIMyau/", String.format("%s.json", this.name));
