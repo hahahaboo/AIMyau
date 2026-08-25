@@ -275,7 +275,7 @@ public class AltManagerGui extends GuiScreen {
             );
 
             // Draw visible outline
-            RenderUtil.drawRoundedRectOutline(accountX, yPos, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT, 3.5F, 5f,
+            RenderUtil.drawRoundedRectOutline(accountX, yPos, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT, 3.5F, 3.5f,
                     rectColor.getRGB(), true, true, true, true);
 
             // Draw delete button with fancy rounded style
