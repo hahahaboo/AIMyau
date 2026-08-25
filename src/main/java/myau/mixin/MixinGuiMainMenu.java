@@ -235,20 +235,15 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float mainR = MAIN_CIRCLE_RADIUS + (radialExpand * 4.5f);
         float mainHover = radialExpand * 0.6f;
 
-        int mainBg = AnimationUtil.interpolateColor(BG_NORMAL, BG_HOVER, mainHover);
         int mainOutline = AnimationUtil.interpolateColor(OUTLINE_NORMAL, OUTLINE_HOVER, mainHover);
 
         // 主圓影子
         setColor(SHADOW_COLOR);
         drawCircle(cx - 42 + 1.8f, cy - 42 + 2.8f, mainR + 1.2f, true);
 
-        // 主圓背景
-        setColor(mainBg);
+        // ===== 新增：中心半透明白色遮罩 =====
+        setColor(new Color(255, 255, 255, 120).getRGB());
         drawCircle(cx - 42, cy - 42, mainR, true);
-
-        // ===== 新增：中心半透明黑色遮罩 =====
-        setColor(new Color(0, 0, 0, 90).getRGB());
-        drawCircle(cx - 42, cy - 42, mainR * 0.55f, true);
         // ==================================
 
         // 主圓邊框
