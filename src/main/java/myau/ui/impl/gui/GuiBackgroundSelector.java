@@ -44,7 +44,7 @@ public class GuiBackgroundSelector extends GuiScreen {
         int startX = centerX - (gridWidth / 2);
         int startY = centerY - 70;
 
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 6; i++) {
             int row = (i - 1) / 3;
             int col = (i - 1) % 3;
 
@@ -70,6 +70,8 @@ public class GuiBackgroundSelector extends GuiScreen {
                 return "Minecraft"; // 原版风格
             case 5:
                 return "Circle";
+            case 6:
+                return "+";
             default:
                 return "Unknown";
         }
@@ -148,6 +150,27 @@ public class GuiBackgroundSelector extends GuiScreen {
         } else if (button.id >= 1 && button.id <= 5) {
             BackgroundRenderer.reloadShader(button.id);
             if (Myau.globalConfig != null) Myau.globalConfig.save();
+        }else if (button.id == 6) {
+            new Thread(() -> {
+                try {
+                    javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+                    chooser.setDialogTitle("選擇背景圖片");
+                    chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                            "圖片 (png, jpg, jpeg, gif)",
+                            "png", "jpg", "jpeg", "gif"
+                    ));
+                    int result = chooser.showOpenDialog(null);
+                    if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
+                        java.io.File selected = chooser.getSelectedFile();
+                        net.minecraft.client.Minecraft.getMinecraft().addScheduledTask(() -> {
+                            BackgroundRenderer.setCustomBackground(selected);
+                            if (Myau.globalConfig != null) Myau.globalConfig.save();
+                        });
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, "AIMyau-FileChooser").start();
         }
     }
 
