@@ -266,7 +266,7 @@ public class AltManagerGui extends GuiScreen {
             rectColor = interpolateColor(rectColor, brighter(rectColor, 0.4f), -1);
 
             // 黑色 90% 透明度填充
-            Color fillColor = new Color(0, 0, 0, 230);
+            Color fillColor = new Color(0, 0, 0, 191);
             RenderUtil.drawRoundedRect(
                 accountX, yPos,
                 ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
