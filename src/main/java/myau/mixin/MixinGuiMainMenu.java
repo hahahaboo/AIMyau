@@ -92,7 +92,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
         boolean hover = isPointInTriangle(mouseX, mouseY, x1, y1, x2, y2, cornerX, cornerY);
 
-        GGlStateManager.pushMatrix();
+        GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
         GlStateManager.disableAlpha();   // 新增
