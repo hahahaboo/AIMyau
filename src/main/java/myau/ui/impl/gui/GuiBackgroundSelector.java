@@ -150,7 +150,7 @@ public class GuiBackgroundSelector extends GuiScreen {
         } else if (button.id >= 1 && button.id <= 5) {
             BackgroundRenderer.reloadShader(button.id);
             if (Myau.globalConfig != null) Myau.globalConfig.save();
-        }else if (button.id == 6) {
+        } else if (button.id == 6) {
             new Thread(() -> {
                 try {
                     javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
