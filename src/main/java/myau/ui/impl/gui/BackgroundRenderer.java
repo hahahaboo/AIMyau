@@ -229,10 +229,13 @@ public class BackgroundRenderer {
         initTime = System.currentTimeMillis();
     }
 
-    /**
-     * 選擇自訂背景圖片後呼叫。
-     * 會把檔案複製到 .minecraft/config/AIMyau/background/ 並載入。
-     */
+    public static void prepareCustomBackground(String path) {
+        if (path == null || path.isEmpty()) return;
+        customFilePath = path;
+        currentBackgroundIndex = 6;
+        // 刻意不在這裡 loadCustomImage，避免啟動時 GL 未就緒
+    }
+
     public static void setCustomBackground(File selected) {
         if (selected == null || !selected.exists()) return;
 
