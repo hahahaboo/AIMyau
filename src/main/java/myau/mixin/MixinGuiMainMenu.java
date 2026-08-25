@@ -92,11 +92,11 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
 
         boolean hover = isPointInTriangle(mouseX, mouseY, x1, y1, x2, y2, cornerX, cornerY);
 
-        GlStateManager.pushMatrix();
+        GGlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();   // 新增
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
-        GL11.glLineWidth(hover ? 3.2f : 2.4f);
 
         float alpha = hover ? 0.95f : 0.65f;
         GlStateManager.color(1f, 1f, 1f, alpha);
@@ -109,8 +109,9 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         drawCircle(x1, y1, hover ? 4.2f : 3.5f, true);
         drawCircle(x2, y2, hover ? 4.2f : 3.5f, true);
 
+        GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
-        GlStateManager.popMatrix();
+        GlStateManager.popMatrix();;
     }
 
     @Unique
@@ -189,9 +190,17 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cy = this.height;
 
         GlStateManager.pushMatrix();
-        GlStateManager.disableTexture2D();
+
+        // 強制同步（重開遊戲 + 自訂背景後 GlStateManager 可能與 GL 不同步）
+        GlStateManager.disableBlend();
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+
+        GlStateManager.disableTexture2D();
+        // 半透明圓要用 blend，不要開 alpha test 把淡色裁掉
+        GlStateManager.disableAlpha();
+
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
@@ -268,6 +277,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
 
+        GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
     }
