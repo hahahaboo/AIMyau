@@ -265,6 +265,16 @@ public class AltManagerGui extends GuiScreen {
             Color rectColor = new Color(35, 37, 43, currentHoverValue);
             rectColor = interpolateColor(rectColor, brighter(rectColor, 0.4f), -1);
 
+            // 黑色 90% 透明度填充
+            Color fillColor = new Color(0, 0, 0, 230);
+            RenderUtil.drawRoundedRect(
+                accountX, yPos,
+                ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
+                3.5F,
+                fillColor.getRGB(),
+                true, true, true, true
+            );
+
             // Draw visible outline
             RenderUtil.drawRoundedRectOutline(accountX, yPos, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT, 3.5F, 0.0015f,
                     rectColor.getRGB(), true, true, true, true);
