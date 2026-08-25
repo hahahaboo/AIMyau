@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import org.lwjgl.opengl.GL11;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -125,7 +126,7 @@ public class BackgroundRenderer {
                     "    vec3 opos = vec3(32.5 + time * 6.4, 32.5, 32.5);\n" +
                     "    float gggxd = (uv.x - 0.5) * (resolution.x / resolution.y); float ggyd = (1.-uv.y - 0.5); float ggzd = 1.;\n" +
                     "    float gggzd = ggzd * yCos + ggyd * ySin;\n" +
-                    "    vec3 _posd = vec3(gggxd * xCos + gggzd * xSin, ggyd * yCos - ggzd * ySin, gggzd * xCos - gggxd * xSin);\n" +
+                    "    vec3 _posd = vec3(gggxd * xCos + gggzd * xSin, ggyd * yCos - ggzd * xSin, gggzd * xCos - gggxd * xSin);\n" +
                     "    vec3 col = vec3(0.); float br = 1.; vec3 bdist = vec3(255. - 100., 255. - 0., 255. - 50.); float ddist = 0.; float closest = 32.;\n" +
                     "    for (int d = 0; d < 3; d++) {\n" +
                     "        float dimLength = _posd[d]; float ll = abs(1. / dimLength); vec3 posd = _posd * ll;\n" +
@@ -189,14 +190,26 @@ public class BackgroundRenderer {
                     "    col += 1. - m; col *= 1. - 1.5 * dot(uv,uv);\n" +
                     "    gl_FragColor = vec4(col, 1.);\n" +
                     "}";
-    
+
     public static void init() {
         if (currentBackgroundIndex == 6) {
-            // 不在這裡強制建貼圖，等 draw() 延遲載入
+            // 不在這裡強制建貼圖，等 ensureCustomTextureLoaded / draw 延遲載入
             return;
         }
         if (backgroundShader == null) {
             reloadShader(currentBackgroundIndex);
+        }
+    }
+
+    /**
+     * 在 initGui（渲染執行緒）呼叫，避免第一幀 draw 中途建貼圖。
+     */
+    public static void ensureCustomTextureLoaded() {
+        if (currentBackgroundIndex == 6
+                && customTextureId == -1
+                && customFilePath != null
+                && !customFilePath.isEmpty()) {
+            loadCustomImage(new File(customFilePath));
         }
     }
 
@@ -281,7 +294,16 @@ public class BackgroundRenderer {
             BufferedImage img = ImageIO.read(file);
             if (img == null) return;
 
-            customTexture = new DynamicTexture(img);
+            // 統一轉成 ARGB，避免部分格式沒有 alpha 造成貼圖狀態異常
+            BufferedImage argb = img;
+            if (img.getType() != BufferedImage.TYPE_INT_ARGB) {
+                argb = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = argb.createGraphics();
+                g.drawImage(img, 0, 0, null);
+                g.dispose();
+            }
+
+            customTexture = new DynamicTexture(argb);
             customTextureId = customTexture.getGlTextureId();
         } catch (Exception e) {
             e.printStackTrace();
@@ -297,7 +319,7 @@ public class BackgroundRenderer {
         }
     }
 
-    /** 由 Config.load() 呼叫 */
+    /** 由 Config.load() 呼叫（若仍使用舊路徑）；建議改用 prepareCustomBackground */
     public static void loadSavedCustomBackground(String path) {
         if (path == null || path.isEmpty()) return;
         File f = new File(path);
@@ -358,14 +380,14 @@ public class BackgroundRenderer {
     }
 
     private static void drawCustomImage(int width, int height) {
-        // 保存並設置繪製狀態，結束後還原，避免污染 Main Menu 按鈕透明度
         GlStateManager.disableDepth();
         GlStateManager.disableLighting();
         GlStateManager.disableFog();
+        GlStateManager.disableCull();
 
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
-        GlStateManager.disableAlpha(); // 先關 alpha test，用 blend 處理半透明
+        GlStateManager.disableAlpha();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         GlStateManager.blendFunc(770, 771);
         GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
@@ -381,15 +403,30 @@ public class BackgroundRenderer {
         wr.pos(0, 0, 0).tex(0, 0).endVertex();
         tessellator.draw();
 
-        // ===== 還原（與後續 Main Menu / 按鈕繪製相容）=====
+        // 解綁貼圖
         GlStateManager.bindTexture(0);
-        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+
+        // raw GL：強制把真實狀態拉回 UI 可用
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glEnable(GL11.GL_ALPHA_TEST);
+        GL11.glColor4f(1f, 1f, 1f, 1f);
+
+        // 同步 GlStateManager 快取（先關再開，避免「以為已開」）
+        GlStateManager.disableBlend();
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
         GlStateManager.blendFunc(770, 771);
-        GlStateManager.enableAlpha();
+        GlStateManager.disableTexture2D();
         GlStateManager.enableTexture2D();
+        GlStateManager.disableAlpha();
+        GlStateManager.enableAlpha();
+        GlStateManager.color(1f, 1f, 1f, 1f);
         GlStateManager.enableDepth();
+        GlStateManager.enableCull();
     }
 
     private static void drawGradient(int width, int height, int topColor, int bottomColor) {
