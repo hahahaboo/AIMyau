@@ -351,12 +351,19 @@ public class BackgroundRenderer {
     }
 
     private static void drawCustomImage(int width, int height) {
+        // 保存並設置繪製狀態，結束後還原，避免污染 Main Menu 按鈕透明度
+        GlStateManager.disableDepth();
+        GlStateManager.disableLighting();
+        GlStateManager.disableFog();
+
         GlStateManager.enableTexture2D();
-        GlStateManager.bindTexture(customTextureId);
-        GlStateManager.color(1f, 1f, 1f, 1f);
         GlStateManager.enableBlend();
+        GlStateManager.disableAlpha(); // 先關 alpha test，用 blend 處理半透明
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-        GlStateManager.disableAlpha();
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GlStateManager.bindTexture(customTextureId);
 
         Tessellator tessellator = Tessellator.getInstance();
         WorldRenderer wr = tessellator.getWorldRenderer();
@@ -367,8 +374,15 @@ public class BackgroundRenderer {
         wr.pos(0, 0, 0).tex(0, 0).endVertex();
         tessellator.draw();
 
+        // ===== 還原（與後續 Main Menu / 按鈕繪製相容）=====
+        GlStateManager.bindTexture(0);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
         GlStateManager.enableAlpha();
-        GlStateManager.disableBlend();
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableDepth();
     }
 
     private static void drawGradient(int width, int height, int topColor, int bottomColor) {
