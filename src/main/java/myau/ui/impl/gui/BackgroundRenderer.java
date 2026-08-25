@@ -5,14 +5,27 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import org.lwjgl.opengl.GL11;
 
+import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 
 public class BackgroundRenderer {
     public static int currentBackgroundIndex = 1;
     private static ShaderUtil backgroundShader;
     private static long initTime = System.currentTimeMillis();
+
+    // --- Custom background (image only) ---
+    private static DynamicTexture customTexture = null;
+    private static int customTextureId = -1;
+    private static String customFilePath = null;
+    private static final File BACKGROUND_DIR = new File("./config/AIMyau/background");
 
     // --- Shader 1: Abstract FBM ---
     private static final String SHADER_1 =
@@ -179,13 +192,40 @@ public class BackgroundRenderer {
                     "}";
 
     public static void init() {
+        if (currentBackgroundIndex == 6) {
+            // 不在這裡強制建貼圖，等 ensureCustomTextureLoaded / draw 延遲載入
+            return;
+        }
         if (backgroundShader == null) {
             reloadShader(currentBackgroundIndex);
         }
     }
 
+    /**
+     * 在 initGui（渲染執行緒）呼叫，避免第一幀 draw 中途建貼圖。
+     */
+    public static void ensureCustomTextureLoaded() {
+        if (currentBackgroundIndex == 6
+                && customTextureId == -1
+                && customFilePath != null
+                && !customFilePath.isEmpty()) {
+            loadCustomImage(new File(customFilePath));
+        }
+    }
+
     public static void reloadShader(int index) {
         currentBackgroundIndex = index;
+
+        // 切回 1~5 時清掉自訂貼圖
+        if (index != 6) {
+            unloadCustomTexture();
+        }
+
+        if (index == 6) {
+            backgroundShader = null;
+            return;
+        }
+
         String shaderSource;
         switch (index) {
             case 1: shaderSource = SHADER_1; break;
@@ -202,7 +242,112 @@ public class BackgroundRenderer {
         initTime = System.currentTimeMillis();
     }
 
+    public static void prepareCustomBackground(String path) {
+        if (path == null || path.isEmpty()) return;
+        customFilePath = path;
+        currentBackgroundIndex = 6;
+        // 刻意不在這裡 loadCustomImage，避免啟動時 GL 未就緒
+    }
+
+    public static void setCustomBackground(File selected) {
+        if (selected == null || !selected.exists()) return;
+
+        try {
+            if (!BACKGROUND_DIR.exists()) {
+                BACKGROUND_DIR.mkdirs();
+            }
+
+            String name = selected.getName();
+            String ext = "";
+            int dot = name.lastIndexOf('.');
+            if (dot >= 0) {
+                ext = name.substring(dot).toLowerCase();
+            }
+
+            // 只接受圖片
+            if (!ext.matches("\\.(png|jpg|jpeg|gif)")) {
+                System.out.println("[AIMyau] 不支援的檔案格式: " + ext);
+                return;
+            }
+
+            File dest = new File(BACKGROUND_DIR, "custom_bg" + ext);
+
+            Files.copy(
+                    selected.toPath(),
+                    dest.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+            );
+
+            customFilePath = dest.getAbsolutePath();
+            currentBackgroundIndex = 6;
+            loadCustomImage(dest);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void loadCustomImage(File file) {
+        try {
+            unloadCustomTexture();
+
+            BufferedImage img = ImageIO.read(file);
+            if (img == null) return;
+
+            // 統一轉成 ARGB，避免部分格式沒有 alpha 造成貼圖狀態異常
+            BufferedImage argb = img;
+            if (img.getType() != BufferedImage.TYPE_INT_ARGB) {
+                argb = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g = argb.createGraphics();
+                g.drawImage(img, 0, 0, null);
+                g.dispose();
+            }
+
+            customTexture = new DynamicTexture(argb);
+            customTextureId = customTexture.getGlTextureId();
+        } catch (Exception e) {
+            e.printStackTrace();
+            unloadCustomTexture();
+        }
+    }
+
+    private static void unloadCustomTexture() {
+        if (customTexture != null) {
+            customTexture.deleteGlTexture();
+            customTexture = null;
+            customTextureId = -1;
+        }
+    }
+
+    /** 由 Config.load() 呼叫（若仍使用舊路徑）；建議改用 prepareCustomBackground */
+    public static void loadSavedCustomBackground(String path) {
+        if (path == null || path.isEmpty()) return;
+        File f = new File(path);
+        if (!f.exists()) return;
+
+        customFilePath = path;
+        currentBackgroundIndex = 6;
+        loadCustomImage(f);
+    }
+
+    public static String getCustomFilePath() {
+        return customFilePath;
+    }
+
     public static void draw(int width, int height) {
+        // 自訂圖片：在渲染執行緒上延遲載入（避免 Config.load 過早建貼圖）
+        if (currentBackgroundIndex == 6) {
+            if (customTextureId == -1 && customFilePath != null && !customFilePath.isEmpty()) {
+                loadCustomImage(new File(customFilePath));
+            }
+            if (customTextureId != -1) {
+                drawCustomImage(width, height);
+                return;
+            }
+            // 貼圖載入失敗時退回漸層，避免整屏空白
+            drawGradient(width, height, new Color(20, 20, 30).getRGB(), new Color(5, 5, 10).getRGB());
+            return;
+        }
         if (backgroundShader != null && backgroundShader.getProgramID() != 0) {
             GlStateManager.disableCull();
             GlStateManager.disableAlpha();
@@ -232,6 +377,56 @@ public class BackgroundRenderer {
         } else {
             drawGradient(width, height, new Color(20, 20, 30).getRGB(), new Color(5, 5, 10).getRGB());
         }
+    }
+
+    private static void drawCustomImage(int width, int height) {
+        GlStateManager.disableDepth();
+        GlStateManager.disableLighting();
+        GlStateManager.disableFog();
+        GlStateManager.disableCull();
+
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GlStateManager.bindTexture(customTextureId);
+
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(7, DefaultVertexFormats.POSITION_TEX);
+        wr.pos(0, height, 0).tex(0, 1).endVertex();
+        wr.pos(width, height, 0).tex(1, 1).endVertex();
+        wr.pos(width, 0, 0).tex(1, 0).endVertex();
+        wr.pos(0, 0, 0).tex(0, 0).endVertex();
+        tessellator.draw();
+
+        // 解綁貼圖
+        GlStateManager.bindTexture(0);
+
+        // raw GL：強制把真實狀態拉回 UI 可用
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glEnable(GL11.GL_ALPHA_TEST);
+        GL11.glColor4f(1f, 1f, 1f, 1f);
+
+        // 同步 GlStateManager 快取（先關再開，避免「以為已開」）
+        GlStateManager.disableBlend();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableTexture2D();
+        GlStateManager.disableAlpha();
+        GlStateManager.enableAlpha();
+        GlStateManager.color(1f, 1f, 1f, 1f);
+        GlStateManager.enableDepth();
+        GlStateManager.enableCull();
     }
 
     private static void drawGradient(int width, int height, int topColor, int bottomColor) {

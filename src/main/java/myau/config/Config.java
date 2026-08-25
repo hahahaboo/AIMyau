@@ -40,8 +40,17 @@ public class Config {
             // Load background shader index if it exists
             JsonElement backgroundIndexElement = jsonObject.get("background_index");
             if (backgroundIndexElement != null) {
-                BackgroundRenderer.currentBackgroundIndex = backgroundIndexElement.getAsInt();
-                BackgroundRenderer.reloadShader(BackgroundRenderer.currentBackgroundIndex);
+                int idx = backgroundIndexElement.getAsInt();
+                BackgroundRenderer.currentBackgroundIndex = idx;
+
+                if (idx == 6) {
+                    JsonElement pathElem = jsonObject.get("custom_background_path");
+                    if (pathElem != null) {
+                        BackgroundRenderer.prepareCustomBackground(pathElem.getAsString());
+                    }
+                } else {
+                    BackgroundRenderer.reloadShader(idx);
+                }
             }
 
             // Properties
@@ -98,7 +107,12 @@ public class Config {
 
             // Save background shader index
             object.addProperty("background_index", BackgroundRenderer.currentBackgroundIndex);
-
+            if (BackgroundRenderer.currentBackgroundIndex == 6) {
+                String path = BackgroundRenderer.getCustomFilePath();
+                if (path != null) {
+                    object.addProperty("custom_background_path", path);
+                }
+            }
             // Properties
 
             for (Module module : Myau.moduleManager.modules.values()) {

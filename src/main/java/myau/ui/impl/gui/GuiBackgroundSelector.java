@@ -10,6 +10,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.input.Keyboard;
 
 import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 
 public class GuiBackgroundSelector extends GuiScreen {
@@ -44,7 +45,7 @@ public class GuiBackgroundSelector extends GuiScreen {
         int startX = centerX - (gridWidth / 2);
         int startY = centerY - 70;
 
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= 6; i++) {
             int row = (i - 1) / 3;
             int col = (i - 1) % 3;
 
@@ -70,6 +71,8 @@ public class GuiBackgroundSelector extends GuiScreen {
                 return "Minecraft"; // 原版风格
             case 5:
                 return "Circle";
+            case 6:
+                return "+";
             default:
                 return "Unknown";
         }
@@ -148,6 +151,42 @@ public class GuiBackgroundSelector extends GuiScreen {
         } else if (button.id >= 1 && button.id <= 5) {
             BackgroundRenderer.reloadShader(button.id);
             if (Myau.globalConfig != null) Myau.globalConfig.save();
+        } else if (button.id == 6) {
+            new Thread(() -> {
+                try {
+                    FileDialog dialog = new FileDialog(
+                            (Frame) null,
+                            "Select Background Image",
+                            FileDialog.LOAD
+                    );
+                    dialog.setFilenameFilter((dir, name) -> {
+                        String lower = name.toLowerCase();
+                        return lower.endsWith(".png")
+                                || lower.endsWith(".jpg")
+                                || lower.endsWith(".jpeg")
+                                || lower.endsWith(".gif");
+                    });
+                    dialog.setFile("*.png;*.jpg;*.jpeg;*.gif");
+                    dialog.setVisible(true);
+
+                    String fileName = dialog.getFile();
+                    String dir = dialog.getDirectory();
+
+                    if (fileName == null || dir == null) {
+                        return; // 使用者取消
+                    }
+
+                    File selected = new File(dir, fileName);
+                    net.minecraft.client.Minecraft.getMinecraft().addScheduledTask(() -> {
+                        BackgroundRenderer.setCustomBackground(selected);
+                        if (Myau.globalConfig != null) {
+                            Myau.globalConfig.save();
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, "AIMyau-FileChooser").start();
         }
     }
 

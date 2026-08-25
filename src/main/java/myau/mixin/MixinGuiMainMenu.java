@@ -8,6 +8,9 @@ import myau.util.AnimationUtil;
 import myau.util.font.FontManager;
 import net.minecraft.client.gui.*;
 import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import org.lwjgl.opengl.GL11;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -26,6 +29,9 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique private int hoveredButton = -1;
 
     @Unique private final float[] buttonHoverAnim = new float[6];
+
+    // setColor 寫入的最後顏色（供 drawCircle POSITION_COLOR 使用）
+    @Unique private float lastR = 1f, lastG = 1f, lastB = 1f, lastA = 1f;
 
     // 尺寸參數（完全依照你設定好的數值）
     @Unique private static final float MAIN_CIRCLE_RADIUS = 20f;
@@ -47,6 +53,8 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Inject(method = "initGui", at = @At("TAIL"))
     public void onInitGui(CallbackInfo ci) {
         BackgroundRenderer.init();
+        // 在渲染執行緒預先載入自訂貼圖，避免第一幀 draw 中途建貼圖
+        BackgroundRenderer.ensureCustomTextureLoaded();
         this.buttonList.clear();
         this.animProgress = 0.0f;
         this.radialExpand = 0.0f;
@@ -59,8 +67,21 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     public void onDrawScreen(int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
         BackgroundRenderer.draw(this.width, this.height);
 
+        // ===== 自訂背景後強制還原 UI 繪製狀態（修復 radial 無透明度）=====
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.enableBlend();
+        GlStateManager.disableDepth();
+        GlStateManager.disableLighting();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.enableAlpha();
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        // ================================================================
+
         animProgress = AnimationUtil.animate(1.0f, animProgress, 0.12f, 1.0f);
-        drawTitle(20f, this.height - 55f);   // 左下角
+        drawTitle(20f, this.height - 55f);
 
         drawThemeButton(mouseX, mouseY);
         updateRadialState(mouseX, mouseY);
@@ -85,11 +106,16 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         GlStateManager.pushMatrix();
         GlStateManager.disableTexture2D();
         GlStateManager.enableBlend();
+        GlStateManager.disableAlpha();
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glLineWidth(hover ? 3.2f : 2.4f);
 
         float alpha = hover ? 0.95f : 0.65f;
-        GlStateManager.color(1f, 1f, 1f, alpha);
+        setColor(new Color(255, 255, 255, (int) (alpha * 255)).getRGB());
 
         GL11.glBegin(GL11.GL_LINES);
         GL11.glVertex2f(x1, y1);
@@ -99,6 +125,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         drawCircle(x1, y1, hover ? 4.2f : 3.5f, true);
         drawCircle(x2, y2, hover ? 4.2f : 3.5f, true);
 
+        GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
         GlStateManager.popMatrix();
     }
@@ -179,9 +206,23 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         float cy = this.height;
 
         GlStateManager.pushMatrix();
-        GlStateManager.disableTexture2D();
+
+        // 用 raw GL 強制開啟，不依賴 GlStateManager 快取
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_ALPHA_TEST);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glDisable(GL11.GL_LIGHTING);
+
+        // 同步回 GlStateManager，避免後續字型繪製狀態錯亂
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GlStateManager.blendFunc(770, 771);
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableAlpha();
+        GlStateManager.disableDepth();
+
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glEnable(GL11.GL_POINT_SMOOTH);
         GL11.glHint(GL11.GL_LINE_SMOOTH_HINT, GL11.GL_NICEST);
@@ -189,7 +230,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
         // 兩條弧線
         if (radialExpand > 0.04f) {
             float alpha = radialExpand * 0.78f;
-            GlStateManager.color(1f, 1f, 1f, alpha);
+            setColor(new Color(255, 255, 255, (int) (alpha * 255)).getRGB());
 
             drawArc(cx, cy, OUTER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.5f);
             drawArc(cx, cy, INNER_RADIUS * radialExpand, START_ANGLE, END_ANGLE, 2.0f);
@@ -224,7 +265,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 drawCircle(0, 0, r, false);
 
                 // 圖示
-                GlStateManager.color(1f, 1f, 1f, 0.9f + hover * 0.1f);
+                setColor(new Color(255, 255, 255, (int) ((0.9f + hover * 0.1f) * 255)).getRGB());
                 drawIcon(i, r * 0.55f, hover);
 
                 GlStateManager.popMatrix();
@@ -258,17 +299,21 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             drawCircle(cx - 42, cy - 42, 5.8f * radialExpand, true);
         }
 
+        GlStateManager.enableAlpha();
         GlStateManager.enableTexture2D();
+        GlStateManager.enableDepth();
         GlStateManager.popMatrix();
     }
 
     @Unique
     private void setColor(int color) {
-        float a = (color >> 24 & 255) / 255.0f;
-        float r = (color >> 16 & 255) / 255.0f;
-        float g = (color >> 8 & 255) / 255.0f;
-        float b = (color & 255) / 255.0f;
-        GlStateManager.color(r, g, b, a);
+        lastA = (color >> 24 & 255) / 255.0f;
+        lastR = (color >> 16 & 255) / 255.0f;
+        lastG = (color >> 8 & 255) / 255.0f;
+        lastB = (color & 255) / 255.0f;
+        // 同時寫入 GlStateManager 快取 + 真實 GL
+        GlStateManager.color(lastR, lastG, lastB, lastA);
+        GL11.glColor4f(lastR, lastG, lastB, lastA);
     }
 
     // ==================== 圖示 ====================
@@ -285,7 +330,7 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
                 default: return;
             }
 
-            int color = new Color(255, 255, 255, (int)(230 + hover * 25)).getRGB();
+            int color = new Color(255, 255, 255, (int) (230 + hover * 25)).getRGB();
             float scale = (size * 1.6f) / (float) FontManager.icon48.getHeight();
 
             GlStateManager.pushMatrix();
@@ -299,17 +344,21 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
             GlStateManager.popMatrix();
 
             // ===== 重要：還原狀態，否則後面的圓會消失 =====
+            GL11.glEnable(GL11.GL_BLEND);
+            GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            GL11.glDisable(GL11.GL_TEXTURE_2D);
             GlStateManager.disableTexture2D();
             GlStateManager.enableBlend();
             GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
             GlStateManager.color(1f, 1f, 1f, 1f);
+            GL11.glColor4f(1f, 1f, 1f, 1f);
             // =============================================
 
             return;
         }
         // ===== 以下是後備手繪（如果 icon font 不存在才會執行）=====
         GL11.glLineWidth(1.9f + hover * 0.5f);
-        GlStateManager.color(1f, 1f, 1f, 0.92f + hover * 0.08f);
+        setColor(new Color(255, 255, 255, (int) ((0.92f + hover * 0.08f) * 255)).getRGB());
 
         switch (id) {
             case 1: // Singleplayer
@@ -405,26 +454,52 @@ public abstract class MixinGuiMainMenu extends GuiScreen {
     @Unique
     private void drawCircle(float x, float y, float radius, boolean filled) {
         int segments = 48;
-        GL11.glBegin(filled ? GL11.GL_TRIANGLE_FAN : GL11.GL_LINE_LOOP);
-        if (filled) GL11.glVertex2f(x, y);
-        for (int i = 0; i <= segments; i++) {
-            double angle = 2 * Math.PI * i / segments;
-            GL11.glVertex2d(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius);
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+
+        // 確保 blend 真的開著
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+
+        if (filled) {
+            wr.begin(GL11.GL_TRIANGLE_FAN, DefaultVertexFormats.POSITION_COLOR);
+            wr.pos(x, y, 0.0D).color(lastR, lastG, lastB, lastA).endVertex();
+            for (int i = 0; i <= segments; i++) {
+                double angle = 2.0 * Math.PI * i / segments;
+                wr.pos(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, 0.0D)
+                        .color(lastR, lastG, lastB, lastA).endVertex();
+            }
+            tessellator.draw();
+        } else {
+            wr.begin(GL11.GL_LINE_LOOP, DefaultVertexFormats.POSITION_COLOR);
+            for (int i = 0; i <= segments; i++) {
+                double angle = 2.0 * Math.PI * i / segments;
+                wr.pos(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, 0.0D)
+                        .color(lastR, lastG, lastB, lastA).endVertex();
+            }
+            tessellator.draw();
         }
-        GL11.glEnd();
     }
 
     @Unique
     private void drawArc(float cx, float cy, float radius, float startDeg, float endDeg, float lineWidth) {
         GL11.glLineWidth(lineWidth);
-        GL11.glBegin(GL11.GL_LINE_STRIP);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+
+        Tessellator tessellator = Tessellator.getInstance();
+        WorldRenderer wr = tessellator.getWorldRenderer();
+        wr.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
         int steps = 52;
         for (int i = 0; i <= steps; i++) {
             float t = (float) i / steps;
             float angle = (float) Math.toRadians(startDeg + (endDeg - startDeg) * t);
-            GL11.glVertex2d(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+            wr.pos(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, 0.0D)
+                    .color(lastR, lastG, lastB, lastA).endVertex();
         }
-        GL11.glEnd();
+        tessellator.draw();
     }
 
     // ==================== 標題與 Footer ====================
