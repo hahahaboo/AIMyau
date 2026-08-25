@@ -265,7 +265,7 @@ public class AltManagerGui extends GuiScreen {
             Color rectColor = new Color(35, 37, 43, currentHoverValue);
             rectColor = interpolateColor(rectColor, brighter(rectColor, 0.4f), -1);
             
-            Color fillColor = new Color(0, 0, 0, 115);
+            Color fillColor = new Color(0, 0, 0, 90);
             RenderUtil.drawRoundedRect(
                 accountX, yPos,
                 ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT,
@@ -275,7 +275,7 @@ public class AltManagerGui extends GuiScreen {
             );
 
             // Draw visible outline
-            RenderUtil.drawRoundedRectOutline(accountX, yPos, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT, 3.5F, 0.5f,
+            RenderUtil.drawRoundedRectOutline(accountX, yPos, ACCOUNT_BUTTON_WIDTH, ACCOUNT_BUTTON_HEIGHT, 3.5F, 5f,
                     rectColor.getRGB(), true, true, true, true);
 
             // Draw delete button with fancy rounded style
