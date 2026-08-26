@@ -111,6 +111,10 @@ public class InvWalk extends Module {
                 return this.closeDelayTicks == -1 && this.moveDelayTicks == 0 && this.clickQueue.isEmpty();
 
             default: // VANILLA
+                // Hypixel = true 時，只允許在玩家自己的背包移動
+                if (this.hypixel.getValue()) {
+                    return mc.currentScreen instanceof GuiInventory;
+                }
                 return true;
         }
     }
