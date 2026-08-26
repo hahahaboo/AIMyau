@@ -10,6 +10,7 @@ import myau.events.UpdateEvent;
 import myau.mixin.IAccessorC0DPacketCloseWindow;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.KeyBindUtil;
@@ -20,11 +21,15 @@ import net.minecraft.client.gui.inventory.GuiContainerCreative;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.inventory.ContainerPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.C0DPacketCloseWindow;
 import net.minecraft.network.play.client.C0EPacketClickWindow;
 import net.minecraft.network.play.client.C16PacketClientStatus;
 import net.minecraft.network.play.client.C16PacketClientStatus.EnumState;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -36,6 +41,7 @@ public class InvWalk extends Module {
     public final IntProperty openDelay = new IntProperty("open-delay", 0, 0, 20, () -> this.mode.getValue() == 2);
     public final IntProperty closeDelay = new IntProperty("close-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
     public final IntProperty moveDelay = new IntProperty("move-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
+    public final BooleanProperty hypixel = new BooleanProperty("Hypixel", false, () -> this.mode.getValue() == 0);
 
     private boolean keysPressed = false;
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
@@ -43,6 +49,8 @@ public class InvWalk extends Module {
     private int openDelayTicks = -1;
     private int closeDelayTicks = -1;
     private int moveDelayTicks = 0;
+
+    private final List<Packet<?>> inventoryPackets = new ArrayList<>();
 
     public InvWalk() {
         super("InvWalk", "Allows you to walk while in inventories.", Category.MOVEMENT, 0, false, false);
@@ -95,7 +103,7 @@ public class InvWalk extends Module {
         switch (this.mode.getValue()) {
             case 1: // UNSPRINT
                 return true;
-                
+
             case 2: // LEGIT
                 if (!(mc.currentScreen instanceof GuiInventory)) {
                     return false;
@@ -118,6 +126,29 @@ public class InvWalk extends Module {
             }
         }
         return true;
+    }
+
+    private boolean checkCompass() {
+        for (int i = 0; i < 9; i++) {
+            ItemStack stack = mc.thePlayer.inventory.getStackInSlot(i);
+            if (stack != null && stack.getUnlocalizedName().toLowerCase().contains("compass")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void handleHypixelInventory(PacketEvent event) {
+        Packet<?> packet = event.getPacket();
+        if (packet instanceof C16PacketClientStatus || packet instanceof C0EPacketClickWindow) {
+            event.setCancelled(true);
+            inventoryPackets.add(packet);
+        } else if (packet instanceof C0DPacketCloseWindow) {
+            for (Packet<?> p : inventoryPackets) {
+                PacketUtil.sendPacketNoEvent(p);
+            }
+            inventoryPackets.clear();
+        }
     }
 
     @EventTarget
@@ -152,7 +183,7 @@ public class InvWalk extends Module {
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || this.mode.getValue() != 2 || event.getType() != EventType.PRE) return;
 
-        if (this.moveDelayTicks >0) {
+        if (this.moveDelayTicks > 0) {
             this.moveDelayTicks--;
         }
 
@@ -178,7 +209,18 @@ public class InvWalk extends Module {
 
     @EventTarget
     public void onPacket(PacketEvent event) {
-        if (!this.isEnabled() || this.mode.getValue() != 2 || event.getType() != EventType.SEND) return;
+        if (!this.isEnabled() || event.getType() != EventType.SEND) return;
+
+        // ===== Hypixel（只在 VANILLA 模式下生效）=====
+        if (this.mode.getValue() == 0 && this.hypixel.getValue()) {
+            if (!checkCompass()) {
+                handleHypixelInventory(event);
+            }
+            if (event.isCancelled()) return;
+        }
+
+        // ===== 原本的 LEGIT 模式邏輯 =====
+        if (this.mode.getValue() != 2) return;
 
         if (event.getPacket() instanceof C16PacketClientStatus) {
             C16PacketClientStatus packet = (C16PacketClientStatus) event.getPacket();
@@ -239,6 +281,14 @@ public class InvWalk extends Module {
         this.openDelayTicks = -1;
         this.closeDelayTicks = -1;
         this.moveDelayTicks = 0;
+
+        // Hypixel 剩餘封包補送
+        if (!inventoryPackets.isEmpty()) {
+            for (Packet<?> p : inventoryPackets) {
+                PacketUtil.sendPacketNoEvent(p);
+            }
+            inventoryPackets.clear();
+        }
     }
 
     @Override
