@@ -40,6 +40,7 @@ import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.network.play.client.C09PacketHeldItemChange;
 import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.network.play.server.S1CPacketEntityMetadata;
+import net.minecraft.network.play.server.S19PacketEntityStatus;
 import net.minecraft.util.*;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 import net.minecraft.world.WorldSettings.GameType;
@@ -66,10 +67,21 @@ public class KillAura extends Module {
     private long attackDelayMS = 0L;
     private int blockTick = 0;
     private int lastTickProcessed;
+    private int lagStage = 0;
+    private boolean lagPrepare = false;
+    private long lagTimer = 0L;
+    private int lagSwapSlot = -1;
+    private int smartUnblockTicksLeft = 0;
+    private boolean lagDidAttack = false;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
+    public final BooleanProperty smartUnblock;
+    public final IntProperty smartUnblockTicks;
+    public final PercentProperty smartUnblockChance;
+    public final ModeProperty lagNewPreAps;
+    public final ModeProperty lagNewPreUnblock;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -318,15 +330,140 @@ public class KillAura extends Module {
         return -1;
     }
 
+    /** o$r2 */
+    private void lagResetTimer() {
+        this.lagTimer = System.currentTimeMillis();
+    }
+
+    /** W */
+    private void lagMarkPrepare() {
+        this.lagPrepare = true;
+    }
+
+    /** K：C07 解除 */
+    private boolean lagReleaseBlock() {
+        if (!this.isPlayerBlocking()) return true;
+        if (Myau.playerStateManager.digging || Myau.playerStateManager.placing) return false;
+        this.stopBlock();
+        return true;
+    }
+
+    /** e：C09 切欄解除（Expo 常用） */
+    private boolean lagSwapUnblock() {
+        if (!this.isPlayerBlocking()) return true;
+        if (Myau.playerStateManager.digging || Myau.playerStateManager.placing) return false;
+
+        int current = mc.thePlayer.inventory.currentItem;
+        int empty = this.findEmptySlot(current);
+        if (empty == -1) {
+            return this.lagReleaseBlock();
+        }
+        this.lagSwapSlot = current;
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(empty));
+        ((IAccessorPlayerControllerMP) mc.playerController).setCurrentPlayerItem(empty);
+        this.blockingState = false;
+        return true;
+    }
+
+    /** 統一解除入口 */
+    private boolean lagUnblock() {
+        if (this.lagNewPreUnblock.getValue() == 1) {
+            return this.lagSwapUnblock();
+        }
+        return this.lagReleaseBlock();
+    }
+
+    /** 切回原本欄位 */
+    private void lagRestoreSlot() {
+        if (this.lagSwapSlot != -1) {
+            PacketUtil.sendPacket(new C09PacketHeldItemChange(this.lagSwapSlot));
+            ((IAccessorPlayerControllerMP) mc.playerController).setCurrentPlayerItem(this.lagSwapSlot);
+            this.lagSwapSlot = -1;
+        }
+    }
+
+    /** Q：重新格擋 */
+    private void lagReblock(float yaw, float pitch, boolean withInteract) {
+        this.lagRestoreSlot();
+        if (withInteract && this.target != null) {
+            this.interactAttack(yaw, pitch);
+        } else {
+            this.sendUseItem();
+        }
+    }
+
+    /**
+     * 對應 Expo C()：LAG_NEW 的 APS 狀態推進（無 NoSlow 版）
+     * 在 stage==0 時先解除再進 3
+     */
+    private void lagAdvanceAps() {
+        if (this.lagStage == 0) {
+            if (this.lagUnblock()) {
+                this.lagStage = 3;
+            }
+            return;
+        }
+
+        switch (this.lagNewPreAps.getValue()) {
+            case 0: // 3APS
+                if (this.lagStage == 3) {
+                    this.lagStage = 5;
+                } else if (this.lagStage == 5) {
+                    this.lagStage = 1;
+                }
+                break;
+            case 1: // 5APS
+                if (this.lagStage == 3) {
+                    this.lagStage = 1;
+                }
+                break;
+            case 2: // 7APS
+                if (this.lagStage == 3) {
+                    this.lagStage = 2;
+                }
+                break;
+            case 3: // 10APS
+                if (this.lagStage == 3) {
+                    this.lagStage = 5;
+                } else {
+                    this.lagStage = 6;
+                }
+                break;
+            case 4: // 14APS
+                if (this.lagStage == 3) {
+                    this.lagStage = 6;
+                }
+                break;
+            default:
+                if (this.lagStage == 3) {
+                    this.lagStage = 2;
+                }
+        }
+    }
+
+    /** 是否在可攻擊視窗（Expo：k==2 || k==5 || k==6） */
+    private boolean lagInAttackWindow() {
+        return this.lagStage == 2 || this.lagStage == 5 || this.lagStage == 6 || this.lagStage == 1;
+    }
+
     public KillAura() {
         super("KillAura", "Attacks entities around you", Category.COMBAT, 0, false, false);
         this.lastTickProcessed = 0;
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
-                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden"}
+                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden", "expo"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
+        this.smartUnblock = new BooleanProperty("smart-unblock", false);
+        this.smartUnblockTicks = new IntProperty("smart-unblock-ticks", 8, 0, 15);
+        this.smartUnblockChance = new PercentProperty("smart-unblock-chance", 100);
+        this.lagNewPreAps = new ModeProperty(
+            "lag-new-pre-aps", 2, new String[]{"3APS", "5APS", "7APS", "10APS", "14APS"}
+        );
+        this.lagNewPreUnblock = new ModeProperty(
+            "lag-new-pre-unblock", 1, new String[]{"RELEASE", "SWAP"}
+        );
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -393,11 +530,34 @@ public class KillAura extends Module {
 
     @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
+        // POST
         if (event.getType() == EventType.POST && this.blinkReset) {
             this.blinkReset = false;
             Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
             Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
         }
+        if (event.getType() == EventType.POST
+                && this.isEnabled()
+                && this.autoBlock.getValue() == 6) {
+            switch (this.lagStage) {
+                case 8:
+                    // Expo k==8：Q + o$r2 + W → k=9
+                    this.lagReblock(mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch, this.lagDidAttack);
+                    this.lagResetTimer();
+                    this.lagMarkPrepare();
+                    this.lagStage = 9;
+                    this.lagDidAttack = false;
+                    Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                    Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+                    break;
+                case 9:
+                    // Expo：緩衝，下一個 PRE 會 9→0
+                    break;
+                default:
+                    break;
+            }
+        }
+        // PRE
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
@@ -565,6 +725,67 @@ public class KillAura extends Module {
                                 this.hypixel3Asw = 0;
                             }
                             break;
+                        case 6: // LAG_NEW_PRE（完整對齊 Expo）
+                            if (this.smartUnblockTicksLeft > 0) {
+                                this.lagUnblock();
+                                this.smartUnblockTicksLeft--;
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                attack = false;
+                                this.lagStage = 0;
+                                break;
+                            }
+
+                            if (this.hasValidTarget() && this.canAutoBlock()) {
+                                Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+
+                                // 準備標記：對應 J，清一次狀態
+                                if (this.lagPrepare) {
+                                this.lagResetTimer();
+                                this.lagPrepare = false;
+                                }
+
+                                // 9 → 0（Expo pre 裡的轉換）
+                                if (this.lagStage == 9) {
+                                    this.lagStage = 0;
+                                }
+
+                                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
+                                    // 對應 F() + C()：推進 APS / 解除
+                                    if (this.lagStage == 0 || this.lagStage == 3 || this.lagStage == 5) {
+                                        this.lagMarkPrepare();
+                                        this.lagAdvanceAps();
+                                    } else if (this.lagStage == 1 || this.lagStage == 6) {
+                                        // Expo：1/6 → 2
+                                        this.lagStage = 2;
+                                    }
+
+                                    // 可攻擊視窗：允許 attack（不要強制 false）
+                                    if (this.lagInAttackWindow()) {
+                                        // attack 維持外層的 true（有目標且 canAttack）
+                                        // 攻擊成功後在後面設成 stage 8
+                                        this.lagDidAttack = false; // 本 tick 稍後由 attacked 決定
+                                    } else {
+                                        // 還在解除/節奏中：本 tick 不攻擊
+                                        attack = false;
+                                    }
+                                } else {
+                                    attack = false;
+                                }
+
+                                this.isBlocking = true;
+                                this.fakeBlockState = true;
+                            } else {
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                this.lagStage = 0;
+                                this.lagPrepare = false;
+                                this.lagSwapSlot = -1;
+                                this.lagDidAttack = false;
+                            }
+                             break;
                     }
                 }
                 boolean attacked = false;
@@ -587,6 +808,11 @@ public class KillAura extends Module {
                     }
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
+                    }
+                    // LAG_NEW_PRE：攻擊成功 → 進入 k=8（Post 再回格擋）
+                    if (this.autoBlock.getValue() == 6 && attacked) {
+                        this.lagDidAttack = true;
+                        this.lagStage = 8; // 對應 Expo LAG_NEW_PRE → k=8
                     }
                 }
                 if (swap) {
@@ -681,21 +907,34 @@ public class KillAura extends Module {
     @EventTarget(Priority.LOWEST)
     public void onPacket(PacketEvent event) {
         if (this.isEnabled() && !event.isCancelled() && mc.thePlayer != null && mc.theWorld != null) {
-            if (event.getPacket() instanceof C07PacketPlayerDigging) {
-                C07PacketPlayerDigging packet = (C07PacketPlayerDigging) event.getPacket();
-                if (packet.getStatus() == C07PacketPlayerDigging.Action.RELEASE_USE_ITEM) {
+            if (event.getType() == EventType.SEND) {
+                if (event.getPacket() instanceof C07PacketPlayerDigging) {
+                    C07PacketPlayerDigging packet = (C07PacketPlayerDigging) event.getPacket();
+                    if (packet.getStatus() == C07PacketPlayerDigging.Action.RELEASE_USE_ITEM) {
+                        this.blockingState = false;
+                    }
+                }
+                if (event.getPacket() instanceof C09PacketHeldItemChange) {
                     this.blockingState = false;
+                    if (this.isBlocking) {
+                        mc.thePlayer.stopUsingItem();
+                    }
                 }
             }
-            if (event.getPacket() instanceof C09PacketHeldItemChange) {
-                this.blockingState = false;
-                if (this.isBlocking) {
-                    mc.thePlayer.stopUsingItem();
+
+            if (event.getType() == EventType.RECEIVE
+                    && this.smartUnblock.getValue()
+                    && this.autoBlock.getValue() == 6
+                    && event.getPacket() instanceof S19PacketEntityStatus) {
+                S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
+                if (packet.getEntity(mc.theWorld) == mc.thePlayer && packet.getOpCode() == 2) {
+                    if (RandomUtil.nextInt(0, 100) <= this.smartUnblockChance.getValue()) {
+                        this.smartUnblockTicksLeft = this.smartUnblockTicks.getValue();
+                    }
                 }
             }
         }
     }
-          
 
     @EventTarget
     public void onMove(MoveInputEvent event) {
