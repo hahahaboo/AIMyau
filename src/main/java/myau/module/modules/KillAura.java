@@ -649,66 +649,61 @@ public class KillAura extends Module {
                             }
                             break;
                         case 6: // LAG_NEW_PRE
-                        if (this.smartUnblockTicksLeft > 0) {
-                            // Smart Unblock 強制解除中
-                            this.lagNewPreUnblock();
-                            this.smartUnblockTicksLeft--;
-                            this.isBlocking = false;
-                            this.fakeBlockState = false;
-                            Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                            attack = false;
-                            break;
-                        }
-
-                        if (this.hasValidTarget() && this.canAutoBlock()) {
-                            Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
-
-                            // 準備標記處理（對應 Expo J）
-                            if (this.lagNewPrePrepare) {
-                                this.lagNewPreResetTimer();
-                                this.lagNewPrePrepare = false;
-                                this.lagNewPreStage = 0;
-                            }
-
-                            if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-                                switch (this.lagNewPreStage) {
-                                    case 0:
-                                    case 8:
-                                        // PRE：攻擊當下先解除 + 標記準備
-                                        this.lagNewPreUnblock();
-                                        this.lagNewPreResetTimer();
-                                        this.lagNewPreMarkPrepare();
-                                        attack = false;                 // 這 tick 先不打
-                                        this.lagNewPreStage = 9;
-                                        break;
-
-                                    case 9:
-                                        // 重新格擋階段
-                                        if (this.lagNewPreShouldReblock()) {
-                                            // 讓後面的 swap / blocked 邏輯去發格擋封包
-                                            swap = true;
-                                            blocked = true;
-                                        }
-                                        this.lagNewPreStage = 0;
-                                        break;
-
-                                    default:
-                                        this.lagNewPreStage = 0;
-                                }
-                            } else {
+                            if (this.smartUnblockTicksLeft > 0) {
+                                this.lagNewPreUnblock();
+                                this.smartUnblockTicksLeft--;
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
                                 attack = false;
+                                break;
                             }
 
-                            this.isBlocking = true;
-                            this.fakeBlockState = true;
-                        } else {
-                            Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                            this.isBlocking = false;
-                            this.fakeBlockState = false;
-                            this.lagNewPreStage = 0;
-                            this.lagNewPrePrepare = false;
-                            this.lagNewPreSlot = -1;
-                        }
+                            if (this.hasValidTarget() && this.canAutoBlock()) {
+                                Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+
+                                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
+                                    switch (this.lagNewPreStage) {
+                                        case 0:
+                                            // PRE：先解除，這 tick 不攻擊，下一 tick 再打
+                                            if (this.isPlayerBlocking()) {
+                                                this.lagNewPreUnblock();
+                                                this.lagNewPreResetTimer();
+                                                attack = false;
+                                                this.lagNewPreStage = 1;
+                                            } else {
+                                                // 已經沒在擋 → 直接攻擊，之後再格擋
+                                                this.lagNewPreStage = 1;
+                                            }
+                                            break;
+
+                                        case 1:
+                                            // 攻擊 tick：允許 attack（不要設 attack = false）
+                                            // 攻擊後重新格擋
+                                            if (!this.isPlayerBlocking()) {
+                                                swap = true;
+                                            }
+                                            blocked = true;
+                                            this.lagNewPreStage = 0;
+                                            break;
+
+                                        default:
+                                            this.lagNewPreStage = 0;
+                                    }
+                                } else {
+                                    attack = false;
+                                }
+
+                                this.isBlocking = true;
+                                this.fakeBlockState = true;
+                            } else {
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                this.lagNewPreStage = 0;
+                                this.lagNewPrePrepare = false;
+                                this.lagNewPreSlot = -1;
+                            }
                         break;
                     }
                 }
