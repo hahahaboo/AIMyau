@@ -49,6 +49,7 @@ public class Velocity extends Module {
     public final PercentProperty explosionHorizontal = new PercentProperty("explosions-horizontal", 100, () -> this.mode.getValue() == 0);
     public final PercentProperty explosionVertical = new PercentProperty("explosions-vertical", 100, () -> this.mode.getValue() == 0);
     public final BooleanProperty reachCheck = new BooleanProperty("Reach-check", true, () -> this.mode.getValue() == 2);
+    public final IntProperty dist = new IntProperty("distance", 3, 3, 6, () -> this.mode.getValue() == 2 && this.reachCheck.getValue());
     public final BooleanProperty delayAr = new BooleanProperty("Delay", false, () -> this.mode.getValue() == 2);
     public final IntProperty delayTicks = new IntProperty("delay-ticks", 3, 1, 20, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
     public final PercentProperty delayChance = new PercentProperty("delay-chance", 100, () -> this.mode.getValue() == 1 || (this.mode.getValue()==2 && this.delayAr.getValue()));
@@ -205,9 +206,9 @@ public class Velocity extends Module {
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                 if (killAura != null && killAura.isEnabled() 
                     && killAura.getTarget() != null 
-                    && !killAura.isBlocking()) {
+                    && !killAura.shouldAutoBlock()) {
                         EntityLivingBase target = killAura.getTarget();
-                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > killAura.attackRange.getValue()){
+                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
                             return;
                         }
                         if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
