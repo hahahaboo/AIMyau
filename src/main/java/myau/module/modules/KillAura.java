@@ -324,7 +324,7 @@ public class KillAura extends Module {
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
-                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden"}
+                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden", "LAG_NEW_PRE"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
@@ -377,7 +377,8 @@ public class KillAura extends Module {
     public boolean shouldAutoBlock() {
         if (this.isPlayerBlocking() && this.isBlocking) {
             return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (this.autoBlock.getValue() == 2  // INTERACT
-                    || this.autoBlock.getValue() == 3); // LEGIT
+                    || this.autoBlock.getValue() == 3  // LEGIT
+                    || this.autoBlock.getValue() == 6); // LAG_NEW_PRE
         } else {
             return false;
         }
@@ -563,6 +564,39 @@ public class KillAura extends Module {
                                 this.isBlocking = false;
                                 this.fakeBlockState = false;
                                 this.hypixel3Asw = 0;
+                            }
+                            break;
+                        case 6:
+                            // LAG_NEW_PRE
+                            if (this.hasValidTarget()) {
+                                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
+                                    switch (this.blockTick) {
+                                        case 0:
+                                            if (!this.isPlayerBlocking()) {
+                                                swap = true;
+                                            }
+                                            this.blockTick = 1;
+                                            break;
+                                        case 1:
+                                            if (this.isPlayerBlocking()) {
+                                                this.stopBlock();
+                                                attack = false;
+                                            }
+                                            if (this.attackDelayMS <= 50L) {
+                                                this.blockTick = 0;
+                                            }
+                                            break;
+                                        default:
+                                            this.blockTick = 0;
+                                    }
+                                }
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.isBlocking = true;
+                                this.fakeBlockState = true;
+                            } else {
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
                             }
                             break;
                     }
@@ -798,7 +832,8 @@ public class KillAura extends Module {
     @Override
     public void verifyValue(String value) {
         boolean badCps = this.autoBlock.getValue() == 2  // INTERACT
-                || this.autoBlock.getValue() == 3;        // LEGIT
+                || this.autoBlock.getValue() == 3        // LEGIT
+                || this.autoBlock.getValue() == 6;       // LAG_NEW_PRE
         if (!this.autoBlock.getName().equals(value)) {
             if (this.swingRange.getName().equals(value)) {
                 if (this.swingRange.getValue() < this.attackRange.getValue()) {
