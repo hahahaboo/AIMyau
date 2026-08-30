@@ -118,7 +118,7 @@ public class KillAura extends Module {
                 } else {
                     AttackEvent event = new AttackEvent(this.target.getEntity());
                     EventManager.call(event);
-                    //((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
+                    ((IAccessorPlayerControllerMP) mc.playerController).callSyncCurrentPlayItem();
                     PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
                     if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
                         PlayerUtil.attackEntity(this.target.getEntity());
