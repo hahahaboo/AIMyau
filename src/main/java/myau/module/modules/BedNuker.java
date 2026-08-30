@@ -89,7 +89,7 @@ public class BedNuker extends Module {
     }
 
     private void resetBreaking() {
-        if (this.abortBreaking.getValue() && this.breakProgress <= 1.0F){
+        if (this.abortBreaking.getValue() && this.breakProgress != 0.0F && this.breakProgress <= 1.0F){
             return;
         }
         if (this.targetBed != null) {
