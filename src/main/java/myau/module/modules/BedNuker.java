@@ -60,6 +60,7 @@ public class BedNuker extends Module {
     public final PercentProperty speed = new PercentProperty("speed", 0);
     public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
     public final ModeProperty ignoreVelocity = new ModeProperty("ignore-velocity", 0, new String[]{"NONE", "CANCEL", "DELAY"});
+    public final BooleanProperty abortBreaking = new BooleanProperty("abort-breaking", false);
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", true);
@@ -88,6 +89,9 @@ public class BedNuker extends Module {
     }
 
     private void resetBreaking() {
+        if (this.abortBreaking){
+            return;
+        }
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
         }
