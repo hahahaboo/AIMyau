@@ -89,15 +89,16 @@ public class BedNuker extends Module {
     }
 
     private void resetBreaking() {
+        if (this.abortBreaking.getValue() && this.breakProgress <= 1.0F){
+            return;
+        }
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
         }
         this.targetBed = null;
         this.breakStage = 0;
         this.tickCounter = 0;
-        if (this.abortBreaking.getValue() && this.breakProgress != 1.0F){
-            this.breakProgress = 0.0F;
-        }
+        this.breakProgress = 0.0F;
         this.isBed = false;
         this.readyToBreak = false;
         this.breaking = false;
