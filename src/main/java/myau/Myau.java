@@ -62,6 +62,7 @@ public class Myau {
         EventManager.register(notificationRenderer);
         EventManager.register(rotationManager);
 
+        moduleManager.modules.put(AbortBreaking.class, new AbortBreaking());
         moduleManager.modules.put(AimAssist.class, new AimAssist());
         moduleManager.modules.put(Ambience.class, new Ambience());
         moduleManager.modules.put(Animations.class, new Animations());
