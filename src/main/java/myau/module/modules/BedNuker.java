@@ -89,7 +89,11 @@ public class BedNuker extends Module {
     }
 
     private void resetBreaking() {
-        if (this.abortBreaking.getValue() && this.breakProgress != 0.0F && this.breakProgress <= 1.0F){
+        this.resetBreaking(false);
+    }
+
+    private void resetBreaking(boolean finish) {
+        if (!finish && this.abortBreaking.getValue() && this.breakProgress != 0.0F && this.breakProgress <= 1.0F){
             return;
         }
         if (this.targetBed != null) {
@@ -409,7 +413,7 @@ public class BedNuker extends Module {
                         break;
                     case 2:
                         this.restoreSlot();
-                        this.resetBreaking();
+                        this.resetBreaking(true);
                 }
                 if (this.targetBed != null) {
                     return;
