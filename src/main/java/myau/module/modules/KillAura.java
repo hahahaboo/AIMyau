@@ -174,7 +174,8 @@ public class KillAura extends Module {
         } else if (!(Boolean) this.weaponsOnly.getValue()
                 || ItemUtil.hasRawUnbreakingEnchant()
                 || this.allowTools.getValue() && ItemUtil.isHoldingTool()) {
-            if (((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock()) {
+            AbortBreaking abortBreaking = (AbortBreaking) Myau.moduleManager.modules.get(AbortBreaking.class);
+            if (((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock() && !abortBreaking.isEnabled()) {
                 return false;
             } else if ((ItemUtil.isEating() || ItemUtil.isUsingBow()) && PlayerUtil.isUsingItem()) {
                 return false;
