@@ -94,7 +94,7 @@ public class LagRange extends Module {
                     AbortBreaking abortBreaking = (AbortBreaking) Myau.moduleManager.modules.get(AbortBreaking.class);
                     BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
                     if ((!bedNuker.isEnabled() || !bedNuker.isReady())
-                            &&( !((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock() || abortBreaking.isEnabled()
+                            &&( !((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock() || abortBreaking.isEnabled())
                             && (!mc.thePlayer.isUsingItem() || mc.thePlayer.isBlocking())
                             && (
                             !(Boolean) this.weaponsOnly.getValue()
