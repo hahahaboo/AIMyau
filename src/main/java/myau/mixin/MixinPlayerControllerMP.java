@@ -1,8 +1,10 @@
 package myau.mixin;
 
+import myau.Myau;
 import myau.event.EventManager;
 import myau.events.CancelUseEvent;
 import myau.events.WindowClickEvent;
+import myau.module.modules.AbortBreaking;
 import net.minecraft.client.multiplayer.PlayerControllerMP;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -42,6 +44,19 @@ public abstract class MixinPlayerControllerMP {
         EventManager.call(event);
         if (event.isCancelled()) {
             callbackInfo.cancel();
+        }
+    }
+
+    @Inject(
+            method = {"getIsHittingBlock"},
+            at = {@At("HEAD")},
+            cancellable = true
+    )
+    private void getIsHittingBlock(CallbackInfoReturnable<Boolean> cir) {
+        if (Myau.moduleManager != null
+                && Myau.moduleManager.modules.get(AbortBreaking.class) != null
+                && Myau.moduleManager.modules.get(AbortBreaking.class).isEnabled()) {
+            cir.setReturnValue(false);
         }
     }
 }
