@@ -128,7 +128,12 @@ public abstract class MixinMinecraft {
         EventManager.call(event);
         if (event.isCancelled()) {
             callbackInfo.cancel();
-            this.playerController.resetBlockRemoving();
+            // 只有 AbortBreaking 沒開時才重置
+            if (Myau.moduleManager == null
+                    || Myau.moduleManager.modules.get(AbortBreaking.class) == null
+                    || !Myau.moduleManager.modules.get(AbortBreaking.class).isEnabled()) {
+                this.playerController.resetBlockRemoving();
+            }
         }
     }
 
