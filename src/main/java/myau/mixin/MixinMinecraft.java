@@ -6,6 +6,7 @@ import myau.event.types.EventType;
 import myau.events.*;
 import myau.init.Initializer;
 import myau.module.modules.NoHitDelay;
+import myau.module.modules.AbortBreaking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.GuiScreen;
@@ -128,6 +129,21 @@ public abstract class MixinMinecraft {
         if (event.isCancelled()) {
             callbackInfo.cancel();
             this.playerController.resetBlockRemoving();
+        }
+    }
+
+    @Redirect(
+            method = {"sendClickBlockToController"},
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/multiplayer/PlayerControllerMP;resetBlockRemoving()V"
+            )
+    )
+    private void injectAbortBreaking(PlayerControllerMP instance) {
+        if (Myau.moduleManager == null
+                || Myau.moduleManager.modules.get(AbortBreaking.class) == null
+                || !Myau.moduleManager.modules.get(AbortBreaking.class).isEnabled()) {
+            instance.resetBlockRemoving();
         }
     }
 
