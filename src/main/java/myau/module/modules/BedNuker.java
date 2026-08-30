@@ -611,6 +611,9 @@ public class BedNuker extends Module {
 
     @EventTarget
     public void onHitBlock(HitBlockEvent event) {
+        if (!this.isEnabled()) {
+            this.resetBreaking(true);
+        }
         if (this.isEnabled()) {
             if (this.isReady() || this.targetBed != null && mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK) {
                 event.setCancelled(true);
