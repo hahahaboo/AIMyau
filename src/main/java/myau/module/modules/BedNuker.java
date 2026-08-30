@@ -60,7 +60,6 @@ public class BedNuker extends Module {
     public final PercentProperty speed = new PercentProperty("speed", 0);
     public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
     public final ModeProperty ignoreVelocity = new ModeProperty("ignore-velocity", 0, new String[]{"NONE", "CANCEL", "DELAY"});
-    public final BooleanProperty abortBreaking = new BooleanProperty("abort-breaking", false);
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", true);
@@ -89,13 +88,6 @@ public class BedNuker extends Module {
     }
 
     private void resetBreaking() {
-        this.resetBreaking(false);
-    }
-
-    private void resetBreaking(boolean finish) {
-        if (!finish && this.abortBreaking.getValue() && this.breakProgress != 0.0F && this.breakProgress <= 1.0F){
-            return;
-        }
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
         }
@@ -413,7 +405,7 @@ public class BedNuker extends Module {
                         break;
                     case 2:
                         this.restoreSlot();
-                        this.resetBreaking(true);
+                        this.resetBreaking();
                 }
                 if (this.targetBed != null) {
                     return;
@@ -611,9 +603,6 @@ public class BedNuker extends Module {
 
     @EventTarget
     public void onHitBlock(HitBlockEvent event) {
-        if (!this.isEnabled()) {
-            this.resetBreaking(true);
-        }
         if (this.isEnabled()) {
             if (this.isReady() || this.targetBed != null && mc.objectMouseOver != null && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK) {
                 event.setCancelled(true);
