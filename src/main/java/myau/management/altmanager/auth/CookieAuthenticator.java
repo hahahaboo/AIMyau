@@ -174,7 +174,16 @@ public class CookieAuthenticator {
 
     static String extractAccessToken(String location) throws IOException {
         int start = location == null ? -1 : location.indexOf("accessToken=");
-        if (start < 0) throw new IOException("[Step 3] No accessToken in redirect URL");
+        if (start < 0) {
+    if (location != null) {
+        try {
+            java.awt.Toolkit.getDefaultToolkit()
+                    .getSystemClipboard()
+                    .setContents(new java.awt.datatransfer.StringSelection(location), null);
+        } catch (Exception ignored) {}
+    }
+    throw new IOException("[Step 3] No accessToken in redirect URL");
+}
 
         String token = location.substring(start + "accessToken=".length());
         int end = token.indexOf('&');
