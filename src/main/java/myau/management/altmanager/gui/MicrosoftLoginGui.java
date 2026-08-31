@@ -102,7 +102,7 @@ public class MicrosoftLoginGui extends GuiScreen {
         new Thread(() -> {
             try {
                 // 第一步：如果是超长的 JWT，这通常是最终的 Minecraft Token 或 微软 Access Token
-                if (cleanToken.startsWith("eyJ") || cleanToken.length() > 500) {
+                if (cleanToken.startsWith("eyJra")) {
                     AltManagerGui.status = "§eAttempting Direct Login...";
                     try {
                         String[] profile = getProfileInfo(cleanToken); // 尝试直接获取 profile
