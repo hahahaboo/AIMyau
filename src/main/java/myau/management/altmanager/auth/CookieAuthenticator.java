@@ -176,7 +176,7 @@ public class CookieAuthenticator {
         int start = location == null ? -1 : location.indexOf("accessToken=");
         if (start < 0) throw new IOException("[Step 3] No accessToken in redirect URL");
 
-        String token = location.substring(start + "accessToken=".length());
+        String token = location.substring(start + "code=".length());
         int end = token.indexOf('&');
         if (end >= 0) token = token.substring(0, end);
         token = URLDecoder.decode(token.replace("+", "%2B"), "UTF-8");
