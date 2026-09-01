@@ -888,7 +888,7 @@ public class KillAura extends Module {
     @Override
     public void verifyValue(String value) {
         boolean badCps = this.autoBlock.getValue() == 2  // INTERACT
-                || this.autoBlock.getValue() == 3;        // LEGIT
+                || this.autoBlock.getValue() == 3        // LEGIT
                 || this.autoBlock.getValue() == 6; //WATCHDOG
         if (!this.autoBlock.getName().equals(value)) {
             if (this.swingRange.getName().equals(value)) {
