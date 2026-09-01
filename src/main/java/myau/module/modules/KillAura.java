@@ -66,10 +66,15 @@ public class KillAura extends Module {
     private long attackDelayMS = 0L;
     private int blockTick = 0;
     private int lastTickProcessed;
+    private int watchdogStage;
+    private boolean watchdogShort;
+    private boolean watchdogBlinkAfterBlock;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
+    public final BooleanProperty watchdogShortCycle;
+    public final BooleanProperty watchdogBlockSlowdown;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -147,6 +152,70 @@ public class KillAura extends Module {
         PacketUtil.sendPacket(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
         mc.thePlayer.stopUsingItem();
         this.blockingState = false;
+    }
+
+    private boolean watchdogCycle() {
+        if (((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock()
+                && mc.objectMouseOver != null
+                && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK) {
+            this.watchdogStage = 0;
+        }
+        this.watchdogStage++;
+        if (this.watchdogStage >= (this.watchdogShort ? 3 : 4)) {
+            this.watchdogStage = 1;
+        }
+        boolean sendBlock = false;
+        this.watchdogBlinkAfterBlock = false;
+        switch (this.watchdogStage) {
+            case 1:
+                this.watchdogShort = this.watchdogShortCycle.getValue();
+                if (this.watchdogShort) {
+                    sendBlock = this.watchdogBlock();
+                } else if (!this.watchdogBlockSlowdown.getValue()) {
+                    this.watchdogFlickSlot();
+                    this.stopBlock();
+                }
+                this.watchdogBlinkAfterBlock = true;
+                break;
+            case 2:
+                if (this.watchdogShort) {
+                    this.watchdogTearDown();
+                } else {
+                    sendBlock = this.watchdogBlock();
+                    this.watchdogBlinkAfterBlock = true;
+                }
+                break;
+            case 3:
+                this.watchdogTearDown();
+                break;
+            default:
+                break;
+        }
+        return sendBlock;
+    }
+
+    private boolean watchdogBlock() {
+        this.fakeBlockState = false;
+        return !this.isPlayerBlocking();
+    }
+
+    private void watchdogTearDown() {
+        Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+        if (!this.watchdogBlockSlowdown.getValue()) {
+            this.watchdogFlickSlot();
+        }
+        this.stopBlock();
+        this.fakeBlockState = true;
+    }
+
+    private void watchdogFlickSlot() {
+        int current = ((IAccessorPlayerControllerMP) mc.playerController).getCurrentPlayerItem();
+        int other = ThreadLocalRandom.current().nextInt(9);
+        while (other == current) {
+            other = ThreadLocalRandom.current().nextInt(9);
+        }
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(other));
+        PacketUtil.sendPacket(new C09PacketHeldItemChange(current));
     }
 
     private void interactAttack(float yaw, float pitch) {
@@ -325,9 +394,11 @@ public class KillAura extends Module {
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
-                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden"}
+                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden", "WATCHDOG"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
+        this.watchdogShortCycle = new BooleanProperty("watchdog-short-cycle", true, () -> this.autoBlock.getValue() == 6);
+        this.watchdogBlockSlowdown = new BooleanProperty("watchdog-block-slowdown", false, () -> this.autoBlock.getValue() == 6);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -378,7 +449,8 @@ public class KillAura extends Module {
     public boolean shouldAutoBlock() {
         if (this.isPlayerBlocking() && this.isBlocking) {
             return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (this.autoBlock.getValue() == 2  // INTERACT
-                    || this.autoBlock.getValue() == 3); // LEGIT
+                    || this.autoBlock.getValue() == 3 // LEGIT
+                    || this.autoBlock.getValue() == 6); //WATCHDOG
         } else {
             return false;
         }
@@ -564,6 +636,20 @@ public class KillAura extends Module {
                                 this.isBlocking = false;
                                 this.fakeBlockState = false;
                                 this.hypixel3Asw = 0;
+                            }
+                            break;
+                        case 6: //WATCHDOG
+                            if (this.hasValidTarget()
+                                    && !Myau.playerStateManager.digging
+                                    && !Myau.playerStateManager.placing) {
+                                swap = this.watchdogCycle();
+                                blocked = this.watchdogBlinkAfterBlock;
+                                this.isBlocking = true;
+                            } else {
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.watchdogStage = 0;
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
                             }
                             break;
                     }
@@ -786,6 +872,8 @@ public class KillAura extends Module {
         this.hitRegistered = false;
         this.attackDelayMS = 0L;
         this.blockTick = 0;
+        this.watchdogStage = 0;
+        this.watchdogShort = this.watchdogShortCycle.getValue();
     }
 
     @Override
@@ -794,12 +882,14 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        this.watchdogStage = 0;
     }
 
     @Override
     public void verifyValue(String value) {
         boolean badCps = this.autoBlock.getValue() == 2  // INTERACT
                 || this.autoBlock.getValue() == 3;        // LEGIT
+                || this.autoBlock.getValue() == 6; //WATCHDOG
         if (!this.autoBlock.getName().equals(value)) {
             if (this.swingRange.getName().equals(value)) {
                 if (this.swingRange.getValue() < this.attackRange.getValue()) {
