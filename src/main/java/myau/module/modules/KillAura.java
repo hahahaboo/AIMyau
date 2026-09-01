@@ -50,6 +50,7 @@ import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class KillAura extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
