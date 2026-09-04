@@ -68,14 +68,11 @@ public class KillAura extends Module {
     private int blockTick = 0;
     private int lastTickProcessed;
     private int watchdogStage;
-    private boolean watchdogShort;
     private boolean watchdogBlinkAfterBlock;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
-    public final BooleanProperty watchdogShortCycle;
-    public final BooleanProperty watchdogBlockSlowdown;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -162,29 +159,20 @@ public class KillAura extends Module {
             this.watchdogStage = 0;
         }
         this.watchdogStage++;
-        if (this.watchdogStage >= (this.watchdogShort ? 3 : 4)) {
+        if (this.watchdogStage >= 4) {
             this.watchdogStage = 1;
         }
         boolean sendBlock = false;
         this.watchdogBlinkAfterBlock = false;
         switch (this.watchdogStage) {
             case 1:
-                this.watchdogShort = this.watchdogShortCycle.getValue();
-                if (this.watchdogShort) {
-                    sendBlock = this.watchdogBlock();
-                } else if (!this.watchdogBlockSlowdown.getValue()) {
-                    this.watchdogFlickSlot();
-                    this.stopBlock();
-                }
+                this.watchdogFlickSlot();
+                this.stopBlock();
                 this.watchdogBlinkAfterBlock = true;
                 break;
             case 2:
-                if (this.watchdogShort) {
-                    this.watchdogTearDown();
-                } else {
-                    sendBlock = this.watchdogBlock();
-                    this.watchdogBlinkAfterBlock = true;
-                }
+                sendBlock = this.watchdogBlock();
+                this.watchdogBlinkAfterBlock = true;
                 break;
             case 3:
                 this.watchdogTearDown();
@@ -202,9 +190,7 @@ public class KillAura extends Module {
 
     private void watchdogTearDown() {
         Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-        if (!this.watchdogBlockSlowdown.getValue()) {
-            this.watchdogFlickSlot();
-        }
+        this.watchdogFlickSlot();
         this.stopBlock();
         this.fakeBlockState = true;
     }
@@ -398,8 +384,6 @@ public class KillAura extends Module {
                 "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Morden", "WATCHDOG"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
-        this.watchdogShortCycle = new BooleanProperty("watchdog-short-cycle", true, () -> this.autoBlock.getValue() == 6);
-        this.watchdogBlockSlowdown = new BooleanProperty("watchdog-block-slowdown", false, () -> this.autoBlock.getValue() == 6);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -874,7 +858,6 @@ public class KillAura extends Module {
         this.attackDelayMS = 0L;
         this.blockTick = 0;
         this.watchdogStage = 0;
-        this.watchdogShort = this.watchdogShortCycle.getValue();
     }
 
     @Override
