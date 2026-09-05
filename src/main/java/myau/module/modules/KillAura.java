@@ -469,6 +469,7 @@ public class KillAura extends Module {
             boolean block = attack && this.canAutoBlock();
             if (!block) {
                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                this.stopBlock();
                 this.isBlocking = false;
                 this.fakeBlockState = false;
                 this.blockTick = 0;
@@ -787,12 +788,8 @@ public class KillAura extends Module {
     public void onRightClick(RightClickMouseEvent event) {
         if (this.isBlocking) {
             event.setCancelled(true);
-        } else if (this.isEnabled()) {
-            // 沒有 target 或 target 不在 auto-block-range 內 → 取消右鍵
-            if (this.target == null || !this.isInBlockRange(this.target.getEntity())) {
-                event.setCancelled(true);
-            } else if (this.canAttack()) {
-                // 原本有 target 且可以攻擊時也取消（保持原有行為）
+        } else {
+            if (this.isEnabled() && this.target != null && this.canAttack()) {
                 event.setCancelled(true);
             }
         }
