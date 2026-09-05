@@ -469,7 +469,7 @@ public class KillAura extends Module {
             boolean block = attack && this.canAutoBlock();
             if (!block) {
                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-                if (this.isPlayerBlocking) {
+                if (this.isPlayerBlocking()) {
                     this.stopBlock();
                 }
                 this.isBlocking = false;
