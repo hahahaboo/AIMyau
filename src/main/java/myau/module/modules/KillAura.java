@@ -72,6 +72,8 @@ public class KillAura extends Module {
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
+    public final BooleanProperty smartUnblock;
+    public final IntProperty unblockTicks;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -255,12 +257,14 @@ public class KillAura extends Module {
         }
     }
     
-        private boolean canAutoBlock() {
+    private boolean canAutoBlock() {
+        int unblockTicksCount = 20 - this.unblockTicks.getValue();
         if (!ItemUtil.isHoldingSword()) {
             return false;
-        } else {
+        } else if(!this.smartUnblock.getValue() || mc.thePlayer.hurtResistantTime < unblockTicksCount){
             return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
         }
+        return false;
     }
     
     private boolean hasValidTarget() {
@@ -383,6 +387,8 @@ public class KillAura extends Module {
                 "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "WATCHDOG"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
+        this.smartUnblock = new BooleanProperty("smart-unblock", false);
+        this.unblockTicks = new IntProperty("unblock-ticks", 10, 0, 10, this.smartUnblock::getValue);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
