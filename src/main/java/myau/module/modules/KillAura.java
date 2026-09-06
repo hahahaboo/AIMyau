@@ -68,6 +68,7 @@ public class KillAura extends Module {
     private int lastTickProcessed;
     private int watchdogStage;
     private boolean watchdogBlinkAfterBlock;
+    private int unblockTicksCount = 20 - this.unblockTicks.getValue();
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
@@ -258,10 +259,9 @@ public class KillAura extends Module {
     }
     
     private boolean canAutoBlock() {
-        int unblockTicksCount = 20 - this.unblockTicks.getValue();
         if (!ItemUtil.isHoldingSword()) {
             return false;
-        } else if(!this.smartUnblock.getValue() || mc.thePlayer.hurtResistantTime < unblockTicksCount){
+        } else if(!this.smartUnblock.getValue() || mc.thePlayer.hurtResistantTime < this.unblockTicksCount){
             return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
         }
         return false;
@@ -464,6 +464,9 @@ public class KillAura extends Module {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
+            }
+            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount && this.isPlayerBlocking()) {
+                this.stopBlock();
             }
             boolean attack = this.target != null && this.canAttack();
             boolean block = attack && this.canAutoBlock();
@@ -782,11 +785,18 @@ public class KillAura extends Module {
             }
         }
     }
-
+    
     @EventTarget
     public void onRightClick(RightClickMouseEvent event) {
-        if (this.isBlocking || this.isEnabled()) {
+        if (this.isBlocking) {
             event.setCancelled(true);
+        } else if (this.isEnabled()){
+            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount){
+                event.setCancelled(true);
+            }
+            if (this.target != null && this.canAttack()) {
+                event.setCancelled(true);
+            }
         }
     }
 
