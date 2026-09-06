@@ -68,7 +68,6 @@ public class KillAura extends Module {
     private int lastTickProcessed;
     private int watchdogStage;
     private boolean watchdogBlinkAfterBlock;
-    private int unblockTicksCount = 20 - this.unblockTicks.getValue();
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
@@ -103,6 +102,7 @@ public class KillAura extends Module {
     public final BooleanProperty silverfish;
     public final BooleanProperty teams;
     public final ModeProperty showTarget;
+    private int unblockTicksCount = 20 - this.unblockTicks.getValue();
 
     private long getAttackDelay() {
         return this.isBlocking ? (long) (1000.0F / RandomUtil.nextLong(this.autoBlockMinCPS.getValue().longValue(), this.autoBlockMaxCPS.getValue().longValue())) : 1000L / RandomUtil.nextLong(this.minCPS.getValue(), this.maxCPS.getValue());
