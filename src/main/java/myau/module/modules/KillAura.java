@@ -785,12 +785,8 @@ public class KillAura extends Module {
 
     @EventTarget
     public void onRightClick(RightClickMouseEvent event) {
-        if (this.isBlocking) {
+        if (this.isBlocking || this.isEnabled()) {
             event.setCancelled(true);
-        } else {
-            if (this.isEnabled() && this.target != null && this.canAttack()) {
-                event.setCancelled(true);
-            }
         }
     }
 
