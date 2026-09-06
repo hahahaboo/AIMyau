@@ -68,10 +68,13 @@ public class KillAura extends Module {
     private int lastTickProcessed;
     private int watchdogStage;
     private boolean watchdogBlinkAfterBlock;
+    private int unblockTicksCount;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
+    public final BooleanProperty smartUnblock;
+    public final IntProperty unblockTicks;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -255,12 +258,13 @@ public class KillAura extends Module {
         }
     }
     
-        private boolean canAutoBlock() {
+    private boolean canAutoBlock() {
         if (!ItemUtil.isHoldingSword()) {
             return false;
-        } else {
+        } else if(!this.smartUnblock.getValue() || mc.thePlayer.hurtResistantTime < this.unblockTicksCount){
             return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
         }
+        return false;
     }
     
     private boolean hasValidTarget() {
@@ -383,6 +387,8 @@ public class KillAura extends Module {
                 "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "WATCHDOG"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
+        this.smartUnblock = new BooleanProperty("smart-unblock", false);
+        this.unblockTicks = new IntProperty("unblock-ticks", 10, 0, 10, this.smartUnblock::getValue);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -411,6 +417,7 @@ public class KillAura extends Module {
         this.silverfish = new BooleanProperty("silverfish", false);
         this.teams = new BooleanProperty("teams", true);
         this.showTarget = new ModeProperty("show-target", 0, new String[]{"NONE", "DEFAULT", "HUD"});
+        this.unblockTicksCount = 20 - this.unblockTicks.getValue();
     }
 
     public EntityLivingBase getTarget() {
@@ -458,6 +465,9 @@ public class KillAura extends Module {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
+            }
+            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount && this.isPlayerBlocking()) {
+                this.stopBlock();
             }
             boolean attack = this.target != null && this.canAttack();
             boolean block = attack && this.canAutoBlock();
@@ -776,13 +786,16 @@ public class KillAura extends Module {
             }
         }
     }
-
+    
     @EventTarget
     public void onRightClick(RightClickMouseEvent event) {
         if (this.isBlocking) {
             event.setCancelled(true);
-        } else {
-            if (this.isEnabled() && this.target != null && this.canAttack()) {
+        } else if (this.isEnabled()){
+            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount){
+                event.setCancelled(true);
+            }
+            if (this.target != null && this.canAttack()) {
                 event.setCancelled(true);
             }
         }
