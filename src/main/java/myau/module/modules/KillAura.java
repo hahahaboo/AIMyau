@@ -381,7 +381,6 @@ public class KillAura extends Module {
     public KillAura() {
         super("KillAura", "Attacks entities around you", Category.COMBAT, 0, false, false);
         this.lastTickProcessed = 0;
-        this.unblockTicksCount = 20 - this.unblockTicks.getValue();
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
@@ -418,6 +417,7 @@ public class KillAura extends Module {
         this.silverfish = new BooleanProperty("silverfish", false);
         this.teams = new BooleanProperty("teams", true);
         this.showTarget = new ModeProperty("show-target", 0, new String[]{"NONE", "DEFAULT", "HUD"});
+        this.unblockTicksCount = 20 - this.unblockTicks.getValue();
     }
 
     public EntityLivingBase getTarget() {
