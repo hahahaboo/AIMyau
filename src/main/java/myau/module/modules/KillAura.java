@@ -68,7 +68,6 @@ public class KillAura extends Module {
     private int lastTickProcessed;
     private int watchdogStage;
     private boolean watchdogBlinkAfterBlock;
-    private int unblockTicksCount;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
@@ -207,6 +206,10 @@ public class KillAura extends Module {
         PacketUtil.sendPacket(new C09PacketHeldItemChange(current));
     }
 
+    private boolean shouldSmartUnblock() {
+        return this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime > 20 - this.unblockTicks.getValue();
+    }
+
     private void interactAttack(float yaw, float pitch) {
         if (this.target != null) {
             MovingObjectPosition mop = RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, 8.0);
@@ -259,12 +262,10 @@ public class KillAura extends Module {
     }
     
     private boolean canAutoBlock() {
-        if (!ItemUtil.isHoldingSword()) {
+        if (!ItemUtil.isHoldingSword() || this.shouldSmartUnblock()) {
             return false;
-        } else if(!this.smartUnblock.getValue() || mc.thePlayer.hurtResistantTime < this.unblockTicksCount){
-            return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
         }
-        return false;
+        return !this.autoBlockRequirePress.getValue() || PlayerUtil.isUsingItem();
     }
     
     private boolean hasValidTarget() {
@@ -417,7 +418,6 @@ public class KillAura extends Module {
         this.silverfish = new BooleanProperty("silverfish", false);
         this.teams = new BooleanProperty("teams", true);
         this.showTarget = new ModeProperty("show-target", 0, new String[]{"NONE", "DEFAULT", "HUD"});
-        this.unblockTicksCount = 20 - this.unblockTicks.getValue();
     }
 
     public EntityLivingBase getTarget() {
@@ -454,6 +454,7 @@ public class KillAura extends Module {
     public boolean isPlayerBlocking() {
         return (mc.thePlayer.isUsingItem() || this.blockingState) && ItemUtil.isHoldingSword();
     }
+    
 
     @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
@@ -466,7 +467,7 @@ public class KillAura extends Module {
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
             }
-            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount && this.isPlayerBlocking()) {
+            if (this.shouldSmartUnblock() && this.isPlayerBlocking()) {
                 this.stopBlock();
             }
             boolean attack = this.target != null && this.canAttack();
@@ -792,7 +793,7 @@ public class KillAura extends Module {
         if (this.isBlocking) {
             event.setCancelled(true);
         } else if (this.isEnabled()){
-            if (this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= this.unblockTicksCount){
+            if (this.shouldSmartUnblock()){
                 event.setCancelled(true);
             }
             if (this.target != null && this.canAttack()) {
