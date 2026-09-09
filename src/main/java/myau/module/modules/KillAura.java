@@ -207,7 +207,7 @@ public class KillAura extends Module {
     }
 
     private boolean shouldSmartUnblock() {
-        return this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime >= 20 - this.unblockTicks.getValue();
+        return this.smartUnblock.getValue() && mc.thePlayer.hurtResistantTime > 20 - this.unblockTicks.getValue();
     }
 
     private void interactAttack(float yaw, float pitch) {
@@ -467,7 +467,7 @@ public class KillAura extends Module {
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
             }
-            if (this.shouldSmartUnblock()) {
+            if (this.shouldSmartUnblock() && this.isPlayerBlocking()) {
                 this.stopBlock();
             }
             boolean attack = this.target != null && this.canAttack();
