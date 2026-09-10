@@ -6,6 +6,7 @@ import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.enums.BlinkModules;
 import myau.mixin.IAccessorPlayerControllerMP;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 
 public class LagRange extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
+    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LAG", "BLINK"});
     public final IntProperty delay = new IntProperty("delay", 150, 0, 1000);
     public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 50.0F);
     public final FloatProperty releaseRange = new FloatProperty("release-range", 0.0F, 0.0F, 5.0F);
@@ -84,12 +86,33 @@ public class LagRange extends Module {
         }
     }
 
+    private void applyDelay(int ticks) {
+        if (this.mode.getValue() == 0) {
+            // LAG mode
+            Myau.lagManager.setDelay(ticks);
+            if (Myau.blinkManager.getBlinkingModule() == BlinkModules.LAG_RANGE) {
+                Myau.blinkManager.setBlinkState(false, BlinkModules.LAG_RANGE);
+            }
+        } else {
+            // BLINK mode
+            Myau.lagManager.setDelay(0);
+            if (ticks > 0) {
+                if (!Myau.blinkManager.isBlinking()
+                        || Myau.blinkManager.getBlinkingModule() != BlinkModules.LAG_RANGE) {
+                    Myau.blinkManager.setBlinkState(true, BlinkModules.LAG_RANGE);
+                }
+            } else {
+                Myau.blinkManager.setBlinkState(false, BlinkModules.LAG_RANGE);
+            }
+        }
+    }
+
     @EventTarget(Priority.LOW)
     public void onTick(TickEvent event) {
         if (this.isEnabled()) {
             switch (event.getType()) {
                 case PRE:
-                    Myau.lagManager.setDelay(0);
+                    this.applyDelay(0);
                     this.hasTarget = false;
                     AbortBreaking abortBreaking = (AbortBreaking) Myau.moduleManager.modules.get(AbortBreaking.class);
                     BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
@@ -133,7 +156,7 @@ public class LagRange extends Module {
                                                 this.tickIndex++;
                                             }
                                         }
-                                        Myau.lagManager.setDelay(this.tickIndex);
+                                        this.applyDelay(this.tickIndex);
                                         this.hasTarget = true;
                                         return;
                                     }
@@ -160,7 +183,7 @@ public class LagRange extends Module {
     public void onPacket(PacketEvent event) {
         if (this.isEnabled()) {
             if (this.shouldResetOnPacket(event.getPacket())) {
-                Myau.lagManager.setDelay(0);
+                this.applyDelay(0);
                 this.tickIndex = -1;
             }
         }
@@ -209,7 +232,7 @@ public class LagRange extends Module {
 
     @Override
     public void onDisabled() {
-        Myau.lagManager.setDelay(0);
+        this.applyDelay(0);
         this.tickIndex = -1;
         this.delayCounter = 0L;
         this.hasTarget = false;
