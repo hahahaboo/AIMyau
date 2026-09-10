@@ -1,12 +1,12 @@
 package myau.module.modules;
 
 import myau.Myau;
+import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.Priority;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
-import myau.enums.BlinkModules;
 import myau.mixin.IAccessorPlayerControllerMP;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
@@ -37,7 +37,6 @@ import java.util.stream.Collectors;
 
 public class LagRange extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LAG", "BLINK"});
     public final IntProperty delay = new IntProperty("delay", 150, 0, 1000);
     public final FloatProperty range = new FloatProperty("range", 10.0F, 3.0F, 50.0F);
     public final FloatProperty releaseRange = new FloatProperty("release-range", 0.0F, 0.0F, 5.0F);
@@ -46,12 +45,14 @@ public class LagRange extends Module {
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponsOnly::getValue);
     public final BooleanProperty botCheck = new BooleanProperty("bot-check", true);
     public final BooleanProperty teams = new BooleanProperty("teams", true);
+    public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LAG", "BLINK"});
     public final ModeProperty showPosition = new ModeProperty("show-position", 0, new String[]{"NONE", "DEFAULT", "HUD"});
     private int tickIndex = -1;
     private long delayCounter = 0L;
     private boolean hasTarget = false;
     private Vec3 lastPosition = null;
     private Vec3 currentPosition = null;
+    private long blinkStartMs = 0L;
 
     public LagRange() {
         super("LagRange", "Use lag to make more range to attack others", Category.COMBAT, 0, false, false);
@@ -93,16 +94,31 @@ public class LagRange extends Module {
             if (Myau.blinkManager.getBlinkingModule() == BlinkModules.LAG_RANGE) {
                 Myau.blinkManager.setBlinkState(false, BlinkModules.LAG_RANGE);
             }
+            this.blinkStartMs = 0L;
         } else {
-            // BLINK mode
+            // BLINK mode: blink -> delay(ms) -> release -> blink again
             Myau.lagManager.setDelay(0);
-            if (ticks > 0) {
-                if (!Myau.blinkManager.isBlinking()
-                        || Myau.blinkManager.getBlinkingModule() != BlinkModules.LAG_RANGE) {
-                    Myau.blinkManager.setBlinkState(true, BlinkModules.LAG_RANGE);
+
+            if (ticks <= 0) {
+                if (Myau.blinkManager.getBlinkingModule() == BlinkModules.LAG_RANGE) {
+                    Myau.blinkManager.setBlinkState(false, BlinkModules.LAG_RANGE);
                 }
-            } else {
+                this.blinkStartMs = 0L;
+                return;
+            }
+
+            if (!Myau.blinkManager.isBlinking()
+                    || Myau.blinkManager.getBlinkingModule() != BlinkModules.LAG_RANGE) {
+                Myau.blinkManager.setBlinkState(true, BlinkModules.LAG_RANGE);
+                this.blinkStartMs = System.currentTimeMillis();
+                return;
+            }
+
+            long elapsed = System.currentTimeMillis() - this.blinkStartMs;
+            if (elapsed >= (long) this.delay.getValue()) {
                 Myau.blinkManager.setBlinkState(false, BlinkModules.LAG_RANGE);
+                Myau.blinkManager.setBlinkState(true, BlinkModules.LAG_RANGE);
+                this.blinkStartMs = System.currentTimeMillis();
             }
         }
     }
@@ -117,7 +133,7 @@ public class LagRange extends Module {
                     AbortBreaking abortBreaking = (AbortBreaking) Myau.moduleManager.modules.get(AbortBreaking.class);
                     BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
                     if ((!bedNuker.isEnabled() || !bedNuker.isReady())
-                            &&( !((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock() || abortBreaking.isEnabled())
+                            && (!((IAccessorPlayerControllerMP) mc.playerController).getIsHittingBlock() || abortBreaking.isEnabled())
                             && (!mc.thePlayer.isUsingItem() || mc.thePlayer.isBlocking())
                             && (
                             !(Boolean) this.weaponsOnly.getValue()
@@ -141,7 +157,7 @@ public class LagRange extends Module {
                             for (EntityPlayer player : players) {
                                 double distance = RotationUtil.distanceToBox(player, playerEyePosition);
                                 if (!(distance > (double) this.range.getValue())) {
-                                    if (this.releaseRange.getValue() != 0.0F && distance < (double) this.releaseRange.getValue()){
+                                    if (this.releaseRange.getValue() != 0.0F && distance < (double) this.releaseRange.getValue()) {
                                         return;
                                     }
                                     double targetDist = RotationUtil.distanceToBox(player, targetEyePosition);
@@ -242,6 +258,7 @@ public class LagRange extends Module {
 
     @Override
     public String[] getSuffix() {
-        return new String[]{String.format("%dms", this.delay.getValue())};
+        String modeName = this.mode.getValue() == 0 ? "LAG" : "BLINK";
+        return new String[]{modeName, String.format("%dms", this.delay.getValue())};
     }
 }
