@@ -275,6 +275,6 @@ public class LagRange extends Module {
     @Override
     public String[] getSuffix() {
         String modeName = this.mode.getValue() == 0 ? "LAG" : "BLINK";
-        return new String[]{modeName + " " + this.delay.getValue() + ms};
+        return new String[]{modeName + " " + this.delay.getValue() + "ms"};
     }
 }
