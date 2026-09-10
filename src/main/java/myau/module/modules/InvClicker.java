@@ -6,13 +6,16 @@ import myau.events.TickEvent;
 import myau.mixin.IAccessorGuiScreen;
 import myau.module.Module;
 import myau.property.properties.IntProperty;
+import myau.property.properties.BooleanProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.input.Keyboard;
 
 public class InvClicker extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final IntProperty triggerTicks = new IntProperty("start-delay", 2, 0, 20);
+    public final BooleanProperty requireShift = new BooleanProperty("require-shift", false);
     public int ticks;
 
     public InvClicker() {
@@ -31,13 +34,16 @@ public class InvClicker extends Module {
                 GuiContainer screen = ((GuiContainer) mc.currentScreen);
                 final int mouseX = Mouse.getEventX() * screen.width / mc.displayWidth;
                 final int mouseY = screen.height - Mouse.getEventY() * screen.height / mc.displayHeight - 1;
-                if (Mouse.isButtonDown(0)) {
+                boolean shiftOk = !requireShift.getValue()
+                        || Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                        || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+
+                if (Mouse.isButtonDown(0) && shiftOk) {
                     ticks++;
-                    if(ticks > triggerTicks.getValue())
-                    {
-                        ((IAccessorGuiScreen)screen).callMouseClicked(mouseX, mouseY, 0);
+                    if (ticks > triggerTicks.getValue()) {
+                        ((IAccessorGuiScreen) screen).callMouseClicked(mouseX, mouseY, 0);
                     }
-                }else {
+                } else {
                     ticks = 0;
                 }
             }
