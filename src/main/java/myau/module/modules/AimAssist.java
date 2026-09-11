@@ -98,6 +98,7 @@ public class AimAssist extends Module {
     @EventTarget
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.POST && mc.currentScreen == null) {
+            this.hasVaildTarget = false;
             if (this.randomPitch.getValue()) {
                 this.tickCounter++;
     
@@ -219,8 +220,6 @@ public class AimAssist extends Module {
                                                 0,
                                                 false
                                         );
-                            } else {
-                                this.hasVaildTarget = false;
                             }
                         }
                     }
