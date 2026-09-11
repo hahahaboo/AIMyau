@@ -6,6 +6,7 @@ import myau.event.EventManager;
 import myau.events.PickEvent;
 import myau.events.RaytraceEvent;
 import myau.events.Render3DEvent;
+import myau.events.MouseEvent;
 import myau.module.modules.*;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
@@ -86,6 +87,31 @@ public abstract class MixinEntityRenderer {
         if (this.useCount != null) {
             ((IAccessorEntityPlayer) this.mc.thePlayer).setItemInUseCount(this.useCount.value);
             this.useCount = null;
+        }
+    }
+
+    @Inject(
+            method = {"updateCameraAndRender"},  // 或實際包含 mouseXYChange 的方法名
+            at = {@At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
+                    shift = At.Shift.AFTER
+            )}
+    )
+    private void onMouseXYChange(CallbackInfo ci) {
+        Minecraft mc = Minecraft.getMinecraft();
+
+        int dx = mc.mouseHelper.deltaX;
+        int dy = mc.mouseHelper.deltaY;
+
+        if (dx != 0 || dy != 0) {
+            MouseEvent event = new MouseEvent(dx, dy, 0, -1, false, 0, 0);
+            EventManager.call(event);
+
+            if (event.isCancelled()) {
+                mc.mouseHelper.deltaX = 0;
+                mc.mouseHelper.deltaY = 0;
+            }
         }
     }
 
