@@ -238,7 +238,7 @@ public class AimAssist extends Module {
 
     @EventTarget
     public void onMouse(MouseEvent event) {
-        if (this.isEnabled() && this.noMouseMove.getValue()) {
+        if (this.isEnabled() && this.noMouseMove.getValue() && this.hasVaildTarget) {
             event.setCancelled(true);
         }
     }
