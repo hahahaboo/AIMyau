@@ -74,35 +74,6 @@ public abstract class MixinMinecraft {
     }
 
     @Inject(
-            method = {"runTick"},
-            at = {@At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
-                    shift = At.Shift.AFTER
-            )}
-    )
-    private void onMouseXYChange(CallbackInfo ci) {
-        Minecraft mc = Minecraft.getMinecraft();   // 或直接用 this（因為 Mixin 在 Minecraft 上）
-
-        int dx = mc.mouseHelper.deltaX;
-        int dy = mc.mouseHelper.deltaY;
-
-        if (dx != 0 || dy != 0) {
-            MouseEvent event = new MouseEvent(
-                    dx, dy,
-                    0, -1, false,
-                    0, 0
-            );
-            EventManager.call(event);
-
-            if (event.isCancelled()) {
-                mc.mouseHelper.deltaX = 0;
-                mc.mouseHelper.deltaY = 0;
-            }
-        }
-    }
-
-    @Inject(
             method = {"loadWorld(Lnet/minecraft/client/multiplayer/WorldClient;Ljava/lang/String;)V"},
             at = {@At("HEAD")}
     )
