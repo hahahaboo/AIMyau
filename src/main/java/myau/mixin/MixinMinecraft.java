@@ -74,6 +74,36 @@ public abstract class MixinMinecraft {
     }
 
     @Inject(
+            method = {"runTick"},
+            at = {@At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/MouseHelper;mouseXYChange()V",
+                    shift = At.Shift.AFTER
+            )}
+    )
+    private void onMouseXYChange(CallbackInfo ci) {
+        // 取得本幀的 delta
+        int dx = this.mc.mouseHelper.deltaX;
+        int dy = this.mc.mouseHelper.deltaY;
+
+        // 只有在有實際移動時才觸發（可選）
+        if (dx != 0 || dy != 0) {
+            MouseEvent event = new MouseEvent(
+                    dx, dy,
+                    0, -1, false,          // dwheel, button, buttonstate（這裡只關心移動）
+                    0, 0
+            );
+            EventManager.call(event);
+
+            if (event.isCancelled()) {
+                // 取消真實滑鼠移動
+                this.mc.mouseHelper.deltaX = 0;
+                this.mc.mouseHelper.deltaY = 0;
+            }
+        }
+    }
+
+    @Inject(
             method = {"loadWorld(Lnet/minecraft/client/multiplayer/WorldClient;Ljava/lang/String;)V"},
             at = {@At("HEAD")}
     )
