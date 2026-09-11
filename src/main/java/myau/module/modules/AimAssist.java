@@ -5,6 +5,7 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.events.KeyEvent;
 import myau.events.TickEvent;
+import myau.events.MouseEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
@@ -40,6 +41,7 @@ public class AimAssist extends Module {
     public final IntProperty randomTicks = new IntProperty("random-ticks", 10, 1, 40, this.randomPitch::getValue);
     public final FloatProperty randomAngle = new FloatProperty("random-angle", 5.0F, 0.0F, 15.0F, this.randomPitch::getValue);
     public final BooleanProperty clickAim = new BooleanProperty("require-mouse", true);
+    public final BooleanProperty noMouseMove = new BooleanProperty("no mouse-move", false);
     public final BooleanProperty breakBlocks = new BooleanProperty("break-blocks", true);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapons-only", true);
     public final BooleanProperty allowTools = new BooleanProperty("allow-tools", false, this.weaponOnly::getValue);
@@ -51,6 +53,7 @@ public class AimAssist extends Module {
     private float currentPitchOffset = 0.0f;
     private int tickCounter = 0;
     private int currentInterval = 0;
+    private boolean hasVaildTarget = false;
     
     public AimAssist() {
         super("AimAssist", "Auto Aim", Category.COMBAT, 0, false, false);
@@ -161,6 +164,7 @@ public class AimAssist extends Module {
                             }
                             EntityPlayer player = inRange.get(0);
                             if (!(RotationUtil.distanceToEntity(player) <= 0.0)) {
+                                this.hasVaildTarget = true;
                                 if (this.aimMode.getValue() == 0) {
                                     float hThreshold = this.hAimPoint.getValue() * 15.0F;
                                     float vThreshold = this.vAimPoint.getValue() * 14.0F;
@@ -215,6 +219,8 @@ public class AimAssist extends Module {
                                                 0,
                                                 false
                                         );
+                            } else {
+                                this.hasVaildTarget = false;
                             }
                         }
                     }
@@ -227,6 +233,13 @@ public class AimAssist extends Module {
     public void onPress(KeyEvent event) {
         if (event.getKey() == mc.gameSettings.keyBindAttack.getKeyCode() && !Myau.moduleManager.modules.get(AutoClicker.class).isEnabled()) {
             this.timer.reset();
+        }
+    }
+
+    @EventTarget
+    public void onMouse(MouseEvent event) {
+        if (this.isEnabled() && this.noMouseMove.getValue() && this.hasVaildTarget) {
+            event.setCancelled(true);
         }
     }
 
