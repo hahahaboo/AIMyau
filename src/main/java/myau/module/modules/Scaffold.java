@@ -910,7 +910,7 @@ public class Scaffold extends Module {
                     && MoveUtil.isForwardPressed()) {
                 MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
             }
-            if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed()) {
+            if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed() && !this.snapRotating) {
                 mc.thePlayer.movementInput.jump = true;
             }
             if (this.eagleSneaking && !mc.thePlayer.movementInput.sneak) {
