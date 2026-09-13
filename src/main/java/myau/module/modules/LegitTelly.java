@@ -80,17 +80,18 @@ public class LegitTelly extends Module {
 
     public LegitTelly() {
         super("LegitTelly", " ", Category.PLAYER, 0, false, false);
-        onLoad();
     }
 
     @Override
     public void onEnabled() {
-        onEnable();
+        autoPlaceOnEnable();
+        armAutomation();
     }
 
     @Override
     public void onDisabled() {
-        onDisable();
+        stopAutomation(false);
+        autoPlaceOnDisable();
     }
 
     @EventTarget(Priority.HIGHEST)
@@ -101,7 +102,38 @@ public class LegitTelly extends Module {
             // 1) PreUpdate/autoplace still sees the stable rotation from the previous tick.
             // 2) Then prepare this tick's movement phase and next rotation target.
             // 3) Submit that scripted yaw to OpenMyau so move-fix and packet rotation use the same frame.
-            onPreUpdate();
+            enforceSafeWalkDisabledForRun();
+            if (running) {
+                keybinds.setPressed("attack", false);
+                applySmoothedRotation();
+                holdScriptedRotation();
+            }
+
+            if (armed && !running) updateActivationPrompt();
+
+            if (!running) return;
+
+            long freezeNow = client.time();
+            if (freezeLastTickAt != 0L && freezeNow - freezeLastTickAt > 300L) {
+                stopAutomation(true);
+                return;
+            }
+            freezeLastTickAt = freezeNow;
+
+            Entity player = client.getPlayer();
+            if (player == null || player.isDead() || player.getFallDistance() > 7.0f) {
+                stopAutomation(true);
+                return;
+            }
+            handleAutoSwap(player);
+            if (!player.isHoldingBlock()) {
+                stopAutomation(true);
+                return;
+            }
+            if (firstTellyPlacementPending) updateAdaptivePlacementAim(player);
+
+            autoPlaceOnPreUpdate();
+            if (firstTellyPlacementPending) updateAdaptivePlacementAim(player);
             if (running) {
                 advanceTellyCycle();
                 PlayerState state = new PlayerState(event);
@@ -110,7 +142,8 @@ public class LegitTelly extends Module {
                 event.setPervRotation(state.yaw, 5);
             }
         } else if (event.getType() == EventType.POST) {
-            onPostMotion();
+            if (!running) return;
+            autoPlaceOnPostMotion();
         }
     }
 
@@ -274,69 +307,8 @@ float[] strafeCurve = new float[] {
     0.0f, 0.0f, 0.0f, -1.0f, -1.0f, -1.0f, -1.0f
 };
 
-void onLoad() {
-    modules.registerDescription("Decrypted");
-    modules.registerButton("Auto swap", true);
-    modules.registerButton("Disable SafeWalk", true);
-    modules.registerButton("Show activation hitbox", false);
-}
-
-void onEnable() {
-    autoPlaceOnEnable();
-    armAutomation();
-}
-
-void onDisable() {
-    stopAutomation(false);
-    autoPlaceOnDisable();
-}
-
-void onWorldJoin(Entity entity) {
-    if (entity != null && entity.isUser) stopAutomation(false);
-    autoPlaceOnWorldJoin(entity);
-}
-
-void onPreUpdate() {
-    enforceSafeWalkDisabledForRun();
-    if (running) {
-        keybinds.setPressed("attack", false);
-        applySmoothedRotation();
-        holdScriptedRotation();
-    }
-
-    if (armed && !running) updateActivationPrompt();
-
-    if (!running) return;
-
-    long freezeNow = client.time();
-    if (freezeLastTickAt != 0L && freezeNow - freezeLastTickAt > 300L) {
-        stopAutomation(true);
-        return;
-    }
-    freezeLastTickAt = freezeNow;
-
-    Entity player = client.getPlayer();
-    if (player == null || player.isDead() || player.getFallDistance() > 7.0f) {
-        stopAutomation(true);
-        return;
-    }
-    handleAutoSwap(player);
-    if (!player.isHoldingBlock()) {
-        stopAutomation(true);
-        return;
-    }
-    if (firstTellyPlacementPending) updateAdaptivePlacementAim(player);
-
-    autoPlaceOnPreUpdate();
-    if (firstTellyPlacementPending) updateAdaptivePlacementAim(player);
-}
-
-float activationPitch() {
-    return 75.0f;
-}
-
 void handleAutoSwap(Entity player) {
-    if (!modules.getButton(scriptName, "Auto swap")) return;
+    if (!this.autoSwap.getValue()) return;
 
     int threshold = 5;
     ItemStack held = player.getHeldItem();
@@ -375,7 +347,7 @@ void updateActivationPrompt() {
 
     setActivationMovementHold(activationPromptReady() && keybinds.isMouseDown(1));
 
-    boolean lookingDown = player.getPitch() >= activationPitch();
+    boolean lookingDown = player.getPitch() >= 75.0f;
     boolean atEdge = lookingDown && isLookingAtEdge(player);
 
     if (client.isSneak() && atEdge) {
@@ -531,7 +503,7 @@ boolean isInActivationFaceCenter(int face, Vec3 localHit) {
 }
 
 void onRenderWorld(float partialTicks) {
-    if (!modules.getButton(scriptName, "Show activation hitbox")) return;
+    if (!this.showActivationHitbox.getValue()) return;
     if (!armed || running) return;
     if (promptAlpha < 0.05f) return;
 
@@ -963,11 +935,6 @@ void onRenderTick(float partialTicks) {
     // processAutoPlaceTick() 里按 tick 运行，所以这里不要再搜索。
 }
 
-void onPostMotion() {
-    if (!running) return;
-    autoPlaceOnPostMotion();
-}
-
 boolean onPacketReceived(SPacket packet) {
     if (running && packet != null && "S08PacketPlayerPosLook".equals(packet.name)) {
         stopAutomation(true);
@@ -1138,7 +1105,7 @@ void disableSafeWalkForRun() {
         enforceSafeWalkDisabledForRun();
         return;
     }
-    if (!modules.getButton(scriptName, "Disable SafeWalk")) return;
+    if (!this.disableSafeWalk.getValue()) return;
 
     try {
         safeWalkWasEnabled = modules.isEnabled("SafeWalk");
@@ -1172,7 +1139,7 @@ void restoreSafeWalkState() {
 
 void printStatus(String message) {
     try {
-        if (modules.getButton(scriptName, "Print")) {
+        if (this.print.getValue()) {
             client.print(util.color("&bTelly &7| " + message));
         }
     } catch (Exception ignored) {}
@@ -1321,7 +1288,7 @@ void initializeStraightBridgeLane(Entity player) {
         anchor = hitboxLastPos;
     }
     if (anchor == null) {
-        Object[] hit = client.raycastBlock(4.5, baseYaw, Math.max(player.getPitch(), activationPitch()));
+        Object[] hit = client.raycastBlock(4.5, baseYaw, Math.max(player.getPitch(), 75.0f));
         if (hit != null && hit.length >= 3 && hit[0] instanceof Vec3 && hit[2] != null) {
             int face = faceFromName((String) hit[2]);
             if (face >= 2) {
@@ -1349,7 +1316,7 @@ void initializeStraightBridgeLane(Entity player) {
     // launch lane captured in beginAutomation(). Pulling to block-center makes
     // the second Telly drift instead of jumping in a straight line.
 
-    Object[] hit = client.raycastBlock(4.5, baseYaw, Math.max(player.getPitch(), activationPitch()));
+    Object[] hit = client.raycastBlock(4.5, baseYaw, Math.max(player.getPitch(), 75.0f));
     if (hit != null && hit.length > 0 && hit[0] instanceof Vec3) {
         int[] hitPos = posFromVec((Vec3) hit[0]);
         int hitLane = travelX != 0 ? hitPos[2] : hitPos[0];
@@ -3174,25 +3141,6 @@ int faceFromName(String name) {
         }
 
         void registerButton(String name, boolean defaultValue) {
-        }
-
-        boolean getButton(String moduleName, String name) {
-            String normalized = normalize(name);
-            if (normalize(moduleName).equals(normalize(scriptName))) {
-                if (normalized.equals("autoswap")) return autoSwap.getValue();
-                if (normalized.equals("disablesafewalk")) return disableSafeWalk.getValue();
-                if (normalized.equals("showactivationhitbox")) return showActivationHitbox.getValue();
-                if (normalized.equals("print")) return print.getValue();
-            }
-            Module module = getModule(moduleName);
-            if (module == null || Myau.propertyManager == null) return false;
-            try {
-                Property<?> property = Myau.propertyManager.getProperty(module, name);
-                Object value = property == null ? null : property.getValue();
-                return value instanceof Boolean && (Boolean) value;
-            } catch (Exception ignored) {
-                return false;
-            }
         }
 
         boolean isEnabled(String moduleName) {
