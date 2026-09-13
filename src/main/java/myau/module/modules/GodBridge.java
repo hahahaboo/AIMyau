@@ -102,8 +102,6 @@ public class GodBridge extends Module {
     private static final long SEARCH_BUDGET_MS = 4L;
     private static final int REJECT_TICKS = 4;
 
-    public final BooleanProperty holdBlock = new BooleanProperty("hold-block", true);
-    public final BooleanProperty onlyWhenSneak = new BooleanProperty("only-when-sneak", true);
     public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
     public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 30);
     public final BooleanProperty disableGuard = new BooleanProperty("disable-guard", true);
@@ -144,6 +142,8 @@ public class GodBridge extends Module {
 
     private boolean guardStateCaptured = false;
     private boolean guardWasEnabled = false;
+    private boolean eagleStateCaptured = false;
+    private boolean eagleWasEnabled = false;
 
     private long takeoverDetectionAt = 0L;
     private boolean takeoverCameraValid = false;
@@ -393,7 +393,7 @@ public class GodBridge extends Module {
             this.clearPrompt();
             return;
         }
-        if (this.holdBlock.getValue() && !isHoldingBlock()) {
+        if (!isHoldingBlock()) {
             this.abandonPrompt();
             return;
         }
@@ -443,7 +443,7 @@ public class GodBridge extends Module {
             }
             return;
         }
-        if (this.onlyWhenSneak.getValue() && !isSneaking()) {
+        if (!isSneaking()) {
             this.abandonPrompt();
             return;
         }
@@ -1962,42 +1962,59 @@ public class GodBridge extends Module {
         if (!this.disableGuard.getValue()) {
             return;
         }
+        // SafeWalk
         SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-        if (safeWalk == null) {
-            return;
+        if (safeWalk != null) {
+            this.guardWasEnabled = safeWalk.isEnabled();
+            this.guardStateCaptured = true;
+            if (this.guardWasEnabled) {
+                safeWalk.setEnabled(false);
+            }
         }
-        this.guardWasEnabled = safeWalk.isEnabled();
-        this.guardStateCaptured = true;
-        if (this.guardWasEnabled) {
-            safeWalk.setEnabled(false);
+        // Eagle
+        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+        if (eagle != null) {
+            this.eagleWasEnabled = eagle.isEnabled();
+            this.eagleStateCaptured = true;
+            if (this.eagleWasEnabled) {
+                eagle.setEnabled(false);
+            }
         }
     }
 
     private void verifyGuardState() {
-        if (!this.guardStateCaptured) {
-            return;
+        if (this.guardStateCaptured) {
+            SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
+            if (safeWalk != null && safeWalk.isEnabled()) {
+                safeWalk.setEnabled(false);
+            }
         }
-        SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-        if (safeWalk != null && safeWalk.isEnabled()) {
-            safeWalk.setEnabled(false);
+        if (this.eagleStateCaptured) {
+            Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+            if (eagle != null && eagle.isEnabled()) {
+                eagle.setEnabled(false);
+            }
         }
     }
 
     private void resetGuardState() {
-        if (!this.guardStateCaptured) {
-            return;
+        if (this.guardStateCaptured) {
+            boolean restore = this.guardWasEnabled;
+            this.guardStateCaptured = false;
+            SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
+            if (safeWalk != null && restore != safeWalk.isEnabled()) {
+                safeWalk.setEnabled(restore);
+            }
         }
-        boolean restore = this.guardWasEnabled;
-        this.guardStateCaptured = false;
-        SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-        if (safeWalk == null) {
-            return;
-        }
-        if (restore != safeWalk.isEnabled()) {
-            safeWalk.setEnabled(restore);
+        if (this.eagleStateCaptured) {
+            boolean restoreEagle = this.eagleWasEnabled;
+            this.eagleStateCaptured = false;
+            Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+            if (eagle != null && restoreEagle != eagle.isEnabled()) {
+                eagle.setEnabled(restoreEagle);
+            }
         }
     }
-
 
     private void doSwap() {
         if (!this.autoSwap.getValue() || mc.thePlayer == null) {
