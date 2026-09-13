@@ -5,6 +5,7 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.*;
+import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
@@ -106,7 +107,7 @@ public class GodBridge extends Module {
     public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 30);
     public final BooleanProperty disableGuard = new BooleanProperty("disable-guard", true);
     public final BooleanProperty showBounds = new BooleanProperty("show-activation-bounds", true);
-    public final IntProperty rotationSpeed = new IntProperty("rotation-speed", 280, 50, 1000);
+    public final IntProperty rotationSpeed = new IntProperty("rotation-delay", 250, 50, 500);
     public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000);
     public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000);
     public final BooleanProperty debug = new BooleanProperty("debug", false);
