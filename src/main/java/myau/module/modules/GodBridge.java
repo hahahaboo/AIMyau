@@ -142,8 +142,8 @@ public class GodBridge extends Module {
 
     private boolean guardStateCaptured = false;
     private boolean guardWasEnabled = false;
-    private boolean eagleStateCaptured = false;
-    private boolean eagleWasEnabled = false;
+    private boolean eagleDisabledForActivation = false;
+    private boolean eagleWasDisabledByBridge = false;
 
     private long takeoverDetectionAt = 0L;
     private boolean takeoverCameraValid = false;
@@ -245,6 +245,12 @@ public class GodBridge extends Module {
         press(mc.gameSettings.keyBindAttack, KeyBindUtil.isKeyDown(
                 mc.gameSettings.keyBindAttack.getKeyCode()));
         this.resetGuardState();
+        boolean restoreEagle = this.eagleWasDisabledByBridge;
+        this.eagleDisabledForActivation = false;
+        this.eagleWasDisabledByBridge = false;
+        if (restoreEagle) {
+            this.restoreEagleAfterBridge();
+        }
 
         this.freezeLastTickAt = 0L;
         this.armed = true;
@@ -408,6 +414,11 @@ public class GodBridge extends Module {
             if (this.shouldSuppressUse()) {
                 press(mc.gameSettings.keyBindUseItem, false);
             }
+            // Eagle：提示就緒就關（與 LegitTelly 相同）
+            if (this.isPromptReady()) {
+                this.disableEagleForActivation();
+            }
+            // SafeWalk：提示就緒且按住右鍵才關；鬆開右鍵則還原
             if (this.isPromptReady()
                     && KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode())) {
                 this.captureGuard();
@@ -463,6 +474,7 @@ public class GodBridge extends Module {
                 KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode()));
         if (!this.running && !this.aiming && !this.waitingForDelay) {
             this.resetGuardState();
+            this.eagleDisabledForActivation = false;
         }
     }
 
@@ -475,6 +487,7 @@ public class GodBridge extends Module {
         this.promptBrokeAt = 0L;
         if (!this.running && !this.aiming && !this.waitingForDelay) {
             this.resetGuardState();
+            this.eagleDisabledForActivation = false;
         }
     }
 
@@ -1962,57 +1975,58 @@ public class GodBridge extends Module {
         if (!this.disableGuard.getValue()) {
             return;
         }
-        // SafeWalk
         SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-        if (safeWalk != null) {
-            this.guardWasEnabled = safeWalk.isEnabled();
-            this.guardStateCaptured = true;
-            if (this.guardWasEnabled) {
-                safeWalk.setEnabled(false);
-            }
+        if (safeWalk == null) {
+            return;
         }
-        // Eagle
-        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
-        if (eagle != null) {
-            this.eagleWasEnabled = eagle.isEnabled();
-            this.eagleStateCaptured = true;
-            if (this.eagleWasEnabled) {
-                eagle.setEnabled(false);
-            }
+        this.guardWasEnabled = safeWalk.isEnabled();
+        this.guardStateCaptured = true;
+        if (this.guardWasEnabled) {
+            safeWalk.setEnabled(false);
         }
     }
 
     private void verifyGuardState() {
-        if (this.guardStateCaptured) {
-            SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-            if (safeWalk != null && safeWalk.isEnabled()) {
-                safeWalk.setEnabled(false);
-            }
+        if (!this.guardStateCaptured) {
+            return;
         }
-        if (this.eagleStateCaptured) {
-            Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
-            if (eagle != null && eagle.isEnabled()) {
-                eagle.setEnabled(false);
-            }
+        SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
+        if (safeWalk != null && safeWalk.isEnabled()) {
+            safeWalk.setEnabled(false);
         }
     }
 
     private void resetGuardState() {
-        if (this.guardStateCaptured) {
-            boolean restore = this.guardWasEnabled;
-            this.guardStateCaptured = false;
-            SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
-            if (safeWalk != null && restore != safeWalk.isEnabled()) {
-                safeWalk.setEnabled(restore);
-            }
+        if (!this.guardStateCaptured) {
+            return;
         }
-        if (this.eagleStateCaptured) {
-            boolean restoreEagle = this.eagleWasEnabled;
-            this.eagleStateCaptured = false;
-            Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
-            if (eagle != null && restoreEagle != eagle.isEnabled()) {
-                eagle.setEnabled(restoreEagle);
-            }
+        boolean restore = this.guardWasEnabled;
+        this.guardStateCaptured = false;
+        SafeWalk safeWalk = (SafeWalk) Myau.moduleManager.modules.get(SafeWalk.class);
+        if (safeWalk == null) {
+            return;
+        }
+        if (restore != safeWalk.isEnabled()) {
+            safeWalk.setEnabled(restore);
+        }
+    }
+
+    private void disableEagleForActivation() {
+        if (this.eagleDisabledForActivation) {
+            return;
+        }
+        this.eagleDisabledForActivation = true;
+        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+        if (eagle != null && eagle.isEnabled()) {
+            eagle.setEnabled(false);
+            this.eagleWasDisabledByBridge = true;
+        }
+    }
+
+    private void restoreEagleAfterBridge() {
+        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+        if (eagle != null && !eagle.isEnabled()) {
+            eagle.setEnabled(true);
         }
     }
 
