@@ -4,12 +4,7 @@ import myau.Myau;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
-import myau.events.MouseButtonEvent;
-import myau.events.MoveInputEvent;
-import myau.events.PacketEvent;
-import myau.events.Render2DEvent;
-import myau.events.Render3DEvent;
-import myau.events.UpdateEvent;
+import myau.events.*;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
@@ -1039,21 +1034,28 @@ public class GodBridge extends Module {
     }
 
     @EventTarget(Priority.HIGHEST)
-    public void onMouseButton(MouseButtonEvent event) {
+    public void onLeftClick(LeftClickMouseEvent event) {
         if (!this.isEnabled()) {
             return;
         }
         if (this.running) {
-            if (event.getButton() == 0) {
-                press(mc.gameSettings.keyBindAttack, false);
-                event.setCancelled(true);
-            } else if (event.getButton() == 1) {
-                press(mc.gameSettings.keyBindUseItem, this.autoPlaceWindow);
-                event.setCancelled(true);
-            }
+            press(mc.gameSettings.keyBindAttack, false);
+            event.setCancelled(true);
             return;
         }
-        if (this.armed && this.shouldSuppressUse() && event.getButton() == 1) {
+    }
+    
+    @EventTarget(Priority.HIGHEST)
+    public void onRightClick(RightClickMouseEvent event) {
+        if (!this.isEnabled()) {
+            return;
+        }
+        if (this.running) {
+            press(mc.gameSettings.keyBindUseItem, this.autoPlaceWindow);
+            event.setCancelled(true);
+            return;
+        }
+        if (this.armed && this.shouldSuppressUse()) {
             event.setCancelled(true);
         }
     }
