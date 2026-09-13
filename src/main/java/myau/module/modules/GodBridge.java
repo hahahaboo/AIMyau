@@ -105,12 +105,12 @@ public class GodBridge extends Module {
     public final BooleanProperty holdBlock = new BooleanProperty("hold-block", true);
     public final BooleanProperty onlyWhenSneak = new BooleanProperty("only-when-sneak", true);
     public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
-    public final IntProperty autoJump = new IntProperty("auto-jump", 8, 0, 30, 1);
+    public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 30);
     public final BooleanProperty disableGuard = new BooleanProperty("disable-guard", true);
     public final BooleanProperty showBounds = new BooleanProperty("show-activation-bounds", true);
-    public final IntProperty rotationSpeed = new IntProperty("rotation-speed", 280, 50, 1000, 10);
-    public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000, 10);
-    public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000, 10);
+    public final IntProperty rotationSpeed = new IntProperty("rotation-speed", 280, 50, 1000);
+    public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000);
+    public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000);
     public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private boolean armed = false;
@@ -807,9 +807,9 @@ public class GodBridge extends Module {
         fillAlpha = Math.max(4, fillAlpha);
         lineAlpha = Math.max(16, lineAlpha);
 
-        double viewerX = AccessorRenderManager.getRenderPosX(mc.getRenderManager());
-        double viewerY = AccessorRenderManager.getRenderPosY(mc.getRenderManager());
-        double viewerZ = AccessorRenderManager.getRenderPosZ(mc.getRenderManager());
+        double viewerX = IAccessorRenderManager.getRenderPosX(mc.getRenderManager());
+        double viewerY = IAccessorRenderManager.getRenderPosY(mc.getRenderManager());
+        double viewerZ = IAccessorRenderManager.getRenderPosZ(mc.getRenderManager());
 
         GlStateManager.pushMatrix();
         RenderUtil.enableRenderState();
