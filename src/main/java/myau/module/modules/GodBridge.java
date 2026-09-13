@@ -5,6 +5,7 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.*;
+import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
@@ -102,15 +103,13 @@ public class GodBridge extends Module {
     private static final long SEARCH_BUDGET_MS = 4L;
     private static final int REJECT_TICKS = 4;
 
-    public final BooleanProperty holdBlock = new BooleanProperty("hold-block", true);
-    public final BooleanProperty onlyWhenSneak = new BooleanProperty("only-when-sneak", true);
+    public final IntProperty rotationSpeed = new IntProperty("rotation-delay", 250, 50, 500);
+    public final IntProperty startDelay = new IntProperty("start-delay", 150, 0, 500);
+    public final IntProperty activationDelay = new IntProperty("activation-delay", 750, 0, 1000);
+    public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 10);
     public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
-    public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 30);
-    public final BooleanProperty disableGuard = new BooleanProperty("disable-guard", true);
-    public final BooleanProperty showBounds = new BooleanProperty("show-activation-bounds", true);
-    public final IntProperty rotationSpeed = new IntProperty("rotation-speed", 280, 50, 1000);
-    public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000);
-    public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000);
+    public final BooleanProperty disableGuard = new BooleanProperty("disable-safewalk", true);
+    public final BooleanProperty showBounds = new BooleanProperty("show-activation-hitbox", true);
     public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private boolean armed = false;
@@ -144,6 +143,8 @@ public class GodBridge extends Module {
 
     private boolean guardStateCaptured = false;
     private boolean guardWasEnabled = false;
+    private boolean eagleDisabledForActivation = false;
+    private boolean eagleWasDisabledByBridge = false;
 
     private long takeoverDetectionAt = 0L;
     private boolean takeoverCameraValid = false;
@@ -189,7 +190,7 @@ public class GodBridge extends Module {
     private int floorY = Integer.MIN_VALUE;
 
     public GodBridge() {
-        super("God Bridge", false);
+        super("GodBridge", " ", Category.PLAYER, 0, false, false);
     }
 
 
@@ -245,6 +246,12 @@ public class GodBridge extends Module {
         press(mc.gameSettings.keyBindAttack, KeyBindUtil.isKeyDown(
                 mc.gameSettings.keyBindAttack.getKeyCode()));
         this.resetGuardState();
+        boolean restoreEagle = this.eagleWasDisabledByBridge;
+        this.eagleDisabledForActivation = false;
+        this.eagleWasDisabledByBridge = false;
+        if (restoreEagle) {
+            this.restoreEagleAfterBridge();
+        }
 
         this.freezeLastTickAt = 0L;
         this.armed = true;
@@ -393,7 +400,7 @@ public class GodBridge extends Module {
             this.clearPrompt();
             return;
         }
-        if (this.holdBlock.getValue() && !isHoldingBlock()) {
+        if (!isHoldingBlock()) {
             this.abandonPrompt();
             return;
         }
@@ -408,6 +415,11 @@ public class GodBridge extends Module {
             if (this.shouldSuppressUse()) {
                 press(mc.gameSettings.keyBindUseItem, false);
             }
+            // Eagle：提示就緒就關（與 LegitTelly 相同）
+            if (this.isPromptReady()) {
+                this.disableEagleForActivation();
+            }
+            // SafeWalk：提示就緒且按住右鍵才關；鬆開右鍵則還原
             if (this.isPromptReady()
                     && KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode())) {
                 this.captureGuard();
@@ -443,7 +455,7 @@ public class GodBridge extends Module {
             }
             return;
         }
-        if (this.onlyWhenSneak.getValue() && !isSneaking()) {
+        if (!isSneaking()) {
             this.abandonPrompt();
             return;
         }
@@ -463,6 +475,7 @@ public class GodBridge extends Module {
                 KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode()));
         if (!this.running && !this.aiming && !this.waitingForDelay) {
             this.resetGuardState();
+            this.eagleDisabledForActivation = false;
         }
     }
 
@@ -475,6 +488,7 @@ public class GodBridge extends Module {
         this.promptBrokeAt = 0L;
         if (!this.running && !this.aiming && !this.waitingForDelay) {
             this.resetGuardState();
+            this.eagleDisabledForActivation = false;
         }
     }
 
@@ -1998,6 +2012,24 @@ public class GodBridge extends Module {
         }
     }
 
+    private void disableEagleForActivation() {
+        if (this.eagleDisabledForActivation) {
+            return;
+        }
+        this.eagleDisabledForActivation = true;
+        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+        if (eagle != null && eagle.isEnabled()) {
+            eagle.setEnabled(false);
+            this.eagleWasDisabledByBridge = true;
+        }
+    }
+
+    private void restoreEagleAfterBridge() {
+        Eagle eagle = (Eagle) Myau.moduleManager.modules.get(Eagle.class);
+        if (eagle != null && !eagle.isEnabled()) {
+            eagle.setEnabled(true);
+        }
+    }
 
     private void doSwap() {
         if (!this.autoSwap.getValue() || mc.thePlayer == null) {
