@@ -103,13 +103,13 @@ public class GodBridge extends Module {
     private static final long SEARCH_BUDGET_MS = 4L;
     private static final int REJECT_TICKS = 4;
 
-    public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
-    public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 30);
-    public final BooleanProperty disableGuard = new BooleanProperty("disable-guard", true);
-    public final BooleanProperty showBounds = new BooleanProperty("show-activation-bounds", true);
     public final IntProperty rotationSpeed = new IntProperty("rotation-delay", 250, 50, 500);
     public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000);
     public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000);
+    public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 10);
+    public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
+    public final BooleanProperty disableGuard = new BooleanProperty("disable-safewalk", true);
+    public final BooleanProperty showBounds = new BooleanProperty("show-activation-hitbox", true);
     public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private boolean armed = false;
