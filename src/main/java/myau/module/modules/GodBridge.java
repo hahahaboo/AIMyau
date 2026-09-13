@@ -189,7 +189,7 @@ public class GodBridge extends Module {
     private int floorY = Integer.MIN_VALUE;
 
     public GodBridge() {
-        super("God Bridge", false);
+        super("GodBridge", " ", Category.PLAYER, 0, false, false);
     }
 
 
