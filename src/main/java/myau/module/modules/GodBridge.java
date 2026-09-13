@@ -104,8 +104,8 @@ public class GodBridge extends Module {
     private static final int REJECT_TICKS = 4;
 
     public final IntProperty rotationSpeed = new IntProperty("rotation-delay", 250, 50, 500);
-    public final IntProperty startDelay = new IntProperty("start-delay", 0, 0, 1000);
-    public final IntProperty activationDelay = new IntProperty("activation-delay", 150, 0, 1000);
+    public final IntProperty startDelay = new IntProperty("start-delay", 150, 0, 500);
+    public final IntProperty activationDelay = new IntProperty("activation-delay", 750, 0, 1000);
     public final IntProperty autoJump = new IntProperty("auto-jump", 6, 0, 10);
     public final BooleanProperty autoSwap = new BooleanProperty("auto-swap", true);
     public final BooleanProperty disableGuard = new BooleanProperty("disable-safewalk", true);
