@@ -807,9 +807,9 @@ public class GodBridge extends Module {
         fillAlpha = Math.max(4, fillAlpha);
         lineAlpha = Math.max(16, lineAlpha);
 
-        double viewerX = IAccessorRenderManager.getRenderPosX(mc.getRenderManager());
-        double viewerY = IAccessorRenderManager.getRenderPosY(mc.getRenderManager());
-        double viewerZ = IAccessorRenderManager.getRenderPosZ(mc.getRenderManager());
+        double viewerX = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosX();
+        double viewerY = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosY();
+        double viewerZ = ((IAccessorRenderManager) mc.getRenderManager()).getRenderPosZ();
 
         GlStateManager.pushMatrix();
         RenderUtil.enableRenderState();
