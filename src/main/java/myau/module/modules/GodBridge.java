@@ -1556,7 +1556,7 @@ public class GodBridge extends Module {
         double errorSq = (clampedX - hitX) * (clampedX - hitX)
                 + (clampedY - hitY) * (clampedY - hitY)
                 + (clampedZ - hitZ) * (clampedZ - hitZ);
-        return errorSq > 0.03 ? null : new Vec3(clampedX, clampedY, clampedZ);
+        return errorSq > 0.01 ? null : new Vec3(clampedX, clampedY, clampedZ);
     }
 
     private Trace raycast(float yaw, float pitch) {
