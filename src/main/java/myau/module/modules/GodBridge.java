@@ -1554,7 +1554,7 @@ public class GodBridge extends Module {
         double clampedY = Math.max(support.getY() + 0.005, Math.min(support.getY() + 0.995, hitY));
         double clampedZ = Math.max(support.getZ() + 0.005, Math.min(support.getZ() + 0.995, hitZ));
         double error = (clampedX - hitX) + (clampedY - hitY) + (clampedZ - hitZ);
-        return error > 0.03 ? null : new Vec3(clampedX, clampedY, clampedZ);
+        return error > 0.01 ? null : new Vec3(clampedX, clampedY, clampedZ);
     }
 
     private Trace raycast(float yaw, float pitch) {
