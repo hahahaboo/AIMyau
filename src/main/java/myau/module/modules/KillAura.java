@@ -442,6 +442,8 @@ public class KillAura extends Module {
             return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (this.autoBlock.getValue() == 2  // INTERACT
                     || this.autoBlock.getValue() == 3 // LEGIT
                     || this.autoBlock.getValue() == 5); //WATCHDOG
+        } else if (this.shouldSmartUnblock()) {
+            return this.isPlayerBlocking();
         } else {
             return false;
         }
