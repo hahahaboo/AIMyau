@@ -61,6 +61,7 @@ public class KillAura extends Module {
     private boolean hitRegistered = false;
     private boolean blockingState = false;
     private boolean isBlocking = false;
+    private boolean isStopBlocking = false;
     private boolean fakeBlockState = false;
     private boolean blinkReset = false;
     private long attackDelayMS = 0L;
@@ -148,9 +149,13 @@ public class KillAura extends Module {
     }
 
     private void stopBlock() {
-        PacketUtil.sendPacket(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
-        mc.thePlayer.stopUsingItem();
-        this.blockingState = false;
+        if (!this.isStopBlocking) {
+            this.isStopBlocking = true; 
+            PacketUtil.sendPacket(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
+            mc.thePlayer.stopUsingItem();
+            this.blockingState = false;
+            this.isStopBlocking = false; 
+        }
     }
 
     private boolean watchdogCycle() {
