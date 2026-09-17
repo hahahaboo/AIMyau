@@ -81,8 +81,8 @@ public abstract class MixinEntity {
         // Freecam 優先
         if (FreeCam.freeEntity != null) {
             FreeCam.freeEntity.setAngles(yaw, pitch);
-            FreeCam.freeEntity.rotationYawHead = Freecam.freeEntity.rotationYaw;
-            FreeCam.freeEntity.prevRotationYawHead = Freecam.freeEntity.rotationYaw;
+            FreeCam.freeEntity.rotationYawHead = FreeCam.freeEntity.rotationYaw;
+            FreeCam.freeEntity.prevRotationYawHead = FreeCam.freeEntity.rotationYaw;
             callbackInfo.cancel();
             return;
         }
