@@ -25,7 +25,7 @@ import net.minecraft.network.play.client.C08PacketPlayerBlockPlacement;
 import net.minecraft.util.MovementInput;
 import net.minecraft.util.MovingObjectPosition.MovingObjectType;
 
-public class Freecam extends Module {
+public class FreeCam extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     private static final int FREE_ENTITY_ID = -8008;
     private static final double SPEED_SCALE = 0.215;
@@ -43,8 +43,8 @@ public class Freecam extends Module {
     private int[] lastChunk = new int[]{Integer.MAX_VALUE, 0};
     private final float[] savedAngles = new float[]{0.0F, 0.0F};
 
-    public Freecam() {
-        super("Freecam", "Detach camera from player", Category.PLAYER, 0, false, false);
+    public FreeCam() {
+        super("FreeCam", "Detach camera from player", Category.PLAYER, 0, false, false);
     }
 
     public static boolean isFreeEntity(Entity entity) {
