@@ -4,7 +4,7 @@ import myau.Myau;
 import myau.event.EventManager;
 import myau.events.KnockbackEvent;
 import myau.events.SafeWalkEvent;
-import myau.module.modules.Freecam;
+import myau.module.modules.FreeCam;
 import myau.module.modules.FreeLook;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.Entity;
@@ -79,10 +79,10 @@ public abstract class MixinEntity {
             return;
         }
         // Freecam 優先
-        if (Freecam.freeEntity != null) {
-            Freecam.freeEntity.setAngles(yaw, pitch);
-            Freecam.freeEntity.rotationYawHead = Freecam.freeEntity.rotationYaw;
-            Freecam.freeEntity.prevRotationYawHead = Freecam.freeEntity.rotationYaw;
+        if (FreeCam.freeEntity != null) {
+            FreeCam.freeEntity.setAngles(yaw, pitch);
+            FreeCam.freeEntity.rotationYawHead = Freecam.freeEntity.rotationYaw;
+            FreeCam.freeEntity.prevRotationYawHead = Freecam.freeEntity.rotationYaw;
             callbackInfo.cancel();
             return;
         }
