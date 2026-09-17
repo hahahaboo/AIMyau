@@ -44,6 +44,8 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
     private float lastReportedYaw;
     @Shadow
     private float lastReportedPitch;
+    @Shadow
+    protected abstract boolean isCurrentViewEntity();
 
     @Inject(
             method = {"onUpdate"},
