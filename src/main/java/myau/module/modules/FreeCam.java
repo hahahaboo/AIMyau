@@ -55,7 +55,7 @@ public class FreeCam extends Module {
 
     @Override
     public void onEnabled() {
-        if (mc.thePlayer == null || mc.theWorld == null || !mc.thePlayer.onGround) {
+        if (mc.thePlayer == null || mc.theWorld == null) {
             this.setEnabled(false);
             return;
         }
@@ -67,6 +67,9 @@ public class FreeCam extends Module {
         freeEntity.setInvisible(true);
         mc.theWorld.addEntityToWorld(FREE_ENTITY_ID, freeEntity);
         mc.setRenderViewEntity(freeEntity);
+        mc.thePlayer.motionX = 0.0;
+        mc.thePlayer.motionY = 0.0;
+        mc.thePlayer.motionZ = 0.0;
     }
 
     @Override
