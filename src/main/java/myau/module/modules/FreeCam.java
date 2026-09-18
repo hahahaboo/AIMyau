@@ -4,11 +4,12 @@ import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.LoadWorldEvent;
-import myau.events.MouseEvent;
 import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.events.LeftClickMouseEvent;
+import myau.events.RightClickMouseEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
@@ -169,32 +170,32 @@ public class FreeCam extends Module {
     }
 
     @EventTarget
-    public void onMouse(MouseEvent event) {
+    public void onLeftClick(LeftClickMouseEvent event) {
         if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
-        // 只處理按下事件
-        if (!event.isButtonstate()) {
-            return;
-        }
         MovingObjectType hitType = mc.objectMouseOver == null ? MovingObjectType.MISS : mc.objectMouseOver.typeOfHit;
-        int button = event.getButton();
-        if (button == 0) {
-            if (hitType == MovingObjectType.BLOCK && !this.allowDigging.getValue()
-                    || hitType == MovingObjectType.ENTITY && !this.allowInteracting.getValue()) {
-                event.setCancelled(true);
-            }
-        } else if (button == 1) {
-            if (hitType == MovingObjectType.ENTITY) {
-                if (!this.allowInteracting.getValue()) {
-                    event.setCancelled(true);
-                }
-            } else if (!this.allowPlacing.getValue()) {
-                event.setCancelled(true);
-            }
+        if ((hitType == MovingObjectType.BLOCK && !this.allowDigging.getValue())
+                || (hitType == MovingObjectType.ENTITY && !this.allowInteracting.getValue())) {
+            event.setCancelled(true);
         }
     }
 
+    @EventTarget
+    public void onRightClick(RightClickMouseEvent event) {
+        if (!this.isEnabled() || mc.thePlayer == null || mc.theWorld == null) {
+            return;
+        }
+        MovingObjectType hitType = mc.objectMouseOver == null ? MovingObjectType.MISS : mc.objectMouseOver.typeOfHit;
+        if (hitType == MovingObjectType.ENTITY) {
+            if (!this.allowInteracting.getValue()) {
+                event.setCancelled(true);
+            }
+        } else if (!this.allowPlacing.getValue()) {
+            event.setCancelled(true);
+        }
+    }
+    
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.SEND || mc.thePlayer == null || mc.theWorld == null) {
