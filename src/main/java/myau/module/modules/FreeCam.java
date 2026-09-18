@@ -144,7 +144,7 @@ public class FreeCam extends Module {
         freeEntity.posZ += Math.cos(rad) * step * direction;
     }
 
-    @EventTarget(Priority.HIGHEST)
+    @EventTarget(Priority.LOWEST)
     public void onMoveInput(MoveInputEvent event) {
         if (freeEntity == null || mc.thePlayer == null) {
             return;
