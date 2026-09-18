@@ -59,12 +59,17 @@ public class FreeCam extends Module {
             this.setEnabled(false);
             return;
         }
-        if (mc.thePlayer.movementInput != null) {
-            mc.thePlayer.movementInput.moveForward = 0.0F;
-            mc.thePlayer.movementInput.moveStrafe = 0.0F;
-            mc.thePlayer.movementInput.jump = false;
-            mc.thePlayer.movementInput.sneak = false;
-        }
+        // 1. 先釋放所有移動按鍵，讓本體停止輸入
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindForward.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindBack.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindLeft.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindRight.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindJump.getKeyCode(), false);
+        KeyBindUtil.setKeyBindState(mc.gameSettings.keyBindSneak.getKeyCode(), false);
+        mc.thePlayer.movementInput.moveForward = 0.0F;
+        mc.thePlayer.movementInput.moveStrafe = 0.0F;
+        mc.thePlayer.movementInput.jump = false;
+        mc.thePlayer.movementInput.sneak = false;
         freeEntity = new EntityOtherPlayerMP(mc.theWorld, mc.thePlayer.getGameProfile());
         freeEntity.copyLocationAndAnglesFrom(mc.thePlayer);
         this.savedAngles[0] = freeEntity.rotationYawHead = mc.thePlayer.rotationYawHead;
