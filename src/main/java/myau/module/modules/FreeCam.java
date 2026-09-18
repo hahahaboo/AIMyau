@@ -3,6 +3,7 @@ package myau.module.modules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
 import myau.event.types.Priority;
+import myau.events.HitBlockEvent;
 import myau.events.LoadWorldEvent;
 import myau.events.MoveInputEvent;
 import myau.events.PacketEvent;
@@ -195,7 +196,15 @@ public class FreeCam extends Module {
             event.setCancelled(true);
         }
     }
-    
+
+    @EventTarget
+    public void onHitBlock(HitBlockEvent event) {
+        if (!this.isEnabled() || this.allowDigging.getValue()) {
+            return;
+        }
+        event.setCancelled(true);
+    }
+
     @EventTarget
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.SEND || mc.thePlayer == null || mc.theWorld == null) {
