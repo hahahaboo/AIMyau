@@ -45,7 +45,7 @@ public class FreeCam extends Module {
     private final float[] savedAngles = new float[]{0.0F, 0.0F};
 
     public FreeCam() {
-        super("FreeCam", "Detach camera from player", Category.PLAYER, 0, false, false);
+        super("FreeCam", "Detach camera from player", Category.RENDER, 0, false, false);
     }
 
     public static boolean isFreeEntity(Entity entity) {
