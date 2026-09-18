@@ -663,6 +663,9 @@ public class KillAura extends Module {
                             }
                         }
                         if (targets.isEmpty()) {
+                            if (this.target != null && (this.rotations.getValue() == 2 || this.rotations.getValue() == 3)) {
+                                Myau.rotationManager.startSnapback(this.angleStep.getValue());
+                            }
                             this.target = null;
                         } else {
                             if (targets.stream().anyMatch(this::isInSwingRange)) {
@@ -703,6 +706,7 @@ public class KillAura extends Module {
                                 this.switchTick = 0;
                             }
                             this.target = new AttackData(targets.get(this.switchTick));
+                            Myau.rotationManager.cancelSnapback();
                         }
                     }
                     if (this.target != null) {
@@ -837,6 +841,9 @@ public class KillAura extends Module {
         this.isBlocking = false;
         this.fakeBlockState = false;
         this.watchdogStage = 0;
+        if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
+            Myau.rotationManager.startSnapback(this.angleStep.getValue());
+        }
     }
 
     @Override
