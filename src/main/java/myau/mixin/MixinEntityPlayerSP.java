@@ -9,6 +9,7 @@ import myau.events.PlayerUpdateEvent;
 import myau.events.UpdateEvent;
 import myau.management.RotationState;
 import myau.module.modules.AntiDebuff;
+import myau.module.modules.FreeCam;
 import myau.module.modules.NoSlow;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.potion.Potion;
@@ -43,6 +44,8 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
     private float lastReportedYaw;
     @Shadow
     private float lastReportedPitch;
+    @Shadow
+    protected abstract boolean isCurrentViewEntity();
 
     @Inject(
             method = {"onUpdate"},
@@ -163,5 +166,16 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
             }
         }
         return ((IAccessorEntityLivingBase) entityPlayerSP).getActivePotionsMap().containsKey(potion.id);
+    }
+
+    @Redirect(
+            method = {"onUpdateWalkingPlayer"},
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/entity/EntityPlayerSP;isCurrentViewEntity()Z"
+            )
+    )
+    private boolean motionViewEntity(EntityPlayerSP entityPlayerSP) {
+        return this.isCurrentViewEntity() || FreeCam.freeEntity != null;
     }
 }
