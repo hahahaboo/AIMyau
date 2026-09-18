@@ -59,6 +59,12 @@ public class FreeCam extends Module {
             this.setEnabled(false);
             return;
         }
+        if (mc.thePlayer.movementInput != null) {
+            mc.thePlayer.movementInput.moveForward = 0.0F;
+            mc.thePlayer.movementInput.moveStrafe = 0.0F;
+            mc.thePlayer.movementInput.jump = false;
+            mc.thePlayer.movementInput.sneak = false;
+        }
         freeEntity = new EntityOtherPlayerMP(mc.theWorld, mc.thePlayer.getGameProfile());
         freeEntity.copyLocationAndAnglesFrom(mc.thePlayer);
         this.savedAngles[0] = freeEntity.rotationYawHead = mc.thePlayer.rotationYawHead;
@@ -67,9 +73,6 @@ public class FreeCam extends Module {
         freeEntity.setInvisible(true);
         mc.theWorld.addEntityToWorld(FREE_ENTITY_ID, freeEntity);
         mc.setRenderViewEntity(freeEntity);
-        mc.thePlayer.motionX = 0.0;
-        mc.thePlayer.motionY = 0.0;
-        mc.thePlayer.motionZ = 0.0;
     }
 
     @Override
