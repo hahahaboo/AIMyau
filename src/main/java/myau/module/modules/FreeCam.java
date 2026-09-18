@@ -59,6 +59,8 @@ public class FreeCam extends Module {
             this.setEnabled(false);
             return;
         }
+        mc.thePlayer.motionX = 0.0;
+        mc.thePlayer.motionZ = 0.0;
         freeEntity = new EntityOtherPlayerMP(mc.theWorld, mc.thePlayer.getGameProfile());
         freeEntity.copyLocationAndAnglesFrom(mc.thePlayer);
         this.savedAngles[0] = freeEntity.rotationYawHead = mc.thePlayer.rotationYawHead;
