@@ -15,6 +15,10 @@ public class RotationManager {
     private float yawDelta;
     private float pitchDelta;
     private int priority;
+    private boolean snapbacking;
+    private float snapbackTargetYaw;
+    private float snapbackTargetPitch;
+    private float snapbackMaxStep;
     @Getter
     private boolean rotated;
 
@@ -23,6 +27,10 @@ public class RotationManager {
         this.yawDelta = Float.NaN;
         this.pitchDelta = Float.NaN;
         this.priority = Integer.MIN_VALUE;
+        this.snapbacking = false;
+        this.snapbackTargetYaw = 0.0F;
+        this.snapbackTargetPitch = 0.0F;
+        this.snapbackMaxStep = 60.0F;
         this.rotated = false;
     }
 
@@ -60,6 +68,77 @@ public class RotationManager {
             this.rotated = force;
             this.applyRotation(0.0F);
         }
+    }
+
+    public void startSnapback(float maxStep) {
+        if (mc.thePlayer == null) {
+            return;
+        }
+        this.startSnapback(mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch, maxStep);
+    }
+
+    public void startSnapback(float targetYaw, float targetPitch, float maxStep) {
+        this.snapbacking = true;
+        this.snapbackTargetYaw = targetYaw;
+        this.snapbackTargetPitch = targetPitch;
+        this.snapbackMaxStep = Math.max(0.0F, maxStep);
+    }
+
+    public void cancelSnapback() {
+        this.snapbacking = false;
+    }
+
+    public boolean isSnapbacking() {
+        return this.snapbacking;
+    }
+
+    public float[] tickSnapback(float currentYaw, float currentPitch) {
+        if (!this.snapbacking) {
+            return new float[]{currentYaw, currentPitch};
+        }
+
+        float[] smoothed = getSmoothSnapback(
+                currentYaw, currentPitch,
+                this.snapbackTargetYaw, this.snapbackTargetPitch,
+                this.snapbackMaxStep
+        );
+
+        if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - this.snapbackTargetYaw)) < 0.5F
+                && Math.abs(smoothed[1] - this.snapbackTargetPitch) < 0.5F) {
+            this.snapbacking = false;
+            return new float[]{this.snapbackTargetYaw, this.snapbackTargetPitch};
+        }
+        return smoothed;
+    }
+
+    private static float[] getSmoothSnapback(float currentYaw, float currentPitch,
+                                             float targetYaw, float targetPitch,
+                                             float maxStep) {
+        float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
+        float deltaPitch = targetPitch - currentPitch;
+
+        if (Math.abs(deltaYaw) < 0.1F) currentYaw = targetYaw;
+        if (Math.abs(deltaPitch) < 0.1F) currentPitch = targetPitch;
+        if (currentYaw == targetYaw && currentPitch == targetPitch) {
+            return new float[]{currentYaw, clampPitch(currentPitch)};
+        }
+
+        maxStep *= 1.0F - (float) (Math.random() * 0.2);  // 或用 RandomUtil
+
+        float totalDelta = Math.abs(deltaYaw) + Math.abs(deltaPitch);
+        if (totalDelta <= maxStep) {
+            currentYaw = targetYaw;
+            currentPitch = targetPitch;
+        } else if (maxStep > 0.0F) {
+            float scale = maxStep / totalDelta;
+            currentYaw += deltaYaw * scale;
+            currentPitch += deltaPitch * scale;
+        }
+        return new float[]{currentYaw, clampPitch(currentPitch)};
+    }
+
+    private static float clampPitch(float pitch) {
+        return pitch < -90.0F ? -90.0F : Math.min(pitch, 90.0F);
     }
 
     @EventTarget(Priority.HIGHEST)
