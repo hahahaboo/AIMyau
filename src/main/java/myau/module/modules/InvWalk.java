@@ -145,7 +145,7 @@ public class InvWalk extends Module {
                 return this.closeDelayTicks == -1 && this.moveDelayTicks == 0 && this.clickQueue.isEmpty();
             case 3: // WATCHDOG
                 if (mc.currentScreen instanceof GuiInventory || mc.currentScreen instanceof GuiChest) {
-                    return ture;
+                    return true;
                 } else {
                     return false;
                 }
