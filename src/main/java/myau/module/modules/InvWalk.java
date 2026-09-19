@@ -63,8 +63,6 @@ public class InvWalk extends Module {
     public final IntProperty moveDelay = new IntProperty("move-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
 
     // ===== Watchdog =====
-    public final BooleanProperty predictionMode = new BooleanProperty("prediction", false,
-            () -> this.mode.getValue() == 3);
     public final IntProperty ticks = new IntProperty("ticks", 1, 1, 20,
             () -> this.mode.getValue() == 3);
     public final BooleanProperty measureChestOpen = new BooleanProperty("measure-chest-open", true,
@@ -81,7 +79,6 @@ public class InvWalk extends Module {
     public static boolean inventoryClicking = false;
     public static boolean chestOpenConfirmed = false;
 
-    private boolean speedSuppressed = false;
     private boolean inputDelayPassed = false;
     private long inputBlockStart = 0L;
     private int openSentTick = -1;
@@ -181,7 +178,6 @@ public class InvWalk extends Module {
         this.resetOpenMeasurement();
         inventoryClicking = false;
         chestOpenConfirmed = false;
-        this.speedSuppressed = false;
         this.inputDelayPassed = false;
         this.inputBlockStart = 0L;
         this.groundTicks = 0;
@@ -286,8 +282,7 @@ public class InvWalk extends Module {
         }
 
         boolean containerBusy = inChest || inventoryClicking;
-        if (containerBusy && this.predictionMode.getValue()
-                && (mc.thePlayer.isPotionActive(Potion.moveSpeed) || !mc.thePlayer.onGround)) {
+        if (containerBusy && (mc.thePlayer.isPotionActive(Potion.moveSpeed) || !mc.thePlayer.onGround)) {
             this.zeroInput();
         } else if (inventoryClicking && !this.inputDelayPassed) {
             this.zeroInput();
@@ -445,38 +440,8 @@ public class InvWalk extends Module {
         }
 
         boolean containerBusy = mc.currentScreen instanceof GuiChest || inventoryClicking;
-        Speed speed = (Speed) Myau.moduleManager.modules.get(Speed.class);
 
-        if (containerBusy && !this.predictionMode.getValue()) {
-            if (speed != null && speed.isEnabled() && !this.speedSuppressed) {
-                mc.thePlayer.motionX *= -0.1;
-                mc.thePlayer.motionZ *= -0.1;
-                this.speedSuppressed = true;
-            }
-            boolean wholeY = !(Math.abs(mc.thePlayer.posY - Math.round(mc.thePlayer.posY)) > 0.03);
-
-            if (this.groundTicks < 10 && wholeY && !(mc.currentScreen instanceof GuiChest)) {
-                this.strafe(0.0365);
-            } else if (!mc.thePlayer.onGround) {
-                this.stop();
-            } else if (mc.thePlayer.isPotionActive(Potion.moveSpeed)) {
-                int amplifier = 1 + mc.thePlayer.getActivePotionEffect(Potion.moveSpeed).getAmplifier();
-                this.strafe((amplifier > 1 ? 0.0185 : 0.0635) * amplifier);
-            } else {
-                this.strafe(0.09);
-            }
-            if (((IAccessorEntityLivingBase) mc.thePlayer).isJumping()) {
-                this.stop();
-            }
-            this.preventDiagonalSpeed();
-        } else if (this.speedSuppressed) {
-            if (speed != null) {
-                speed.setEnabled(true);
-            }
-            this.speedSuppressed = false;
-        }
-
-        if (containerBusy && this.predictionMode.getValue()) {
+        if (containerBusy) {
             mc.thePlayer.setSprinting(false);
             if (!mc.thePlayer.isPotionActive(Potion.moveSpeed)) {
                 ((IAccessorKeyBinding) mc.gameSettings.keyBindSprint).setPressed(false);
@@ -626,7 +591,6 @@ public class InvWalk extends Module {
         // Watchdog cleanup
         inventoryClicking = false;
         chestOpenConfirmed = false;
-        this.speedSuppressed = false;
         this.inputDelayPassed = false;
         this.inputBlockStart = 0L;
         this.groundTicks = 0;
