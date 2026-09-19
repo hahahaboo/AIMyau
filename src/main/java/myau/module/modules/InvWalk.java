@@ -63,8 +63,10 @@ public class InvWalk extends Module {
     public final IntProperty moveDelay = new IntProperty("move-delay", 4, 0, 20, () -> this.mode.getValue() == 2);
 
     // ===== Watchdog =====
-    public final BooleanProperty measureChestOpen = new BooleanProperty("measure-chest-open", true, () -> this.mode.getValue() == 3);
-    public final IntProperty maxTicks = new IntProperty("max-ticks", 0, 0, 20, () -> this.mode.getValue() == 3 && this.measureChestOpen.getValue());
+    public final IntProperty ticks = new IntProperty("ticks", 1, 1, 20,
+            () -> this.mode.getValue() == 3);
+    public final BooleanProperty measureChestOpen = new BooleanProperty("measure-chest-open", true,
+            () -> this.mode.getValue() == 3);
 
     private boolean keysPressed = false;
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
@@ -466,9 +468,6 @@ public class InvWalk extends Module {
         if (!this.awaitingChestGui) return;
         if (mc.currentScreen instanceof GuiChest) {
             this.openLatencyTicks = mc.thePlayer.ticksExisted - this.openSentTick;
-            if (this.maxTicks.getValue() != 0 && this.openLatencyTicks > this.maxTicks.getValue()) {
-                this.openLatencyTicks = this.maxTicks.getValue();
-            }
             if (this.chestOpenTick == -1) {
                 this.chestOpenTick = mc.thePlayer.ticksExisted;
             }
@@ -491,7 +490,7 @@ public class InvWalk extends Module {
         }
         if (!chestOpenConfirmed && this.openLatencyTicks >= 0
                 && mc.thePlayer.ticksExisted - this.chestOpenTick
-                >= this.openLatencyTicks) {
+                >= this.openLatencyTicks - this.ticks.getValue()) {
             chestOpenConfirmed = true;
         }
     }
