@@ -69,10 +69,6 @@ public class InvWalk extends Module {
             () -> this.mode.getValue() == 3);
     public final BooleanProperty measureChestOpen = new BooleanProperty("measure-chest-open", true,
             () -> this.mode.getValue() == 3);
-    public final BooleanProperty inventory = new BooleanProperty("inventory", true,
-            () -> this.mode.getValue() == 3);
-    public final BooleanProperty container = new BooleanProperty("container", true,
-            () -> this.mode.getValue() == 3);
 
     private boolean keysPressed = false;
     private final Queue<C0EPacketClickWindow> clickQueue = new ConcurrentLinkedQueue<>();
@@ -151,7 +147,11 @@ public class InvWalk extends Module {
                 }
                 return this.closeDelayTicks == -1 && this.moveDelayTicks == 0 && this.clickQueue.isEmpty();
             case 3: // WATCHDOG
-                return this.screenAllowed();
+                if (mc.currentScreen instanceof GuiInventory || mc.currentScreen instanceof GuiChest) {
+                    return ture;
+                } else {
+                    return false;
+                }
             default: // VANILLA
                 return true;
         }
@@ -160,19 +160,6 @@ public class InvWalk extends Module {
     private boolean screenAllowsMovement() {
         return !(mc.currentScreen instanceof GuiChat)
                 && !(mc.currentScreen instanceof ClickGuiScreen);
-    }
-
-    private boolean screenAllowed() {
-        if (this.mode.getValue() != 3) {
-            return true;
-        }
-        if (mc.currentScreen instanceof GuiInventory) {
-            return this.inventory.getValue();
-        }
-        if (mc.currentScreen instanceof GuiChest) {
-            return this.container.getValue();
-        }
-        return false;
     }
 
     private boolean temporaryStackIsEmpty() {
@@ -231,7 +218,7 @@ public class InvWalk extends Module {
         if (!this.isEnabled() || this.mode.getValue() != 3 || mc.thePlayer == null) {
             return;
         }
-        if (mc.currentScreen != null && this.screenAllowsMovement() && this.screenAllowed()) {
+        if (mc.currentScreen != null && this.canInvWalk()) {
             this.pressMovementKeys();
         }
         this.watchdogMotion();
@@ -286,7 +273,7 @@ public class InvWalk extends Module {
         if (!this.isEnabled() || mc.thePlayer == null || mc.thePlayer.movementInput == null) {
             return;
         }
-        if (this.mode.getValue() != 3 || !this.screenAllowed()) {
+        if (this.mode.getValue() != 3 || !this.canInvWalk()) {
             return;
         }
 
@@ -445,7 +432,9 @@ public class InvWalk extends Module {
     }
 
     private void watchdogMotion() {
-        if (!this.screenAllowed()) return;
+        if (this.mode.getValue() != 3 || !this.canInvWalk()) {
+            return;
+        }
 
         if (!(mc.currentScreen instanceof GuiInventory)) {
             inventoryClicking = false;
