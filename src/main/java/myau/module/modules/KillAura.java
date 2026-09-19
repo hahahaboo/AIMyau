@@ -87,6 +87,7 @@ public class KillAura extends Module {
     public final ModeProperty moveFix;
     public final PercentProperty smoothing;
     public final IntProperty angleStep;
+    public final BooleanProperty smoothBack;
     public final BooleanProperty throughWalls;
     public final BooleanProperty requirePress;
     public final BooleanProperty allowMining;
@@ -403,6 +404,7 @@ public class KillAura extends Module {
         this.moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT", "STRICT"});
         this.smoothing = new PercentProperty("smoothing", 0);
         this.angleStep = new IntProperty("angle-step", 90, 30, 180);
+        this.smoothBack = new BooleanProperty("smooth-back", false);
         this.throughWalls = new BooleanProperty("through-walls", true);
         this.requirePress = new BooleanProperty("require-press", false);
         this.allowMining = new BooleanProperty("allow-mining", true);
@@ -663,6 +665,9 @@ public class KillAura extends Module {
                             }
                         }
                         if (targets.isEmpty()) {
+                            if (this.target != null && this.smoothBack.getValue() &&this.rotations.getValue() == 2) {
+                                Myau.rotationManager.startSnapback(this.angleStep.getValue());
+                            }
                             this.target = null;
                         } else {
                             if (targets.stream().anyMatch(this::isInSwingRange)) {
@@ -703,6 +708,7 @@ public class KillAura extends Module {
                                 this.switchTick = 0;
                             }
                             this.target = new AttackData(targets.get(this.switchTick));
+                            Myau.rotationManager.cancelSnapback();
                         }
                     }
                     if (this.target != null) {
@@ -837,6 +843,9 @@ public class KillAura extends Module {
         this.isBlocking = false;
         this.fakeBlockState = false;
         this.watchdogStage = 0;
+        if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
+            Myau.rotationManager.startSnapback(this.angleStep.getValue());
+        }
     }
 
     @Override
