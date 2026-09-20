@@ -5,6 +5,7 @@ import myau.enums.DelayModules;
 import myau.event.EventManager;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.*;
 import myau.mixin.IAccessorEntity;
 import myau.module.Module;
@@ -165,7 +166,7 @@ public class Velocity extends Module {
         }
     }
 
-    @EventTarget
+    @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.delayActive && (
