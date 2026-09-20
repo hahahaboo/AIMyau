@@ -239,6 +239,9 @@ public class Velocity extends Module {
 
         if (this.mode.getValue() == 2 && event.getType() == EventType.SEND) {
             Packet<?> packet = event.getPacket();
+            if (packet instanceof C03PacketPlayer && this.badPackets) {
+                this.resetBadPackets();
+            }
             if (packet instanceof C09PacketHeldItemChange) {
                 this.slot = true;
             } else if (packet instanceof C0APacketAnimation) {
@@ -258,8 +261,6 @@ public class Velocity extends Module {
                     (packet instanceof C16PacketClientStatus &&
                     ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
                 this.inventory = true;
-            } else if (packet instanceof C03PacketPlayer) {
-                this.resetBadPackets();
             }
         }
 
