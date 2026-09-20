@@ -205,8 +205,7 @@ public class Velocity extends Module {
                 this.reduceTicks--;
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
                 if (killAura != null && killAura.isEnabled() 
-                    && killAura.getTarget() != null 
-                    && !killAura.shouldAutoBlock()) {
+                    && killAura.getTarget() != null) {
                         EntityLivingBase target = killAura.getTarget();
                         if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
                             return;
