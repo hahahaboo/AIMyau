@@ -39,7 +39,8 @@ public class InvManager extends Module {
     public final IntProperty projectileSlot = new IntProperty("projectile-slot", 4, 0, 9);
     public final IntProperty pickaxeSlot = new IntProperty("pickaxe-slot", 5, 0, 9);
     public final IntProperty axeSlot = new IntProperty("axe-slot", 6, 0, 9);
-    public final IntProperty shovelSlot = new IntProperty("shovel-slot", 7, 0, 9);
+    public final IntProperty shovelSlot = new IntProperty("shovel-slot", 0, 0, 9);
+    public final IntProperty shearsSlot = new IntProperty("shears-slot", 7, 0, 9);
     public final IntProperty goldAppleSlot = new IntProperty("gold-apple-slot", 8, 0, 9);
     public final IntProperty blocksSlot = new IntProperty("blocks-slot", 9, 0, 9);
     public final IntProperty blocks = new IntProperty("blocks", 256, 64, 2304);
@@ -131,6 +132,10 @@ public class InvManager extends Module {
             int inventoryBowSlot              = ItemUtil.findBowInventorySlot(preferredBowHotbarSlot, this.checkDurability.getValue());
             if (inventoryBowSlot == -1)        inventoryBowSlot = ItemUtil.findBowInventorySlot(preferredBowHotbarSlot, false);
 
+            int preferredShearsHotbarSlot   = this.shearsSlot.getValue() - 1;
+            int inventoryShearsSlot         = ItemUtil.findShearsInventorySlot(preferredShearsHotbarSlot, this.checkDurability.getValue());
+            if (inventoryShearsSlot == -1)   inventoryShearsSlot = ItemUtil.findShearsInventorySlot(preferredShearsHotbarSlot, false);
+
             if (this.autoArmor.getValue() && this.autoArmorTime.hasTimeElapsed(this.autoArmorInterval.getValue() * 50L)) {
                 for (int i = 0; i < 4; i++) {
                     int equippedSlot  = equippedArmorSlots.get(i);
@@ -211,19 +216,27 @@ public class InvManager extends Module {
                     return;
                 }
             }
+            if (preferredShearsHotbarSlot >= 0 && preferredShearsHotbarSlot <= 8 && !usedHotbarSlots.contains(preferredShearsHotbarSlot) && inventoryShearsSlot != -1) {
+                usedHotbarSlots.add(preferredShearsHotbarSlot);
+                if (inventoryShearsSlot != preferredShearsHotbarSlot) {
+                    this.clickSlot(mc.thePlayer.inventoryContainer.windowId, this.convertSlotIndex(inventoryShearsSlot), preferredShearsHotbarSlot, 2);
+                    return;
+                }
+            }
 
             if (this.dropTrash.getValue()) {
                 LinkedHashSet<Integer> keepSlots = new LinkedHashSet<>();
                 keepSlots.addAll(equippedArmorSlots);
                 keepSlots.addAll(inventoryArmorSlots);
-                if (inventorySwordSlot    != -1) keepSlots.add(inventorySwordSlot);
-                if (inventoryPickaxeSlot  != -1) keepSlots.add(inventoryPickaxeSlot);
-                if (inventoryShovelSlot   != -1) keepSlots.add(inventoryShovelSlot);
-                if (inventoryAxeSlot      != -1) keepSlots.add(inventoryAxeSlot);
-                if (inventoryBlocksSlot   != -1) keepSlots.add(inventoryBlocksSlot);
+                if (inventorySwordSlot != -1) keepSlots.add(inventorySwordSlot);
+                if (inventoryPickaxeSlot != -1) keepSlots.add(inventoryPickaxeSlot);
+                if (inventoryShovelSlot != -1) keepSlots.add(inventoryShovelSlot);
+                if (inventoryAxeSlot != -1) keepSlots.add(inventoryAxeSlot);
+                if (inventoryBlocksSlot != -1) keepSlots.add(inventoryBlocksSlot);
                 if (inventoryProjectileSlot != -1) keepSlots.add(inventoryProjectileSlot);
-                if (inventoryGoldAppleSlot  != -1) keepSlots.add(inventoryGoldAppleSlot);
-                if (inventoryBowSlot        != -1) keepSlots.add(inventoryBowSlot);
+                if (inventoryGoldAppleSlot != -1) keepSlots.add(inventoryGoldAppleSlot);
+                if (inventoryBowSlot != -1) keepSlots.add(inventoryBowSlot);
+                if (inventoryShearsSlot != -1) keepSlots.add(inventoryShearsSlot);
                 keepSlots.remove(-1);
 
                 int totalBlocks     = this.getStackSize(inventoryBlocksSlot);
