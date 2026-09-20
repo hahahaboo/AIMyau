@@ -200,6 +200,31 @@ public class ItemUtil {
         return bestSlot;
     }
 
+    public static int findShearsInventorySlot(int startSlot, boolean checkDurability) {
+        int bestSlot = -1;
+        int bestRemaining = -1;
+        if (startSlot < 0) return bestSlot;
+        for (int i = 0; i < 36; ++i) {
+            int currentSlot = (startSlot + i) % 36;
+            ItemStack itemStack = ItemUtil.mc.thePlayer.inventory.getStackInSlot(currentSlot);
+            if (itemStack == null) continue;
+            if (itemStack.getItem() != Items.shears) continue;
+            if (checkDurability) {
+                if (itemStack.isItemDamaged()) {
+                    if (itemStack.getMaxDamage() - itemStack.getItemDamage() < 30) {
+                        continue;
+                    }
+                }
+            }
+            int remaining = itemStack.getMaxDamage() - itemStack.getItemDamage();
+            if (remaining > bestRemaining) {
+                bestSlot = currentSlot;
+                bestRemaining = remaining;
+            }
+        }
+        return bestSlot;
+    }
+
     public static int findInventorySlot(String toolClass, int startSlot, boolean checkDurability) {
         int bestSlot = -1;
         float bestEfficiency = 1.0f;
