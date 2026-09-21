@@ -66,7 +66,7 @@ public class Velocity extends Module {
     public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
-    public final BooleanProperty badPackets = new BooleanProperty("bad-packets", false, () -> this.mode.getValue() == 2);
+    public final BooleanProperty badPacketsBool = new BooleanProperty("bad-packets", false, () -> this.mode.getValue() == 2);
     public final BooleanProperty slotBP = new BooleanProperty("slot", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
     public final BooleanProperty attackBP = new BooleanProperty("attack", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
     public final BooleanProperty swingBP = new BooleanProperty("swing", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
@@ -229,7 +229,7 @@ public class Velocity extends Module {
                             && mc.thePlayer.isSprinting()
                             && MoveUtil.isMoving()
                             && target != mc.thePlayer
-                            && (!this.badPackets.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
+                            && (!this.badPacketsBool.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
                                 EventManager.call(new AttackEvent(target));
                                 mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
                                 mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
