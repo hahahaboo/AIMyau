@@ -66,6 +66,13 @@ public class Velocity extends Module {
     public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final BooleanProperty badPackets = new BooleanProperty("bad-packets", false, () -> this.mode.getValue() == 2);
+    public final BooleanProperty slotBP = new BooleanProperty("slot", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty attackBP = new BooleanProperty("attack", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty swingBP = new BooleanProperty("swing", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty blockBP = new BooleanProperty("block", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty inventoryBP = new BooleanProperty("inventory", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty digBP = new BooleanProperty("dig", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
@@ -100,8 +107,14 @@ public class Velocity extends Module {
         return tick10000.getValue();
     }
 
-    private boolean badPackets() {
-        return this.slot || this.attack || this.swing || this.block || this.inventory || this.dig;
+    private boolean badPackets(boolean p1, boolean p2, boolean p3, boolean p4, boolean p5, boolean p6) {
+        if (this.slot && p1) return true;
+        if (this.attack && p2) return true;
+        if (this.swing && p3) return true;
+        if (this.block && p4) return true;
+        if (this.inventory && p5) return true;
+        if (this.dig && p6) return true;
+        return false;
     }
 
     private void resetBadPackets() {
@@ -216,7 +229,7 @@ public class Velocity extends Module {
                             && mc.thePlayer.isSprinting()
                             && MoveUtil.isMoving()
                             && target != mc.thePlayer
-                            && !this.badPackets()) {
+                            && (!this.badPackets.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
                                 EventManager.call(new AttackEvent(target));
                                 mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
                                 mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
