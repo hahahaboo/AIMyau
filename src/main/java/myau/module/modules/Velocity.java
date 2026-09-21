@@ -41,6 +41,7 @@ public class Velocity extends Module {
     private boolean inventory = false;
     private boolean dig = false;
     private int reduceTicks = 0;
+    private boolean isSprintTick = false;
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
@@ -178,8 +179,15 @@ public class Velocity extends Module {
             }
         }
     }
-
+    
     @EventTarget
+    public void onUpdate(UpdateEvent event) {
+        if (mc.thePlayer.isSprinting()){
+            this.isSprintTick = true;
+        }
+    }
+    
+    @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.delayActive && (
@@ -226,7 +234,7 @@ public class Velocity extends Module {
                             return;
                         }
                         if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
-                            && mc.thePlayer.isSprinting()
+                            && this.isSprintTick
                             && MoveUtil.isMoving()
                             && target != mc.thePlayer
                             && (!this.badPacketsBool.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
