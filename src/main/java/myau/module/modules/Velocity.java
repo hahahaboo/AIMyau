@@ -181,7 +181,7 @@ public class Velocity extends Module {
     }
     
     @EventTarget
-    public void onUpdate(UpdateEvent event) {
+    public void onUpdateSprint(UpdateEvent event) {
         if (mc.thePlayer.isSprinting()){
             this.isSprintTick = true;
         }
