@@ -67,12 +67,12 @@ public class Velocity extends Module {
     public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final BooleanProperty badPacketsBool = new BooleanProperty("bad-packets", false, () -> this.mode.getValue() == 2);
-    public final BooleanProperty slotBP = new BooleanProperty("slot", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
-    public final BooleanProperty attackBP = new BooleanProperty("attack", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
-    public final BooleanProperty swingBP = new BooleanProperty("swing", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
-    public final BooleanProperty blockBP = new BooleanProperty("block", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
-    public final BooleanProperty inventoryBP = new BooleanProperty("inventory", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
-    public final BooleanProperty digBP = new BooleanProperty("dig", false, () -> this.mode.getValue() == 2 && this.badPackets.getValue());
+    public final BooleanProperty slotBP = new BooleanProperty("slot", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty attackBP = new BooleanProperty("attack", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty swingBP = new BooleanProperty("swing", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty blockBP = new BooleanProperty("block", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty inventoryBP = new BooleanProperty("inventory", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty digBP = new BooleanProperty("dig", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
