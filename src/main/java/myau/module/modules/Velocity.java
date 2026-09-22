@@ -217,9 +217,10 @@ public class Velocity extends Module {
                     return;
                 }
                 KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura != null && killAura.isEnabled() 
-                    && killAura.getTarget() != null 
-                    && !killAura.shouldAutoBlock()) {
+                if (killAura == null || !killAura.isEnabled() || killAura.getTarget() == null ) {
+                    this.reduceTicks--;
+                    return;
+                } else if (!killAura.shouldAutoBlock()) {
                         EntityLivingBase target = killAura.getTarget();
                         if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
                             return;
