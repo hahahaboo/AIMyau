@@ -180,7 +180,7 @@ public class Velocity extends Module {
         }
     }
 
-    @EventTarget
+    @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.delayActive && (
@@ -366,11 +366,11 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                if (this.fakeCheck.getValue() && this.fallDist > 3) {
-                    this.fallDist = 0.0F;
-                } else {
+                //if (this.fakeCheck.getValue() && this.fallDist > 3) {
+                    //this.fallDist = 0.0F;
+                //} else {
                     this.allowNext = false;
-                }
+                //}
             }
         }
     }
