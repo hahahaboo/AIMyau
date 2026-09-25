@@ -67,12 +67,12 @@ public class Velocity extends Module {
     public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final BooleanProperty badPacketsBool = new BooleanProperty("bad-packets", true, () -> this.mode.getValue() == 2);
-    public final BooleanProperty slotBP = new BooleanProperty("slot", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty attackBP = new BooleanProperty("attack", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty swingBP = new BooleanProperty("swing", false, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty blockBP = new BooleanProperty("block", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty inventoryBP = new BooleanProperty("inventory", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty digBP = new BooleanProperty("dig", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty slotBP = new BooleanProperty("bad-packets-slot", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty attackBP = new BooleanProperty("bad-packets-attack", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty swingBP = new BooleanProperty("bad-packets-swing", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty blockBP = new BooleanProperty("bad-packets-block", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty inventoryBP = new BooleanProperty("bad-packets-inventory", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty digBP = new BooleanProperty("bad-packets-dig", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
@@ -360,7 +360,11 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                this.allowNext = false;
+                if (this.fakeCheck.getValue() && mc.thePlayer.fallDistance > 0.0F) {
+                    // 保持 allowNext = true，不讓後續 velocity 被處理
+                } else {
+                    this.allowNext = false;
+                }
             }
         }
     }
