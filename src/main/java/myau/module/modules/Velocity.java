@@ -215,6 +215,9 @@ public class Velocity extends Module {
         if (event.getType() == EventType.PRE) {
             if (mc.thePlayer != null) {
                 this.fallDist = Math.max(this.fallDist, mc.thePlayer.fallDistance);
+                if (this.delayActive) {
+                    this.fallDist = 0.0F;
+                }
             }
             if (this.mode.getValue() == 2) {
                 if (this.reduceTicks > 0) {
@@ -366,11 +369,11 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                //if (this.fakeCheck.getValue() && this.fallDist > 3) {
-                    //this.fallDist = 0.0F;
-                //} else {
+                if (this.fakeCheck.getValue() && this.fallDist > 3.0F) {
+                    this.fallDist = 0.0F;
+                } else {
                     this.allowNext = false;
-                //}
+                }
             }
         }
     }
