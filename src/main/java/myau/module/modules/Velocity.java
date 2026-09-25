@@ -41,6 +41,7 @@ public class Velocity extends Module {
     private boolean inventory = false;
     private boolean dig = false;
     private int reduceTicks = 0;
+    private float fallDist = 0.0F;
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
@@ -211,36 +212,41 @@ public class Velocity extends Module {
             }
         }
 
-        if (this.mode.getValue() == 2 && event.getType() == EventType.PRE) {
-            if (this.reduceTicks > 0) {
-                if(this.delayAr.getValue() && this.delayActive){
-                    return;
-                }
-                KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura == null || !killAura.isEnabled() || killAura.getTarget() == null ) {
-                    this.reduceTicks--;
-                    return;
-                } else if (!killAura.shouldAutoBlock()) {
-                        EntityLivingBase target = killAura.getTarget();
-                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
-                            return;
-                        }
-                        if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
-                            && mc.thePlayer.isSprinting()
-                            && MoveUtil.isMoving()
-                            && target != mc.thePlayer
-                            && (!this.badPacketsBool.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
-                                this.reduceTicks--;
-                                EventManager.call(new AttackEvent(target));
-                                mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
-                                mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
-                                mc.thePlayer.motionX *= 0.6;
-                                mc.thePlayer.motionZ *= 0.6;
-                                mc.thePlayer.setSprinting(false);
-                                if (this.debugLog.getValue()) {
-                                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
-                                }
-                        }
+        if (event.getType() == EventType.PRE) {
+            if (mc.thePlayer != null) {
+                this.fallDist = Math.max(this.fallDist, mc.thePlayer.fallDistance);
+            }
+            if (this.mode.getValue() == 2) {
+                if (this.reduceTicks > 0) {
+                    if(this.delayAr.getValue() && this.delayActive){
+                        return;
+                    }
+                    KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+                    if (killAura == null || !killAura.isEnabled() || killAura.getTarget() == null ) {
+                        this.reduceTicks--;
+                        return;
+                    } else if (!killAura.shouldAutoBlock()) {
+                            EntityLivingBase target = killAura.getTarget();
+                            if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
+                                return;
+                            }
+                            if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
+                                && mc.thePlayer.isSprinting()
+                                && MoveUtil.isMoving()
+                                && target != mc.thePlayer
+                                && (!this.badPacketsBool.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
+                                    this.reduceTicks--;
+                                    EventManager.call(new AttackEvent(target));
+                                    mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
+                                    mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
+                                    mc.thePlayer.motionX *= 0.6;
+                                    mc.thePlayer.motionZ *= 0.6;
+                                    mc.thePlayer.setSprinting(false);
+                                    if (this.debugLog.getValue()) {
+                                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                                    }
+                            }
+                    }
                 }
             }
         }
@@ -360,8 +366,8 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                if (this.fakeCheck.getValue() && mc.thePlayer.fallDistance > 0.0F) {
-                    // 保持 allowNext = true，不讓後續 velocity 被處理
+                if (this.fakeCheck.getValue() && this.fallDist > 3) {
+                    this.fallDist = 0.0F;
                 } else {
                     this.allowNext = false;
                 }
