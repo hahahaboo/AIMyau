@@ -180,7 +180,7 @@ public class Velocity extends Module {
         }
     }
 
-    @EventTarget(Priority.LOW)
+    @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.delayActive && (
