@@ -64,8 +64,8 @@ public class GodBridge extends Module {
 
     private static final long PROMPT_BREAK_MS = 300L;
 
-    private static final float PITCH_STRAIGHT = 79.5F;
-    private static final float PITCH_DIAGONAL = 75.6F;
+    private static final float PITCH_STRAIGHT = 80.0F;
+    private static final float PITCH_DIAGONAL = 75.5F;
 
     private static final long FREEZE_MS = 300L;
     private static final float TAKEOVER_LIMIT = 25.0F;
@@ -956,7 +956,7 @@ public class GodBridge extends Module {
 
         this.updateMovement(-1.0F, this.autoStrafe, manualJump || this.isAutoJumping, false);
         press(mc.gameSettings.keyBindUseItem, true);
-        float pitch = !mc.thePlayer.onGround ? this.currentPitch - 2.5F : this.currentPitch;
+        float pitch = !mc.thePlayer.onGround ? this.currentPitch - 2.0F : this.currentPitch;
         this.setRot(this.baseYaw, pitch, 0L);
     }
 
