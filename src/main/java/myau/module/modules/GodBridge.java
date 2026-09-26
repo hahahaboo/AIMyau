@@ -1201,8 +1201,7 @@ public class GodBridge extends Module {
         if (!this.checkFacing(candidate.support, candidate.face)) {
             return false;
         }
-        Vec3 hit = this.calcHitVec(mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch,
-                candidate.support, candidate.face);
+        Vec3 hit = candidate.hit;
         if (hit == null || this.cancelledGhostBlocks.contains(candidate.support)) {
             return false;
         }
@@ -1318,10 +1317,8 @@ public class GodBridge extends Module {
         if (System.currentTimeMillis() >= deadline) {
             return null;
         }
-        Candidate cursor = this.findCursorRay(yaw, pitch);
-        if (cursor != null) {
-            return cursor;
-        }
+
+        // —— 目標偵測：與原本相同 ——
         int currentY = this.getCurrentY();
         int strictY = this.getStrictY();
         int previousY = this.getPrevY();
@@ -1339,27 +1336,30 @@ public class GodBridge extends Module {
             }
             this.addTarget(targets, new BlockPos(feet.getX(), targetY, feet.getZ()));
         }
+        // —— 以上目標列表邏輯不改 ——
 
-        Candidate best = null;
-        double bestScore = Double.POSITIVE_INFINITY;
-        for (BlockPos target : targets) {
-            if (System.currentTimeMillis() >= deadline) {
-                return null;
-            }
-            if (!this.isTargetAvailable(target)) {
-                continue;
-            }
-            Candidate candidate = this.findPitch(yaw, pitch, target, deadline, true);
-            if (candidate == null) {
-                continue;
-            }
-            double score = this.scoreCandidate(pitch, candidate.pitch, candidate.face, 0.5, 0.5);
-            if (score < bestScore) {
-                bestScore = score;
-                best = candidate;
-            }
+        // —— 放置：只用當前視角 ——
+        Trace traced = this.raycast(yaw, pitch);
+        if (traced == null || traced.face == EnumFacing.DOWN) {
+            return null;
         }
-        return best;
+
+        BlockPos support = traced.support;
+        EnumFacing face = traced.face;
+        BlockPos placed = support.offset(face);
+
+        // 當前視角放到的格，必須是「我要放的那格」之一
+        if (!targets.contains(placed)) {
+            return null;
+        }
+        if (!this.isTargetAvailable(placed) || !hasSupport(support)) {
+            return null;
+        }
+        if (this.rejectSwitch(placed, face)) {
+            return null;
+        }
+
+        return new Candidate(clamp(pitch, -89.0F, 89.0F), support, face, traced.hit, placed);
     }
 
     private Candidate findCursorRay(float yaw, float pitch) {
