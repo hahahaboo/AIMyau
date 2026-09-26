@@ -126,7 +126,7 @@ public class NoSlow
         return currentPhase >= delay;
     }
 
-    @EventTarget
+    @EventTarget(value = 3)
     public void onLivingUpdate(LivingUpdateEvent event) {
         boolean isCurrentlyBlocking;
         if (!this.isEnabled()) {
