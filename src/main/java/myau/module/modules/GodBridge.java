@@ -956,7 +956,7 @@ public class GodBridge extends Module {
 
         this.updateMovement(-1.0F, this.autoStrafe, manualJump || this.isAutoJumping, false);
         press(mc.gameSettings.keyBindUseItem, true);
-        float pitch = !mc.thePlayer.onGround ? this.currentPitch - 0.5F : this.currentPitch;
+        float pitch = !mc.thePlayer.onGround ? this.currentPitch - 2.5F : this.currentPitch;
         this.setRot(this.baseYaw, pitch, 0L);
     }
 
