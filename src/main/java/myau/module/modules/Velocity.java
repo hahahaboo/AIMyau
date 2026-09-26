@@ -5,6 +5,7 @@ import myau.enums.DelayModules;
 import myau.event.EventManager;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.*;
 import myau.mixin.IAccessorEntity;
 import myau.module.Module;
@@ -40,6 +41,7 @@ public class Velocity extends Module {
     private boolean inventory = false;
     private boolean dig = false;
     private int reduceTicks = 0;
+    private float fallDist = 0.0F;
     private final Random randomChance = new Random();
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
@@ -65,6 +67,13 @@ public class Velocity extends Module {
     public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final BooleanProperty badPacketsBool = new BooleanProperty("bad-packets", true, () -> this.mode.getValue() == 2);
+    public final BooleanProperty slotBP = new BooleanProperty("bad-packets-slot", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty attackBP = new BooleanProperty("bad-packets-attack", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty swingBP = new BooleanProperty("bad-packets-swing", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty blockBP = new BooleanProperty("bad-packets-block", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty inventoryBP = new BooleanProperty("bad-packets-inventory", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
+    public final BooleanProperty digBP = new BooleanProperty("bad-packets-dig", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
@@ -99,8 +108,14 @@ public class Velocity extends Module {
         return tick10000.getValue();
     }
 
-    private boolean badPackets() {
-        return this.slot || this.attack || this.swing || this.block || this.inventory || this.dig;
+    private boolean badPackets(boolean p1, boolean p2, boolean p3, boolean p4, boolean p5, boolean p6) {
+        if (this.slot && p1) return true;
+        if (this.attack && p2) return true;
+        if (this.swing && p3) return true;
+        if (this.block && p4) return true;
+        if (this.inventory && p5) return true;
+        if (this.dig && p6) return true;
+        return false;
     }
 
     private void resetBadPackets() {
@@ -165,7 +180,7 @@ public class Velocity extends Module {
         }
     }
 
-    @EventTarget
+    @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
         if (event.getType() == EventType.POST) {
             if (this.delayActive && (
@@ -197,35 +212,44 @@ public class Velocity extends Module {
             }
         }
 
-        if (this.mode.getValue() == 2 && event.getType() == EventType.PRE) {
-            if (this.reduceTicks > 0) {
-                if(this.delayAr.getValue() && this.delayActive){
-                    return;
+        if (event.getType() == EventType.PRE) {
+            if (mc.thePlayer != null) {
+                this.fallDist = Math.max(this.fallDist, mc.thePlayer.fallDistance);
+                if (this.delayActive) {
+                    this.fallDist = 0.0F;
                 }
-                this.reduceTicks--;
-                KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-                if (killAura != null && killAura.isEnabled() 
-                    && killAura.getTarget() != null 
-                    && !killAura.shouldAutoBlock()) {
-                        EntityLivingBase target = killAura.getTarget();
-                        if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
-                            return;
-                        }
-                        if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
-                            && mc.thePlayer.isSprinting()
-                            && MoveUtil.isMoving()
-                            && target != mc.thePlayer
-                            && !this.badPackets()) {
-                                EventManager.call(new AttackEvent(target));
-                                mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
-                                mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
-                                mc.thePlayer.motionX *= 0.6;
-                                mc.thePlayer.motionZ *= 0.6;
-                                mc.thePlayer.setSprinting(false);
-                                if (this.debugLog.getValue()) {
-                                    ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
-                                }
-                        }
+            }
+            if (this.mode.getValue() == 2) {
+                if (this.reduceTicks > 0) {
+                    if(this.delayAr.getValue() && this.delayActive){
+                        return;
+                    }
+                    KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+                    if (killAura == null || !killAura.isEnabled() || killAura.getTarget() == null ) {
+                        this.reduceTicks--;
+                        return;
+                    } else if (!killAura.shouldAutoBlock()) {
+                            EntityLivingBase target = killAura.getTarget();
+                            if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
+                                return;
+                            }
+                            if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
+                                && mc.thePlayer.isSprinting()
+                                && MoveUtil.isMoving()
+                                && target != mc.thePlayer
+                                && (!this.badPacketsBool.getValue() || !this.badPackets(this.slotBP.getValue(), this.attackBP.getValue(), this.swingBP.getValue(), this.blockBP.getValue(), this.inventoryBP.getValue(), this.digBP.getValue()))) {
+                                    this.reduceTicks--;
+                                    EventManager.call(new AttackEvent(target));
+                                    mc.getNetHandler().addToSendQueue(new C0APacketAnimation());
+                                    mc.getNetHandler().addToSendQueue(new C02PacketUseEntity(target, C02PacketUseEntity.Action.ATTACK));
+                                    mc.thePlayer.motionX *= 0.6;
+                                    mc.thePlayer.motionZ *= 0.6;
+                                    mc.thePlayer.setSprinting(false);
+                                    if (this.debugLog.getValue()) {
+                                        ChatUtil.sendFormatted(Myau.clientName + "Attack reduce " + (this.reduceTicks + 1)  + " tick");
+                                    }
+                            }
+                    }
                 }
             }
         }
@@ -345,7 +369,11 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                this.allowNext = false;
+                if (this.fakeCheck.getValue() && this.fallDist > 3.0F) {
+                    this.fallDist = 0.0F;
+                } else {
+                    this.allowNext = false;
+                }
             }
         }
     }
