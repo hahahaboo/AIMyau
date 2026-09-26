@@ -21,7 +21,6 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.passive.EntityVillager;
 import net.minecraft.util.BlockPos;
-import net.minecraft.util.ChatComponentText;
 
 public class NoSlow
         extends Module {
@@ -42,11 +41,7 @@ public class NoSlow
     public final BooleanProperty bowSprint = new BooleanProperty("bow-sprint", true, () -> this.bowMode.getValue() != 0);
     public final IntProperty bowBlinkDelay = new IntProperty("bow-blink-delay", 2, 1, 10, () -> this.bowMode.getValue() == 3);
     public final IntProperty bowBlinkDuration = new IntProperty("bow-blink-duration", 1, 1, 5, () -> this.bowMode.getValue() == 3);
-    public final BooleanProperty successDetection = new BooleanProperty("success-detection", true, () -> this.swordMode.getValue() == 1 || this.swordMode.getValue() == 2);
-    public final BooleanProperty successMessage = new BooleanProperty("success-message", true, this.successDetection::getValue);
     private int lastSlot = -1;
-    private boolean noslowSuccess = false;
-    private long lastCheckTime = 0L;
     private long lastBlockingTime = 0L;
     private int blinkTimer = 0;
 
@@ -131,29 +126,6 @@ public class NoSlow
         return currentPhase >= delay;
     }
 
-    private void checkNoSlowSuccess() {
-        boolean newSuccessState;
-        if (!(this.isEnabled() && this.isSwordActive() && this.successDetection.getValue())) {
-            return;
-        }
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - this.lastCheckTime < 500L) {
-            return;
-        }
-        this.lastCheckTime = currentTime;
-        boolean wasSprinting = NoSlow.mc.thePlayer.isSprinting();
-        boolean isMoving = Math.abs(NoSlow.mc.thePlayer.movementInput.moveForward) > 0.1f || Math.abs(NoSlow.mc.thePlayer.movementInput.moveStrafe) > 0.1f;
-        boolean bl = newSuccessState = wasSprinting && isMoving && PlayerUtil.isUsingItem();
-        if (newSuccessState != this.noslowSuccess && this.successMessage.getValue()) {
-            if (newSuccessState) {
-                NoSlow.mc.thePlayer.addChatMessage(new ChatComponentText("§a[NoSlow] §fSuccess - Sword blocking without slowdown!"));
-            } else {
-                NoSlow.mc.thePlayer.addChatMessage(new ChatComponentText("§c[NoSlow] §fFailed - Normal sword blocking slowdown"));
-            }
-        }
-        this.noslowSuccess = newSuccessState;
-    }
-
     @EventTarget
     public void onLivingUpdate(LivingUpdateEvent event) {
         boolean isCurrentlyBlocking;
@@ -173,9 +145,6 @@ public class NoSlow
         boolean inSprintProtection = System.currentTimeMillis() - this.lastBlockingTime < 300L;
         boolean playerWantsToSprint = NoSlow.mc.gameSettings.keyBindSprint.isKeyDown();
         if (this.isAnyActive() || inSprintProtection) {
-            if (this.isSwordActive() || inSprintProtection) {
-                this.checkNoSlowSuccess();
-            }
             float multiplier = (float) this.getMotionMultiplier() / 100.0f;
             if (this.isAnyActive()) {
                 NoSlow.mc.thePlayer.movementInput.moveForward *= multiplier;
@@ -197,9 +166,6 @@ public class NoSlow
         } else {
             this.lastSlot = -1;
             Myau.floatManager.setFloatState(false, FloatModules.NO_SLOW);
-        }
-        if (this.isSwordActive() && this.successDetection.getValue()) {
-            this.checkNoSlowSuccess();
         }
     }
 
@@ -234,16 +200,12 @@ public class NoSlow
     @Override
     public void onEnabled() {
         this.blinkTimer = 0;
-        this.noslowSuccess = false;
-        this.lastCheckTime = 0L;
         this.lastBlockingTime = 0L;
     }
 
     @Override
     public void onDisabled() {
         this.blinkTimer = 0;
-        this.noslowSuccess = false;
-        this.lastCheckTime = 0L;
         this.lastBlockingTime = 0L;
         if (NoSlow.mc.thePlayer != null) {
             NoSlow.mc.thePlayer.stopUsingItem();
