@@ -378,16 +378,25 @@ public class Velocity extends Module {
         }
     }
 
+    @EventTarget
+    public void onLoadWorld(LoadWorldEvent event) {
+        reduceTicks = 0;
+        this.resetBadPackets();
+        fallDist = 0.0F;
+    }
+
     @Override
     public void onEnabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        fallDist = 0.0F;
     }
 
     @Override
     public void onDisabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        fallDist = 0.0F;
     }
     
     @Override
