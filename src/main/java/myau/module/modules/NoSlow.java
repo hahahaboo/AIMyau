@@ -42,7 +42,6 @@ public class NoSlow
     public final IntProperty bowBlinkDelay = new IntProperty("bow-blink-delay", 2, 1, 10, () -> this.bowMode.getValue() == 3);
     public final IntProperty bowBlinkDuration = new IntProperty("bow-blink-duration", 1, 1, 5, () -> this.bowMode.getValue() == 3);
     private int lastSlot = -1;
-    private long lastBlockingTime = 0L;
     private int blinkTimer = 0;
 
     public NoSlow() {
@@ -128,30 +127,21 @@ public class NoSlow
 
     @EventTarget
     public void onLivingUpdate(LivingUpdateEvent event) {
-        boolean isCurrentlyBlocking;
         if (!this.isEnabled()) {
             return;
         }
-        boolean bl = isCurrentlyBlocking = this.isSwordActive() && PlayerUtil.isUsingItem();
         if (this.isBlinkMode() && this.shouldBlink()) {
             if (this.isSwordActive()) {
                 NoSlow.mc.thePlayer.stopUsingItem();
             }
             return;
         }
-        if (isCurrentlyBlocking) {
-            this.lastBlockingTime = System.currentTimeMillis();
-        }
-        boolean inSprintProtection = System.currentTimeMillis() - this.lastBlockingTime < 300L;
         boolean playerWantsToSprint = NoSlow.mc.gameSettings.keyBindSprint.isKeyDown();
-        if (this.isAnyActive() || inSprintProtection) {
+        if (this.isAnyActive()) {
             float multiplier = (float) this.getMotionMultiplier() / 100.0f;
-            if (this.isAnyActive()) {
-                NoSlow.mc.thePlayer.movementInput.moveForward *= multiplier;
-                NoSlow.mc.thePlayer.movementInput.moveStrafe *= multiplier;
-            }
+            NoSlow.mc.thePlayer.movementInput.moveForward *= multiplier;
+            NoSlow.mc.thePlayer.movementInput.moveStrafe *= multiplier;
             NoSlow.mc.thePlayer.setSprinting(this.canSprint() && playerWantsToSprint && NoSlow.mc.thePlayer.movementInput.moveForward > 0.1f);
-        } else {
         }
     }
 
@@ -200,13 +190,11 @@ public class NoSlow
     @Override
     public void onEnabled() {
         this.blinkTimer = 0;
-        this.lastBlockingTime = 0L;
     }
 
     @Override
     public void onDisabled() {
         this.blinkTimer = 0;
-        this.lastBlockingTime = 0L;
         if (NoSlow.mc.thePlayer != null) {
             NoSlow.mc.thePlayer.stopUsingItem();
         }
