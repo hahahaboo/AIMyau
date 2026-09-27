@@ -150,7 +150,7 @@ public class NoSlow
                 NoSlow.mc.thePlayer.movementInput.moveForward *= multiplier;
                 NoSlow.mc.thePlayer.movementInput.moveStrafe *= multiplier;
             }
-            NoSlow.mc.thePlayer.setSprinting((this.canSprint() || inSprintProtection) && playerWantsToSprint && NoSlow.mc.thePlayer.movementInput.moveForward > 0.1f);
+            NoSlow.mc.thePlayer.setSprinting(this.canSprint() && playerWantsToSprint && NoSlow.mc.thePlayer.movementInput.moveForward > 0.1f);
         } else {
         }
     }
