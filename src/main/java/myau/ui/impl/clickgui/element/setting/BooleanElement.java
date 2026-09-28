@@ -25,7 +25,7 @@ public class BooleanElement extends SettingElement {
     public void render(int mouseX, int mouseY, float partialTicks, float alpha) {
         if (!isVisible()) return;
         int a = (int) (255 * alpha);
-        anim = AnimationUtil.animateSmooth(prop.getValue() ? 1f : 0f, anim, 14f, 0.016f);
+        anim = AnimationUtil.animateSmooth(prop.getValue() ? 1f : 0f, anim, 14f, Element.deltaTime);
 
         // 名稱
         int tc = Theme.rgba(Theme.TEXT, a);
