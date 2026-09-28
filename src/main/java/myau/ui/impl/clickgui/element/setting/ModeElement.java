@@ -55,14 +55,13 @@ public class ModeElement extends SettingElement {
             FontManager.productSans16.drawString(expanded ? "v" : "^", x + width - aw - 6, ty, Theme.rgba(Theme.TEXT_DIM, a));
         }
 
-        // 下拉
+        // 下拉（不自己 scissor，交給 ClickGuiScreen 內容區裁切）
         if (anim > 0.05f) {
             float dy = y + Theme.SETTING_H;
             float h = modes.size() * ITEM_H * anim;
             RenderUtil.drawRoundedRect(x, dy, width, h, Theme.RADIUS_SM,
                     Theme.rgba(Theme.SETTING_BG, a), true, true, true, true);
 
-            RenderUtil.scissor(x, (int) dy, width, (int) h + 1);
             for (int i = 0; i < modes.size(); i++) {
                 int iy = (int) (dy + i * ITEM_H);
                 boolean hov = mouseX >= x && mouseX <= x + width && mouseY >= iy && mouseY < iy + ITEM_H;
@@ -71,7 +70,6 @@ public class ModeElement extends SettingElement {
                     FontManager.productSans16.drawString(modes.get(i), x + 8, iy + 4, c);
                 }
             }
-            RenderUtil.releaseScissor();
         }
     }
 
