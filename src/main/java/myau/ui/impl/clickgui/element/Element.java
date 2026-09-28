@@ -5,6 +5,9 @@ import net.minecraft.client.Minecraft;
 public abstract class Element {
     protected static final Minecraft mc = Minecraft.getMinecraft();
 
+    /** 由 ClickGuiScreen 每幀寫入，動畫用真實 deltaTime */
+    public static float deltaTime = 0.016f;
+
     public int x, y, width, height;
 
     public Element(int x, int y, int width, int height) {
