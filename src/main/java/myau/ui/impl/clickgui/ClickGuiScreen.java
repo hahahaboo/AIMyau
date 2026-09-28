@@ -156,6 +156,9 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (System.currentTimeMillis() - this.openTime < 150) {
+            return;
+        }
         boolean binding = false;
         for (ModuleElement mod : modules) {
             if (mod.isBinding()) {
