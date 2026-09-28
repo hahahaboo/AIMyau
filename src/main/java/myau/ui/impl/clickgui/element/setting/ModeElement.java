@@ -2,6 +2,7 @@ package myau.ui.impl.clickgui.element.setting;
 
 import myau.property.properties.ModeProperty;
 import myau.ui.impl.clickgui.Theme;
+import myau.ui.impl.clickgui.element.Element;
 import myau.util.AnimationUtil;
 import myau.util.RenderUtil;
 import myau.util.font.FontManager;
@@ -40,7 +41,7 @@ public class ModeElement extends SettingElement {
         if (!isVisible()) return;
         int a = (int) (255 * alpha);
         List<String> modes = getModes();
-        anim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, anim, 12f, 0.016f);
+        anim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, anim, 12f, Element.deltaTime);
 
         // 標題列
         RenderUtil.drawRoundedRect(x, y, width, Theme.SETTING_H, Theme.RADIUS_SM,
