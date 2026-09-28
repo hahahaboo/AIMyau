@@ -5,7 +5,7 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
-import myau.ui.impl.clickgui.normal.ClickGuiScreen;
+import myau.ui.impl.clickgui.ClickGuiScreen;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.input.Keyboard;
 
