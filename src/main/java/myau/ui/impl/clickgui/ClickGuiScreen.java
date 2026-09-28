@@ -27,6 +27,8 @@ public class ClickGuiScreen extends GuiScreen {
     private static int savedX = Integer.MIN_VALUE;
     private static int savedY = Integer.MIN_VALUE;
 
+    /** 頂部可拖曳空白高度（無標題列外觀） */
+    private static final int DRAG_H = 12;
     private static final float SHADOW_SOFTNESS = 12.0f;
     private static final int SHADOW_ALPHA = 100;
 
@@ -66,7 +68,7 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private int getMaxScroll() {
-        int contentH = Theme.WINDOW_H - 20;
+        int contentH = Theme.WINDOW_H - DRAG_H - 14;
         int totalH = 0;
         for (ModuleElement mod : modules) {
             totalH += (int) mod.getCurrentHeight() + 4;
@@ -95,14 +97,14 @@ public class ClickGuiScreen extends GuiScreen {
         ScaledResolution sr = new ScaledResolution(mc);
         int sw = sr.getScaledWidth();
         int sh = sr.getScaledHeight();
-        // 至少留 20px 在畫面內，避免拖出螢幕
         guiX = Math.max(20 - Theme.WINDOW_W, Math.min(guiX, sw - 20));
         guiY = Math.max(0, Math.min(guiY, sh - 20));
     }
 
-    private boolean isInsideWindow(int mouseX, int mouseY) {
+    /** 僅頂部空白可拖曳 */
+    private boolean isInsideDragArea(int mouseX, int mouseY) {
         return mouseX >= guiX && mouseX <= guiX + Theme.WINDOW_W
-                && mouseY >= guiY && mouseY <= guiY + Theme.WINDOW_H;
+                && mouseY >= guiY && mouseY <= guiY + DRAG_H;
     }
 
     @Override
@@ -156,7 +158,7 @@ public class ClickGuiScreen extends GuiScreen {
         float dt = (now - lastFrameTime) / 1_000_000_000.0f;
         lastFrameTime = now;
         if (dt < 0.001f) dt = 0.001f;
-        if (dt > 0.05f) dt = 0.05f; // 避免卡頓一幀跳太大
+        if (dt > 0.05f) dt = 0.05f;
         Element.deltaTime = dt;
 
         long elapsed = System.currentTimeMillis() - openTime;
@@ -172,7 +174,6 @@ public class ClickGuiScreen extends GuiScreen {
         float alpha = openAnim;
         if (alpha < 0.01f) return;
 
-        // 拖曳中更新位置
         if (dragging) {
             guiX = mouseX - dragOffsetX;
             guiY = mouseY - dragOffsetY;
@@ -192,8 +193,8 @@ public class ClickGuiScreen extends GuiScreen {
         RenderUtil.drawRoundedRect(guiX, guiY, Theme.SIDEBAR_W, Theme.WINDOW_H, Theme.RADIUS,
                 Theme.rgba(Theme.SIDEBAR, (int) (255 * alpha)), true, false, true, false);
 
-        // Categories
-        int cy = guiY + 12;
+        // Categories（頂部空出 DRAG_H）
+        int cy = guiY + DRAG_H + 6;
         for (CategoryElement cat : categories) {
             cat.x = guiX;
             cat.y = cy;
@@ -202,11 +203,11 @@ public class ClickGuiScreen extends GuiScreen {
             cy += Theme.CAT_H + 2;
         }
 
-        // 右側 Modules
+        // Modules（同樣下移）
         int contentX = guiX + Theme.SIDEBAR_W + 8;
-        int contentY = guiY + 10;
+        int contentY = guiY + DRAG_H + 6;
         int contentW = Theme.WINDOW_W - Theme.SIDEBAR_W - 16;
-        int contentH = Theme.WINDOW_H - 20;
+        int contentH = Theme.WINDOW_H - DRAG_H - 14;
 
         scroll = Math.max(0, Math.min(scroll, getMaxScroll()));
 
@@ -240,7 +241,6 @@ public class ClickGuiScreen extends GuiScreen {
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
         if (closing) return;
 
-        // Categories
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
                 selected = cat.getCategory();
@@ -248,13 +248,12 @@ public class ClickGuiScreen extends GuiScreen {
                 return;
             }
         }
-        // Modules
         for (ModuleElement mod : modules) {
             if (mod.mouseClicked(mouseX, mouseY, button)) return;
         }
 
-        // 點在視窗內、未被元件吃掉 → 開始拖曳主面板
-        if (button == 0 && isInsideWindow(mouseX, mouseY)) {
+        // 僅頂部空白可拖曳
+        if (button == 0 && isInsideDragArea(mouseX, mouseY)) {
             dragging = true;
             dragOffsetX = mouseX - guiX;
             dragOffsetY = mouseY - guiY;
@@ -286,7 +285,6 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
         if (closing) return;
-        // 開啟後短時間內忽略，避免綁定鍵立刻關閉
         if (System.currentTimeMillis() - this.openTime < 150) return;
 
         boolean binding = false;
