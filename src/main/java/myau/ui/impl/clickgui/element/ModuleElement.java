@@ -109,8 +109,6 @@ public class ModuleElement extends Element {
             RenderUtil.drawRoundedRect(x, sy, width, drawnH, Theme.RADIUS_SM,
                     Theme.rgba(Theme.SETTING_BG, (int)(a * 0.9f)), false, false, true, true);
 
-            RenderUtil.scissor(x, (int) sy, width, (int) drawnH + 1);
-
             float cy = sy;
             for (SettingElement s : settings) {
                 if (!s.isVisible()) continue;
@@ -120,7 +118,6 @@ public class ModuleElement extends Element {
                 s.render(mouseX, mouseY, partialTicks, alpha * expandAnim);
                 cy += s.getHeight();
             }
-            RenderUtil.releaseScissor();
         }
     }
 
