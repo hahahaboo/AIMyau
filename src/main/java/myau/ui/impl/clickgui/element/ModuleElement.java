@@ -44,8 +44,9 @@ public class ModuleElement extends Element {
                 settings.add(new ModeElement((ModeProperty) p, 0, 0, width));
             } else if (p instanceof TextProperty) {
                 settings.add(new TextElement((TextProperty) p, 0, 0, width));
+            } else if (p instanceof ColorProperty) {
+                settings.add(new ColorElement((ColorProperty) p, 0, 0, width));
             }
-            // ColorProperty 可之後再加
         }
     }
 
