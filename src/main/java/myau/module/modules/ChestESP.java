@@ -11,13 +11,14 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.ColorProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.RenderUtil;
+import net.minecraft.block.BlockChest;
+import net.minecraft.block.BlockEnderChest;
 import net.minecraft.client.Minecraft;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.tileentity.TileEntityChest;
 import net.minecraft.tileentity.TileEntityEnderChest;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.Vec3;
-
 import java.awt.*;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,10 @@ public class ChestESP extends Module {
         if (this.isEnabled()) {
             RenderUtil.enableRenderState();
             for (TileEntity chest : mc.theWorld.loadedTileEntityList.stream().filter(tileEntity -> tileEntity instanceof TileEntityChest || tileEntity instanceof TileEntityEnderChest).collect(Collectors.toList())) {
+                net.minecraft.block.Block block = mc.theWorld.getBlockState(chest.getPos()).getBlock();
+                if (!(block instanceof BlockChest || block instanceof BlockEnderChest)) {
+                    continue;
+                }
                 AxisAlignedBB aabb = new AxisAlignedBB(
                         (double) chest.getPos().getX() + 0.0625,
                         (double) chest.getPos().getY() + 0.0,
