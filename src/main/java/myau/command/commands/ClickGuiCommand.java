@@ -24,54 +24,35 @@ public class ClickGuiCommand extends Command {
             return;
         }
 
+        // 無參數：直接開關
         if (args.size() < 2) {
-            ChatUtil.sendFormatted(
-                    String.format("%sUsage: .%s <&oopen&r/&osave&r/&oscale&r/&ocorner&r>&r", Myau.clientName, args.get(0).toLowerCase(Locale.ROOT))
-            );
+            guiModule.toggle();
+            ChatUtil.sendFormatted(String.format("%sClickGUI %s&r",
+                    Myau.clientName, guiModule.isEnabled() ? "&aopened" : "&cclosed"));
             return;
         }
 
-        String subCommand = args.get(1).toLowerCase(Locale.ROOT);
-        switch (subCommand) {
+        String sub = args.get(1).toLowerCase(Locale.ROOT);
+        switch (sub) {
             case "open":
+            case "toggle":
                 guiModule.toggle();
-                ChatUtil.sendFormatted(String.format("%sClickGUI %s&r", Myau.clientName, guiModule.isEnabled() ? "&aopened" : "&cclosed"));
+                ChatUtil.sendFormatted(String.format("%sClickGUI %s&r",
+                        Myau.clientName, guiModule.isEnabled() ? "&aopened" : "&cclosed"));
                 break;
+
             case "save":
-                guiModule.saveGuiState.setValue(true);
-                ChatUtil.sendFormatted(String.format("%sClickGUI state saving %s&r", Myau.clientName, guiModule.saveGuiState.getValue() ? "&aenabled" : "&cdisabled"));
+                // 切換「記住位置」
+                boolean next = !guiModule.saveGuiState.getValue();
+                guiModule.saveGuiState.setValue(next);
+                ChatUtil.sendFormatted(String.format("%sClickGUI Save Position %s&r",
+                        Myau.clientName, next ? "&aenabled" : "&cdisabled"));
                 break;
-            case "scale":
-                if (args.size() < 3) {
-                    ChatUtil.sendFormatted(String.format("%sUsage: .%s scale <&oscale_factor&r>&r", Myau.clientName, args.get(0).toLowerCase(Locale.ROOT)));
-                    return;
-                }
-                try {
-                    float scale = Float.parseFloat(args.get(2));
-                    // Assuming scale affects windowWidth and windowHeight directly
-                    // You might need a more sophisticated scaling mechanism in ClickGuiScreen
-                    guiModule.windowWidth.setValue((int) (600 * scale));
-                    guiModule.windowHeight.setValue((int) (400 * scale));
-                    ChatUtil.sendFormatted(String.format("%sClickGUI scale set to &o%s&r", Myau.clientName, scale));
-                } catch (NumberFormatException e) {
-                    ChatUtil.sendFormatted(String.format("%sInvalid scale value (&o%s&r)&r", Myau.clientName, args.get(2)));
-                }
-                break;
-            case "corner":
-                if (args.size() < 3) {
-                    ChatUtil.sendFormatted(String.format("%sUsage: .%s corner <&oradius&r>&r", Myau.clientName, args.get(0).toLowerCase(Locale.ROOT)));
-                    return;
-                }
-                try {
-                    float radius = Float.parseFloat(args.get(2));
-                    guiModule.cornerRadius.setValue(radius);
-                    ChatUtil.sendFormatted(String.format("%sClickGUI corner radius set to &o%s&r", Myau.clientName, radius));
-                } catch (NumberFormatException e) {
-                    ChatUtil.sendFormatted(String.format("%sInvalid corner radius value (&o%s&r)&r", Myau.clientName, args.get(2)));
-                }
-                break;
+
             default:
-                ChatUtil.sendFormatted(String.format("%sInvalid argument (&o%s&r)&r", Myau.clientName, args.get(1)));
+                ChatUtil.sendFormatted(String.format(
+                        "%sUsage: .%s [&oopen&r/&otoggle&r/&osave&r]&r",
+                        Myau.clientName, args.get(0).toLowerCase(Locale.ROOT)));
                 break;
         }
     }
