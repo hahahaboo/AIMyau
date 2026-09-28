@@ -28,7 +28,6 @@ public class ModuleElement extends Element {
 
     private void buildSettings() {
         settings.clear();
-        // 永遠放 Keybind
         settings.add(new KeybindElement(module, 0, 0, width));
 
         if (Myau.propertyManager == null) return;
@@ -50,14 +49,17 @@ public class ModuleElement extends Element {
         }
     }
 
-    public float getCurrentHeight() {
-        float h = Theme.MOD_H;
-        if (expandAnim > 0.5f) {
-            for (SettingElement s : settings) {
-                if (s.isVisible()) h += s.getHeight();
-            }
+    private float getSettingsTotalHeight() {
+        float h = 0;
+        for (SettingElement s : settings) {
+            if (s.isVisible()) h += s.getHeight();
         }
         return h;
+    }
+
+    /** 高度隨 expandAnim 連續變化（與繪製一致） */
+    public float getCurrentHeight() {
+        return Theme.MOD_H + getSettingsTotalHeight() * expandAnim;
     }
 
     @Override
@@ -65,21 +67,19 @@ public class ModuleElement extends Element {
         int a = (int) (255 * alpha);
         boolean hover = isHovered(mouseX, mouseY) && mouseY < y + Theme.MOD_H;
 
-        hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, Element.deltaTime);
-        float targetExpand = expanded ? 1f : 0f;
-        expandAnim = AnimationUtil.animateSmooth(targetExpand, expandAnim, 10f, Element.deltaTime);
+        float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
+        hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, dt);
+        expandAnim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, expandAnim, 10f, dt);
 
-        // 卡片背景
+        // 標題列
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
         RenderUtil.drawRoundedRect(x, y, width, Theme.MOD_H, Theme.RADIUS_SM, bg, true, true, true, true);
 
-        // 啟用指示點
         if (module.isEnabled()) {
             RenderUtil.drawRoundedRect(x + 8, y + Theme.MOD_H / 2f - 2.5f, 5, 5, 2.5f,
                     Theme.rgba(Theme.ACCENT, a), true, true, true, true);
         }
 
-        // 名稱
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
         float ty = y + (Theme.MOD_H - 8) / 2f;
         if (FontManager.productSans16 != null) {
@@ -88,43 +88,54 @@ public class ModuleElement extends Element {
             mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 16, y + 8, nameColor);
         }
 
-        // 展開箭頭
         if (!settings.isEmpty()) {
             String arrow = expanded ? "v" : "^";
-            int arrowColor = Theme.rgba(Theme.TEXT_DIM, a);
             if (FontManager.productSans16 != null) {
                 float aw = (float) FontManager.productSans16.getStringWidth(arrow);
-                FontManager.productSans16.drawString(arrow, x + width - aw - 10, ty, arrowColor);
+                FontManager.productSans16.drawString(arrow, x + width - aw - 10, ty, Theme.rgba(Theme.TEXT_DIM, a));
             }
         }
 
-        // 設定區
-        if (expandAnim > 0.05f) {
+        // 設定區：高度 = settingsH * expandAnim，只畫完全落在可視區內的設定
+        if (expandAnim > 0.01f) {
             float sy = y + Theme.MOD_H;
-            float settingsH = 0;
-            for (SettingElement s : settings) {
-                if (s.isVisible()) settingsH += s.getHeight();
-            }
+            float settingsH = getSettingsTotalHeight();
             float drawnH = settingsH * expandAnim;
+            float visibleBottom = sy + drawnH;
 
             RenderUtil.drawRoundedRect(x, sy, width, drawnH, Theme.RADIUS_SM,
-                    Theme.rgba(Theme.SETTING_BG, (int)(a * 0.9f)), false, false, true, true);
+                    Theme.rgba(Theme.SETTING_BG, (int) (a * 0.9f)), false, false, true, true);
 
             float cy = sy;
             for (SettingElement s : settings) {
                 if (!s.isVisible()) continue;
+
+                float sh = s.getHeight();
+                float itemTop = cy;
+                float itemBottom = cy + sh;
+
+                // 整塊在可視區外 → 不畫（關閉時從底部往上收）
+                if (itemBottom <= sy || itemTop >= visibleBottom) {
+                    cy += sh;
+                    continue;
+                }
+                // 半截露在外面 → 不畫，避免壓到下一個 module
+                if (itemBottom > visibleBottom + 0.5f) {
+                    cy += sh;
+                    continue;
+                }
+
                 s.x = x + 6;
                 s.y = (int) cy;
                 s.width = width - 12;
-                s.render(mouseX, mouseY, partialTicks, alpha * expandAnim);
-                cy += s.getHeight();
+                s.render(mouseX, mouseY, partialTicks, alpha * Math.min(1f, expandAnim * 1.2f));
+                cy += sh;
             }
         }
     }
 
     @Override
     public boolean mouseClicked(int mouseX, int mouseY, int button) {
-        // 點擊模組標題列
         if (mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY < y + Theme.MOD_H) {
             if (button == 0) {
                 module.toggle();
@@ -135,12 +146,32 @@ public class ModuleElement extends Element {
             }
         }
 
-        // 點擊設定
+        // 展開動畫過半、且點在目前可視高度內的設定
         if (expanded && expandAnim > 0.5f) {
+            float sy = y + Theme.MOD_H;
+            float drawnH = getSettingsTotalHeight() * expandAnim;
+            float visibleBottom = sy + drawnH;
+
+            float cy = sy;
             for (SettingElement s : settings) {
-                if (s.isVisible() && s.mouseClicked(mouseX, mouseY, button)) {
-                    return true;
+                if (!s.isVisible()) continue;
+                float sh = s.getHeight();
+                float itemBottom = cy + sh;
+
+                if (itemBottom <= sy || cy >= visibleBottom) {
+                    cy += sh;
+                    continue;
                 }
+                if (itemBottom > visibleBottom + 0.5f) {
+                    cy += sh;
+                    continue;
+                }
+
+                s.x = x + 6;
+                s.y = (int) cy;
+                s.width = width - 12;
+                if (s.mouseClicked(mouseX, mouseY, button)) return true;
+                cy += sh;
             }
         }
         return false;
