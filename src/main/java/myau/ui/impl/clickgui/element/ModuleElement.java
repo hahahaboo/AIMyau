@@ -65,9 +65,9 @@ public class ModuleElement extends Element {
         int a = (int) (255 * alpha);
         boolean hover = isHovered(mouseX, mouseY) && mouseY < y + Theme.MOD_H;
 
-        hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, 0.016f);
+        hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, Element.deltaTime);
         float targetExpand = expanded ? 1f : 0f;
-        expandAnim = AnimationUtil.animateSmooth(targetExpand, expandAnim, 10f, 0.016f);
+        expandAnim = AnimationUtil.animateSmooth(targetExpand, expandAnim, 10f, Element.deltaTime);
 
         // 卡片背景
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
