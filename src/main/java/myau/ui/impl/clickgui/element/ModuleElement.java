@@ -20,7 +20,7 @@ public class ModuleElement extends Element {
     private float hoverAnim;
     /** 目前設定區高度（像素），固定速度開合 */
     private float drawnH;
-    private static final float EXPAND_SPEED = 400f;
+    private static final float EXPAND_SPEED = 600f;
 
     public ModuleElement(Module module, int x, int y, int width) {
         super(x, y, width, Theme.MOD_H);
