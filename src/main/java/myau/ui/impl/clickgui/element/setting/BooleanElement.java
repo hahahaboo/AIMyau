@@ -2,6 +2,7 @@ package myau.ui.impl.clickgui.element.setting;
 
 import myau.property.properties.BooleanProperty;
 import myau.ui.impl.clickgui.Theme;
+import myau.ui.impl.clickgui.element.Element;
 import myau.util.AnimationUtil;
 import myau.util.RenderUtil;
 import myau.util.font.FontManager;
