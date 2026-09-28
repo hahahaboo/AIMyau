@@ -3,7 +3,6 @@ package myau.ui.impl.clickgui;
 import myau.Myau;
 import myau.module.Category;
 import myau.module.Module;
-import myau.module.modules.ClickGUIModule;
 import myau.ui.impl.clickgui.element.CategoryElement;
 import myau.ui.impl.clickgui.element.ModuleElement;
 import myau.util.RenderUtil;
@@ -50,6 +49,16 @@ public class ClickGuiScreen extends GuiScreen {
         scroll = 0;
     }
 
+    private int getMaxScroll() {
+        int contentH = Theme.WINDOW_H - 20;
+        int totalH = 0;
+        for (ModuleElement mod : modules) {
+            totalH += (int) mod.getCurrentHeight() + 4;
+        }
+        if (totalH > 0) totalH -= 4;
+        return Math.max(0, totalH - contentH);
+    }
+
     @Override
     public void initGui() {
         closing = false;
@@ -84,11 +93,11 @@ public class ClickGuiScreen extends GuiScreen {
 
         // 主背景
         RenderUtil.drawRoundedRect(guiX, guiY, Theme.WINDOW_W, Theme.WINDOW_H, Theme.RADIUS,
-                Theme.rgba(Theme.BG, (int)(255 * alpha)), true, true, true, true);
+                Theme.rgba(Theme.BG, (int) (255 * alpha)), true, true, true, true);
 
         // 側邊欄
         RenderUtil.drawRoundedRect(guiX, guiY, Theme.SIDEBAR_W, Theme.WINDOW_H, Theme.RADIUS,
-                Theme.rgba(Theme.SIDEBAR, (int)(255 * alpha)), true, false, true, false);
+                Theme.rgba(Theme.SIDEBAR, (int) (255 * alpha)), true, false, true, false);
 
         // Categories
         int cy = guiY + 12;
@@ -105,6 +114,9 @@ public class ClickGuiScreen extends GuiScreen {
         int contentY = guiY + 10;
         int contentW = Theme.WINDOW_W - Theme.SIDEBAR_W - 16;
         int contentH = Theme.WINDOW_H - 20;
+
+        // 展開/收合後高度會變，每幀校正 scroll 上界
+        scroll = Math.max(0, Math.min(scroll, getMaxScroll()));
 
         RenderUtil.scissor(contentX, contentY, contentW, contentH);
 
@@ -127,13 +139,12 @@ public class ClickGuiScreen extends GuiScreen {
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
             scroll += wheel > 0 ? -20 : 20;
-            scroll = Math.max(0, scroll);
+            scroll = Math.max(0, Math.min(scroll, getMaxScroll()));
         }
     }
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
-        // Categories
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
                 selected = cat.getCategory();
@@ -141,7 +152,6 @@ public class ClickGuiScreen extends GuiScreen {
                 return;
             }
         }
-        // Modules
         for (ModuleElement mod : modules) {
             if (mod.mouseClicked(mouseX, mouseY, button)) return;
         }
@@ -156,9 +166,11 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        // 開啟後短時間內忽略關閉鍵，避免綁定鍵立刻關掉 GUI
         if (System.currentTimeMillis() - this.openTime < 150) {
             return;
         }
+
         boolean binding = false;
         for (ModuleElement mod : modules) {
             if (mod.isBinding()) {
@@ -190,6 +202,8 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     public void onGuiClosed() {
         Module gui = Myau.moduleManager.getModule("ClickGUI");
-        if (gui != null) gui.setEnabled(false);
+        if (gui != null && gui.isEnabled()) {
+            gui.setEnabled(false);
+        }
     }
 }
