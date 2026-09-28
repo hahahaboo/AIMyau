@@ -29,6 +29,7 @@ public class ModeElement extends SettingElement {
     @Override
     public int getHeight() {
         List<String> modes = getModes();
+        // 與繪製高度同一套 anim，下面設定才會跟面板一起上移
         return Theme.SETTING_H + (int) (anim * modes.size() * ITEM_H);
     }
 
@@ -41,7 +42,9 @@ public class ModeElement extends SettingElement {
         if (!isVisible()) return;
         int a = (int) (255 * alpha);
         List<String> modes = getModes();
-        anim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, anim, 12f, Element.deltaTime);
+
+        float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
+        anim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, anim, 12f, dt);
 
         // 標題列
         RenderUtil.drawRoundedRect(x, y, width, Theme.SETTING_H, Theme.RADIUS_SM,
@@ -56,16 +59,29 @@ public class ModeElement extends SettingElement {
             FontManager.productSans16.drawString(expanded ? "v" : "^", x + width - aw - 6, ty, Theme.rgba(Theme.TEXT_DIM, a));
         }
 
-        // 下拉（不自己 scissor，交給 ClickGuiScreen 內容區裁切）
-        if (anim > 0.05f) {
+        // 下拉：高度跟 anim 走，文字只畫在目前 h 內
+        if (anim > 0.01f) {
             float dy = y + Theme.SETTING_H;
             float h = modes.size() * ITEM_H * anim;
+
             RenderUtil.drawRoundedRect(x, dy, width, h, Theme.RADIUS_SM,
                     Theme.rgba(Theme.SETTING_BG, a), true, true, true, true);
 
+            float visibleBottom = dy + h;
             for (int i = 0; i < modes.size(); i++) {
-                int iy = (int) (dy + i * ITEM_H);
-                boolean hov = mouseX >= x && mouseX <= x + width && mouseY >= iy && mouseY < iy + ITEM_H;
+                float itemTop = dy + i * ITEM_H;
+                float itemBottom = itemTop + ITEM_H;
+
+                // 完全在面板外：不畫（關閉時從底部一項項收掉）
+                if (itemBottom <= dy || itemTop >= visibleBottom) continue;
+
+                // 只畫「整行都還在面板內」的項目，避免半截文字露在下面設定上
+                if (itemBottom > visibleBottom + 0.5f) continue;
+
+                int iy = (int) itemTop;
+                boolean hov = mouseX >= x && mouseX <= x + width
+                        && mouseY >= iy && mouseY < iy + ITEM_H
+                        && mouseY < visibleBottom;
                 int c = hov ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT_DIM, a);
                 if (FontManager.productSans16 != null) {
                     FontManager.productSans16.drawString(modes.get(i), x + 8, iy + 4, c);
@@ -85,8 +101,16 @@ public class ModeElement extends SettingElement {
         if (expanded && anim > 0.5f) {
             List<String> modes = getModes();
             float dy = y + Theme.SETTING_H;
+            float h = modes.size() * ITEM_H * anim;
+            float visibleBottom = dy + h;
+
             for (int i = 0; i < modes.size(); i++) {
-                int iy = (int) (dy + i * ITEM_H);
+                float itemTop = dy + i * ITEM_H;
+                float itemBottom = itemTop + ITEM_H;
+                if (itemBottom > visibleBottom + 0.5f) continue;
+                if (itemTop >= visibleBottom) break;
+
+                int iy = (int) itemTop;
                 if (mouseX >= x && mouseX <= x + width && mouseY >= iy && mouseY < iy + ITEM_H) {
                     prop.setValue(i);
                     expanded = false;
