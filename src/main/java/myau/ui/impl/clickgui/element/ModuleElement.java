@@ -17,8 +17,10 @@ public class ModuleElement extends Element {
     private final Module module;
     private final List<SettingElement> settings = new ArrayList<>();
     private boolean expanded;
-    private float expandAnim;
     private float hoverAnim;
+    /** 目前設定區高度（像素），固定速度開合 */
+    private float drawnH;
+    private static final float EXPAND_SPEED = 400f;
 
     public ModuleElement(Module module, int x, int y, int width) {
         super(x, y, width, Theme.MOD_H);
@@ -57,9 +59,8 @@ public class ModuleElement extends Element {
         return h;
     }
 
-    /** 高度隨 expandAnim 連續變化（與繪製一致） */
     public float getCurrentHeight() {
-        return Theme.MOD_H + getSettingsTotalHeight() * expandAnim;
+        return Theme.MOD_H + drawnH;
     }
 
     @Override
@@ -69,7 +70,13 @@ public class ModuleElement extends Element {
 
         float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
         hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, dt);
-        expandAnim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, expandAnim, 10f, dt);
+
+        float settingsH = getSettingsTotalHeight();
+        float targetH = expanded ? settingsH : 0f;
+        // 固定像素速度：設定越多開越久，手感速度一致
+        drawnH = AnimationUtil.animate(targetH, drawnH, EXPAND_SPEED, dt);
+        if (drawnH > settingsH) drawnH = settingsH;
+        if (drawnH < 0f) drawnH = 0f;
 
         // 標題列
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
@@ -96,11 +103,9 @@ public class ModuleElement extends Element {
             }
         }
 
-        // 設定區：高度 = settingsH * expandAnim，只畫完全落在可視區內的設定
-        if (expandAnim > 0.01f) {
+        // 設定區
+        if (drawnH > 0.5f) {
             float sy = y + Theme.MOD_H;
-            float settingsH = getSettingsTotalHeight();
-            float drawnH = settingsH * expandAnim;
             float visibleBottom = sy + drawnH;
 
             RenderUtil.drawRoundedRect(x, sy, width, drawnH, Theme.RADIUS_SM,
@@ -114,12 +119,11 @@ public class ModuleElement extends Element {
                 float itemTop = cy;
                 float itemBottom = cy + sh;
 
-                // 整塊在可視區外 → 不畫（關閉時從底部往上收）
                 if (itemBottom <= sy || itemTop >= visibleBottom) {
                     cy += sh;
                     continue;
                 }
-                // 半截露在外面 → 不畫，避免壓到下一個 module
+                // 整塊在可視區內才畫
                 if (itemBottom > visibleBottom + 0.5f) {
                     cy += sh;
                     continue;
@@ -128,7 +132,7 @@ public class ModuleElement extends Element {
                 s.x = x + 6;
                 s.y = (int) cy;
                 s.width = width - 12;
-                s.render(mouseX, mouseY, partialTicks, alpha * Math.min(1f, expandAnim * 1.2f));
+                s.render(mouseX, mouseY, partialTicks, alpha);
                 cy += sh;
             }
         }
@@ -146,10 +150,8 @@ public class ModuleElement extends Element {
             }
         }
 
-        // 展開動畫過半、且點在目前可視高度內的設定
-        if (expanded && expandAnim > 0.5f) {
+        if (expanded && drawnH > 8f) {
             float sy = y + Theme.MOD_H;
-            float drawnH = getSettingsTotalHeight() * expandAnim;
             float visibleBottom = sy + drawnH;
 
             float cy = sy;
