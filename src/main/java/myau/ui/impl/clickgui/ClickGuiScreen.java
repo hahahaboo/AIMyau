@@ -3,20 +3,32 @@ package myau.ui.impl.clickgui;
 import myau.Myau;
 import myau.module.Category;
 import myau.module.Module;
+import myau.module.modules.ClickGUIModule;
 import myau.ui.impl.clickgui.element.CategoryElement;
+import myau.ui.impl.clickgui.element.Element;
 import myau.ui.impl.clickgui.element.ModuleElement;
 import myau.util.RenderUtil;
+import myau.util.shader.ShadowShader;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.settings.KeyBinding;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import java.awt.Color;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ClickGuiScreen extends GuiScreen {
     private static ClickGuiScreen instance;
+
+    /** 僅儲存位置（Save GUI State） */
+    private static int savedX = Integer.MIN_VALUE;
+    private static int savedY = Integer.MIN_VALUE;
+
+    private static final float SHADOW_SOFTNESS = 12.0f;
+    private static final int SHADOW_ALPHA = 100;
 
     private final List<CategoryElement> categories = new ArrayList<>();
     private final List<ModuleElement> modules = new ArrayList<>();
@@ -27,6 +39,10 @@ public class ClickGuiScreen extends GuiScreen {
     private float openAnim;
     private boolean closing;
     private long openTime;
+    private long lastFrameTime;
+
+    private boolean dragging;
+    private int dragOffsetX, dragOffsetY;
 
     public static ClickGuiScreen getInstance() {
         if (instance == null) instance = new ClickGuiScreen();
@@ -59,25 +75,90 @@ public class ClickGuiScreen extends GuiScreen {
         return Math.max(0, totalH - contentH);
     }
 
+    private boolean isSavePositionEnabled() {
+        try {
+            ClickGUIModule mod = (ClickGUIModule) Myau.moduleManager.getModule("ClickGUI");
+            return mod != null && mod.saveGuiState.getValue();
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    private void savePosition() {
+        if (isSavePositionEnabled()) {
+            savedX = guiX;
+            savedY = guiY;
+        }
+    }
+
+    private void clampToScreen() {
+        ScaledResolution sr = new ScaledResolution(mc);
+        int sw = sr.getScaledWidth();
+        int sh = sr.getScaledHeight();
+        // 至少留 20px 在畫面內，避免拖出螢幕
+        guiX = Math.max(20 - Theme.WINDOW_W, Math.min(guiX, sw - 20));
+        guiY = Math.max(0, Math.min(guiY, sh - 20));
+    }
+
+    private boolean isInsideWindow(int mouseX, int mouseY) {
+        return mouseX >= guiX && mouseX <= guiX + Theme.WINDOW_W
+                && mouseY >= guiY && mouseY <= guiY + Theme.WINDOW_H;
+    }
+
     @Override
     public void initGui() {
         closing = false;
+        dragging = false;
         openTime = System.currentTimeMillis();
         openAnim = 0;
+        lastFrameTime = System.nanoTime();
+
         ScaledResolution sr = new ScaledResolution(mc);
-        guiX = (sr.getScaledWidth() - Theme.WINDOW_W) / 2;
-        guiY = (sr.getScaledHeight() - Theme.WINDOW_H) / 2;
+        if (isSavePositionEnabled() && savedX != Integer.MIN_VALUE && savedY != Integer.MIN_VALUE) {
+            guiX = savedX;
+            guiY = savedY;
+            clampToScreen();
+        } else {
+            guiX = (sr.getScaledWidth() - Theme.WINDOW_W) / 2;
+            guiY = (sr.getScaledHeight() - Theme.WINDOW_H) / 2;
+        }
     }
 
     public void close() {
         if (!closing) {
             closing = true;
             openTime = System.currentTimeMillis();
+            savePosition();
+        }
+    }
+
+    private void handleInvWalk() {
+        try {
+            Module invWalk = Myau.moduleManager.getModule("InvWalk");
+            if (invWalk == null || !invWalk.isEnabled()) return;
+            KeyBinding[] keys = {
+                    mc.gameSettings.keyBindForward, mc.gameSettings.keyBindBack,
+                    mc.gameSettings.keyBindLeft, mc.gameSettings.keyBindRight,
+                    mc.gameSettings.keyBindJump, mc.gameSettings.keyBindSprint,
+                    mc.gameSettings.keyBindSneak
+            };
+            for (KeyBinding key : keys) {
+                KeyBinding.setKeyBindState(key.getKeyCode(), Keyboard.isKeyDown(key.getKeyCode()));
+            }
+        } catch (Exception ignored) {
         }
     }
 
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        // deltaTime
+        long now = System.nanoTime();
+        float dt = (now - lastFrameTime) / 1_000_000_000.0f;
+        lastFrameTime = now;
+        if (dt < 0.001f) dt = 0.001f;
+        if (dt > 0.05f) dt = 0.05f; // 避免卡頓一幀跳太大
+        Element.deltaTime = dt;
+
         long elapsed = System.currentTimeMillis() - openTime;
         float t = Math.min(1f, elapsed / 200f);
         openAnim = closing ? 1f - t : t;
@@ -90,6 +171,18 @@ public class ClickGuiScreen extends GuiScreen {
 
         float alpha = openAnim;
         if (alpha < 0.01f) return;
+
+        // 拖曳中更新位置
+        if (dragging) {
+            guiX = mouseX - dragOffsetX;
+            guiY = mouseY - dragOffsetY;
+            clampToScreen();
+        }
+
+        // 固定陰影
+        int shadowColor = new Color(0, 0, 0, (int) (SHADOW_ALPHA * alpha)).getRGB();
+        ShadowShader.drawShadow(guiX, guiY, Theme.WINDOW_W, Theme.WINDOW_H,
+                Theme.RADIUS, SHADOW_SOFTNESS, shadowColor);
 
         // 主背景
         RenderUtil.drawRoundedRect(guiX, guiY, Theme.WINDOW_W, Theme.WINDOW_H, Theme.RADIUS,
@@ -115,11 +208,9 @@ public class ClickGuiScreen extends GuiScreen {
         int contentW = Theme.WINDOW_W - Theme.SIDEBAR_W - 16;
         int contentH = Theme.WINDOW_H - 20;
 
-        // 展開/收合後高度會變，每幀校正 scroll 上界
         scroll = Math.max(0, Math.min(scroll, getMaxScroll()));
 
         RenderUtil.scissor(contentX, contentY, contentW, contentH);
-
         int my = contentY - scroll;
         for (ModuleElement mod : modules) {
             mod.x = contentX;
@@ -130,11 +221,13 @@ public class ClickGuiScreen extends GuiScreen {
         }
         RenderUtil.releaseScissor();
 
+        handleInvWalk();
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     @Override
     public void handleMouseInput() throws IOException {
+        if (closing) return;
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
@@ -145,6 +238,9 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
+        if (closing) return;
+
+        // Categories
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
                 selected = cat.getCategory();
@@ -152,24 +248,46 @@ public class ClickGuiScreen extends GuiScreen {
                 return;
             }
         }
+        // Modules
         for (ModuleElement mod : modules) {
             if (mod.mouseClicked(mouseX, mouseY, button)) return;
+        }
+
+        // 點在視窗內、未被元件吃掉 → 開始拖曳主面板
+        if (button == 0 && isInsideWindow(mouseX, mouseY)) {
+            dragging = true;
+            dragOffsetX = mouseX - guiX;
+            dragOffsetY = mouseY - guiY;
         }
     }
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int state) {
+        if (closing) return;
+        if (dragging) {
+            dragging = false;
+            savePosition();
+        }
         for (ModuleElement mod : modules) {
             mod.mouseReleased(mouseX, mouseY, state);
         }
     }
 
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        // 開啟後短時間內忽略關閉鍵，避免綁定鍵立刻關掉 GUI
-        if (System.currentTimeMillis() - this.openTime < 150) {
-            return;
+    protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        if (closing) return;
+        if (dragging) {
+            guiX = mouseX - dragOffsetX;
+            guiY = mouseY - dragOffsetY;
+            clampToScreen();
         }
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (closing) return;
+        // 開啟後短時間內忽略，避免綁定鍵立刻關閉
+        if (System.currentTimeMillis() - this.openTime < 150) return;
 
         boolean binding = false;
         for (ModuleElement mod : modules) {
@@ -201,6 +319,8 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        dragging = false;
+        savePosition();
         Module gui = Myau.moduleManager.getModule("ClickGUI");
         if (gui != null && gui.isEnabled()) {
             gui.setEnabled(false);
