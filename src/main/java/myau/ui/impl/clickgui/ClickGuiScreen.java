@@ -97,8 +97,8 @@ public class ClickGuiScreen extends GuiScreen {
         ScaledResolution sr = new ScaledResolution(mc);
         int sw = sr.getScaledWidth();
         int sh = sr.getScaledHeight();
-        guiX = Math.max(20 - Theme.WINDOW_W, Math.min(guiX, sw - 20));
-        guiY = Math.max(0, Math.min(guiY, sh - 20));
+        guiX = Math.max(0, Math.min(guiX, sw - Theme.WINDOW_W));
+        guiY = Math.max(0, Math.min(guiY, sh - Theme.WINDOW_H));
     }
 
     /** 僅頂部空白可拖曳 */
