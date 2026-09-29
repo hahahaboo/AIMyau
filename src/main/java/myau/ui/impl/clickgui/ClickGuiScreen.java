@@ -248,8 +248,18 @@ public class ClickGuiScreen extends GuiScreen {
                 return;
             }
         }
-        for (ModuleElement mod : modules) {
-            if (mod.mouseClicked(mouseX, mouseY, button)) return;
+
+        // 只有點在右側可視內容區內，才處理 module / setting
+        int contentX = guiX + Theme.SIDEBAR_W + 8;
+        int contentY = guiY + DRAG_H + 6;
+        int contentW = Theme.WINDOW_W - Theme.SIDEBAR_W - 16;
+        int contentH = Theme.WINDOW_H - DRAG_H - 14;
+
+        if (mouseX >= contentX && mouseX < contentX + contentW
+                && mouseY >= contentY && mouseY < contentY + contentH) {
+            for (ModuleElement mod : modules) {
+                if (mod.mouseClicked(mouseX, mouseY, button)) return;
+            }
         }
 
         // 僅頂部空白可拖曳
