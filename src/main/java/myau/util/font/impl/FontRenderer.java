@@ -38,22 +38,17 @@ public class FontRenderer extends CharRenderer implements IFont {
     public void drawString(String text, double x, double y, @NotNull CenterMode centerMode, boolean dropShadow, int color) {
         switch (centerMode) {
             case X:
-                if (dropShadow) this.drawString(text, x - this.getStringWidth(text) / 2 + 0.5, y + 0.5, color, true);
-                this.drawString(text, x - this.getStringWidth(text) / 2, y, color, false);
+                this.drawString(text, x - this.getStringWidth(text) / 2, y, color, dropShadow);
                 return;
             case Y:
-                if (dropShadow) this.drawString(text, x + 0.5, y - this.getHeight() / 2 + 0.5, color, true);
-                this.drawString(text, x, y - this.getHeight() / 2, color, false);
+                this.drawString(text, x, y - this.getHeight() / 2, color, dropShadow);
                 return;
             case XY:
-                if (dropShadow)
-                    this.drawString(text, x - this.getStringWidth(text) / 2 + 0.5, y - this.getHeight() / 2 + 0.5, color, true);
-                this.drawString(text, x - this.getStringWidth(text) / 2, y - this.getHeight() / 2, color, false);
+                this.drawString(text, x - this.getStringWidth(text) / 2, y - this.getHeight() / 2, color, dropShadow);
                 return;
             default:
             case NONE:
-                if (dropShadow) this.drawString(text, x + 0.5, y + 0.5, color, true);
-                this.drawString(text, x, y, color, false);
+                this.drawString(text, x, y, color, dropShadow);
         }
     }
 
@@ -62,28 +57,26 @@ public class FontRenderer extends CharRenderer implements IFont {
 
         if (text == null) return;
 
-        if (shadow) {
-            drawString(text, x + 1, y + 1, (color & 0xFCFCFC) >> 2 | color & 0xFF000000, false);
-        }
-
         CharData[] currentData = this.charData;
-        double alpha = (color >> 24 & 255) / 255f;
+        double alpha = (color >> 24 & 255) / 255.0;
+        if (alpha == 0.0) alpha = 1.0;
+
+        final int originalColor = color;
+        float red = (color >> 16 & 255) / 255.0F;
+        float green = (color >> 8 & 255) / 255.0F;
+        float blue = (color & 255) / 255.0F;
+
         x = (x - 1) * sr.getScaleFactor();
         y = (y - 3) * sr.getScaleFactor() - 0.2;
+        double shadowOffset = sr.getScaleFactor(); // 約等於邏輯座標 +1
 
         GL11.glPushMatrix();
         GL11.glScaled((double) 1 / sr.getScaleFactor(), 1 / (double) sr.getScaleFactor(), 1 / (double) sr.getScaleFactor());
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(770, 771);
-        float red = (color >> 16 & 255) / 255.0F;
-        float green = (color >> 8 & 255) / 255.0F;
-        float blue = (color & 255) / 255.0F;
-        GlStateManager.color(red, green, blue, (float) alpha);
         GlStateManager.enableTexture2D();
         GlStateManager.bindTexture(this.tex.getGlTextureId());
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.tex.getGlTextureId());
-
-        GlStateManager.enableBlend();
 
         for (int index = 0; index < text.length(); index++) {
             char character = text.charAt(index);
@@ -91,49 +84,72 @@ public class FontRenderer extends CharRenderer implements IFont {
             if (character == '§') {
                 int colorIndex = 21;
                 try {
-                    colorIndex = colorcodeIdentifiers.indexOf(text.charAt(index + 1));
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    colorIndex = colorcodeIdentifiers.indexOf(Character.toLowerCase(text.charAt(index + 1)));
+                } catch (Exception ignored) {
                 }
 
                 if (colorIndex < 16) {
-                    GlStateManager.bindTexture(this.tex.getGlTextureId());
-                    GlStateManager.color(red, green, blue, (float) alpha);
-                } else {
-                    GlStateManager.color(red, green, blue, (float) alpha);
-                    GlStateManager.bindTexture(this.tex.getGlTextureId());
+                    int mcColor = this.colorCode[colorIndex];
+                    red = (mcColor >> 16 & 255) / 255.0F;
+                    green = (mcColor >> 8 & 255) / 255.0F;
+                    blue = (mcColor & 255) / 255.0F;
+                    currentData = this.charData;
+                } else if (colorIndex == 21) {
+                    // §r 重置回原始傳入顏色
+                    red = (originalColor >> 16 & 255) / 255.0F;
+                    green = (originalColor >> 8 & 255) / 255.0F;
+                    blue = (originalColor & 255) / 255.0F;
+                    currentData = this.charData;
                 }
+                // k/l/m/n/o 等格式碼暫不處理
                 ++index;
-            } else if (character < currentData.length) {
-                // ASCII 字符
+                continue;
+            }
+
+            if (character < currentData.length) {
+                // 陰影：使用「當前顏色」的暗版，避免 suffix 全亮重疊
+                if (shadow) {
+                    GlStateManager.color(red * 0.25F, green * 0.25F, blue * 0.25F, (float) alpha);
+                    GlStateManager.bindTexture(this.tex.getGlTextureId());
+                    drawLetter(x + shadowOffset, y + shadowOffset, currentData, character);
+                }
+
+                // 正文
+                GlStateManager.color(red, green, blue, (float) alpha);
+                GlStateManager.bindTexture(this.tex.getGlTextureId());
                 drawLetter(x, y, currentData, character);
                 x += currentData[character].width - 8.3 + this.charOffset;
             } else {
                 // ------------------ Unicode 回退逻辑 ------------------
+                int currentColor = ((int) (alpha * 255) & 0xFF) << 24
+                        | ((int) (red * 255) & 0xFF) << 16
+                        | ((int) (green * 255) & 0xFF) << 8
+                        | ((int) (blue * 255) & 0xFF);
 
-                // 1. 退出当前的自定义渲染缩放
                 GL11.glPopMatrix();
 
-                // 2. 调用原版 FontRenderer 绘制 Unicode
-                // 注意：需要将高分辨率坐标 x, y 转换回逻辑坐标
                 float logicalX = (float) (x / sr.getScaleFactor());
-                float logicalY = (float) (y / sr.getScaleFactor()) + 3.0f; // 这里的 +3 是为了对齐垂直位置
+                float logicalY = (float) (y / sr.getScaleFactor()) + 3.0f;
 
-                Minecraft.getMinecraft().fontRendererObj.drawString(String.valueOf(character), logicalX, logicalY, color, false);
+                if (shadow) {
+                    int shadowColor = (currentColor & 0xFCFCFC) >> 2 | currentColor & 0xFF000000;
+                    Minecraft.getMinecraft().fontRendererObj.drawString(
+                            String.valueOf(character), logicalX + 1.0F, logicalY + 1.0F, shadowColor, false);
+                }
+                Minecraft.getMinecraft().fontRendererObj.drawString(
+                        String.valueOf(character), logicalX, logicalY, currentColor, false);
 
-                // 3. 重新进入自定义渲染状态
                 GL11.glPushMatrix();
                 GL11.glScaled((double) 1 / sr.getScaleFactor(), 1 / (double) sr.getScaleFactor(), 1 / (double) sr.getScaleFactor());
 
-                // 4. 恢复颜色和纹理（因为原版绘制会重置它们）
                 GlStateManager.color(red, green, blue, (float) alpha);
                 GlStateManager.enableBlend();
-                GlStateManager.bindTexture(this.tex.getGlTextureId()); // 简单起见，回退后重置为普通纹理，暂不处理 Unicode 粗斜体状态
+                GlStateManager.bindTexture(this.tex.getGlTextureId());
 
-                // 5. 增加宽度
                 x += Minecraft.getMinecraft().fontRendererObj.getCharWidth(character) * sr.getScaleFactor();
             }
         }
+
         GlStateManager.disableBlend();
         GL11.glHint(GL11.GL_POLYGON_SMOOTH_HINT, GL11.GL_DONT_CARE);
         GL11.glPopMatrix();
@@ -179,10 +195,8 @@ public class FontRenderer extends CharRenderer implements IFont {
             if (character == '§') {
                 index++;
             } else if (character < currentData.length) {
-                // 原始宽度逻辑
                 width += currentData[character].width - 8.3f + charOffset;
             } else {
-                // Unicode 宽度逻辑
                 width += Minecraft.getMinecraft().fontRendererObj.getCharWidth(character) * sr.getScaleFactor();
             }
         }
