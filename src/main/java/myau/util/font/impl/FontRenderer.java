@@ -91,16 +91,30 @@ public class FontRenderer extends CharRenderer implements IFont {
             if (character == '§') {
                 int colorIndex = 21;
                 try {
-                    colorIndex = colorcodeIdentifiers.indexOf(text.charAt(index + 1));
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    colorIndex = colorcodeIdentifiers.indexOf(Character.toLowerCase(text.charAt(index + 1)));
+                } catch (Exception ignored) {
                 }
 
                 if (colorIndex < 16) {
+                    // 套用 Minecraft 顏色碼
+                    int mcColor = this.colorCode[colorIndex];
+                    red = (mcColor >> 16 & 255) / 255.0F;
+                    green = (mcColor >> 8 & 255) / 255.0F;
+                    blue = (mcColor & 255) / 255.0F;
+                    // alpha 繼續沿用傳入的 alpha（shadow 時會是較暗的版本）
+                    GlStateManager.color(red, green, blue, (float) alpha);
                     GlStateManager.bindTexture(this.tex.getGlTextureId());
+                    currentData = this.charData; // 重置格式（若之後有粗體等可再擴充）
+                } else if (colorIndex == 21) {
+                    // §r 重置回原本傳入的顏色
+                    red = (color >> 16 & 255) / 255.0F;
+                    green = (color >> 8 & 255) / 255.0F;
+                    blue = (color & 255) / 255.0F;
                     GlStateManager.color(red, green, blue, (float) alpha);
+                    GlStateManager.bindTexture(this.tex.getGlTextureId());
+                    currentData = this.charData;
                 } else {
-                    GlStateManager.color(red, green, blue, (float) alpha);
+                    // k/l/m/n/o 等格式碼目前可先忽略或之後再實作
                     GlStateManager.bindTexture(this.tex.getGlTextureId());
                 }
                 ++index;
