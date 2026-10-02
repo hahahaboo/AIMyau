@@ -133,6 +133,9 @@ public class ClickGuiScreen extends GuiScreen {
     public void close() {
         if (!closing) {
             closing = true;
+            for (ModuleElement mod : modules) {
+                mod.unfocusText();
+            }
             openTime = System.currentTimeMillis();
             savePosition();
             ColorElement.closePicker();
@@ -227,6 +230,11 @@ public class ClickGuiScreen extends GuiScreen {
         }
         RenderUtil.releaseScissor();
 
+        // modules 已設好 x/y 後
+        for (ModuleElement mod : modules) {
+            mod.unfocusTextIfOutside(contentX, contentY, contentW, contentH);
+        }
+
         // Color 取色小窗（scissor 外；列被裁切則關閉）
         ColorElement picker = ColorElement.getOpenPicker();
         if (picker != null) {
@@ -269,6 +277,11 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
         if (closing) return;
+
+        // 先全部失焦；若點到輸入框，TextElement 會再 focus
+        for (ModuleElement mod : modules) {
+            mod.unfocusText();
+        }
 
         ColorElement picker = ColorElement.getOpenPicker();
 
@@ -346,6 +359,27 @@ public class ClickGuiScreen extends GuiScreen {
         if (closing) return;
         if (System.currentTimeMillis() - this.openTime < 150) return;
 
+        // Text 輸入優先
+        boolean textFocused = false;
+        for (ModuleElement mod : modules) {
+            if (mod.isTextFocused()) {
+                textFocused = true;
+                break;
+            }
+        }
+        if (textFocused) {
+            // ESC：只關 focused，不關 GUI
+            if (keyCode == Keyboard.KEY_ESCAPE) {
+                for (ModuleElement mod : modules) mod.unfocusText();
+                return;
+            }
+            for (ModuleElement mod : modules) {
+                mod.keyTyped(typedChar, keyCode);
+            }
+            return;
+        }
+
+        // Keybind binding ...
         boolean binding = false;
         for (ModuleElement mod : modules) {
             if (mod.isBinding()) {
@@ -355,7 +389,6 @@ public class ClickGuiScreen extends GuiScreen {
         }
         if (binding) return;
 
-        // Enter 關閉取色小窗
         if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             if (ColorElement.isPickerOpen()) {
                 ColorElement.closePicker();
@@ -364,9 +397,7 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         if (keyCode == Keyboard.KEY_ESCAPE) {
-            if (ColorElement.isPickerOpen()) {
-                ColorElement.closePicker();
-            }
+            ColorElement.closePicker();
             close();
             return;
         }
@@ -387,6 +418,9 @@ public class ClickGuiScreen extends GuiScreen {
 
     @Override
     public void onGuiClosed() {
+        for (ModuleElement mod : modules) {
+            mod.unfocusText();
+        }
         dragging = false;
         ColorElement.closePicker();
         savePosition();
