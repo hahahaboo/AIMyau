@@ -13,24 +13,75 @@ import org.lwjgl.input.Mouse;
 import java.awt.Color;
 
 public class ColorElement extends SettingElement {
-    private static final int SV_H = 48;
-    private static final int HUE_H = 6;
-    private static final int GAP = 4;
-    private static final int HEADER_H = Theme.SETTING_H;
+    private static final int SV_SIZE = 100;
+    private static final int HUE_H = 8;
+    private static final int PAD = 6;
+    private static final int PREVIEW_SIZE = 10;
+
+    /** 目前開啟的取色器（同時只允許一個） */
+    private static ColorElement openPicker;
 
     private final ColorProperty prop;
     private boolean draggingSV;
     private boolean draggingHue;
-    private float hue;
-    private float saturation;
-    private float brightness;
+    private float hue, saturation, brightness;
     private int cachedColor;
 
+    /** 小窗位置（由 ClickGuiScreen 設定） */
+    private int popupX, popupY;
+
     public ColorElement(ColorProperty prop, int x, int y, int width) {
-        super(x, y, width, HEADER_H + GAP + SV_H + GAP + HUE_H + 4);
+        super(x, y, width, Theme.SETTING_H);
         this.prop = prop;
         this.cachedColor = prop.getValue();
         updateHSB();
+    }
+
+    public static ColorElement getOpenPicker() {
+        return openPicker;
+    }
+
+    public static void closePicker() {
+        if (openPicker != null) {
+            openPicker.draggingSV = false;
+            openPicker.draggingHue = false;
+        }
+        openPicker = null;
+    }
+
+    public static boolean isPickerOpen() {
+        return openPicker != null;
+    }
+
+    public int getPopupWidth() {
+        return PAD * 2 + SV_SIZE;
+    }
+
+    public int getPopupHeight() {
+        return PAD * 2 + SV_SIZE + 4 + HUE_H;
+    }
+
+    public void setPopupPos(int px, int py) {
+        this.popupX = px;
+        this.popupY = py;
+    }
+
+    public boolean isInsidePopup(int mouseX, int mouseY) {
+        return mouseX >= popupX && mouseX <= popupX + getPopupWidth()
+                && mouseY >= popupY && mouseY <= popupY + getPopupHeight();
+    }
+
+    /** 點在 #hex + 色塊區域 */
+    private boolean isInsideSwatchArea(int mouseX, int mouseY) {
+        // 從 hex 文字左側到色塊右側
+        String hex = String.format("#%06X", prop.getValue() & 0xFFFFFF);
+        float hexW = FontManager.productSans16 != null
+                ? (float) FontManager.productSans16.getStringWidth(hex)
+                : mc.fontRendererObj.getStringWidth(hex);
+        float left = x + width - hexW - 18;
+        float right = x + width;
+        return mouseX >= left && mouseX <= right
+                && mouseY >= y && mouseY < y + height;
     }
 
     @Override
@@ -41,14 +92,13 @@ public class ColorElement extends SettingElement {
     private void updateHSB() {
         int color = prop.getValue();
         float[] hsb = Color.RGBtoHSB((color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, null);
-        this.hue = hsb[0];
-        this.saturation = hsb[1];
-        this.brightness = hsb[2];
+        hue = hsb[0];
+        saturation = hsb[1];
+        brightness = hsb[2];
     }
 
     private void updateColor() {
         int rgb = Color.HSBtoRGB(hue, saturation, brightness);
-        // 保留原本 alpha（若有），否則用不透明
         int alpha = (prop.getValue() >> 24) & 0xFF;
         if (alpha == 0) alpha = 0xFF;
         int finalColor = (alpha << 24) | (rgb & 0x00FFFFFF);
@@ -56,40 +106,44 @@ public class ColorElement extends SettingElement {
         cachedColor = finalColor;
     }
 
+    private static float clamp(float v) {
+        return Math.max(0f, Math.min(1f, v));
+    }
+
+    // ─── 列表內精簡列 ───────────────────────────────────
+
     @Override
     public void render(int mouseX, int mouseY, float partialTicks, float alpha) {
         if (!isVisible()) return;
 
-        if (!Mouse.isButtonDown(0)) {
-            draggingSV = false;
-            draggingHue = false;
-        }
-
-        if (!draggingSV && !draggingHue && prop.getValue() != cachedColor) {
-            cachedColor = prop.getValue();
-            updateHSB();
-        }
-
-        if (draggingSV) {
-            float s = (mouseX - (x + 2f)) / (width - 4f);
-            float b = 1.0f - ((mouseY - (y + HEADER_H + GAP)) / (float) SV_H);
-            saturation = clamp(s);
-            brightness = clamp(b);
-            updateColor();
-        } else if (draggingHue) {
-            float h = (mouseX - (x + 2f)) / (width - 4f);
-            hue = clamp(h);
-            updateColor();
+        if (openPicker == this) {
+            if (!Mouse.isButtonDown(0)) {
+                draggingSV = false;
+                draggingHue = false;
+            }
+            if (!draggingSV && !draggingHue && prop.getValue() != cachedColor) {
+                cachedColor = prop.getValue();
+                updateHSB();
+            }
+            if (draggingSV) {
+                float svX = popupX + PAD;
+                float svY = popupY + PAD;
+                saturation = clamp((mouseX - svX) / SV_SIZE);
+                brightness = clamp(1f - (mouseY - svY) / SV_SIZE);
+                updateColor();
+            } else if (draggingHue) {
+                float hueX = popupX + PAD;
+                float hueY = popupY + PAD + SV_SIZE + 4;
+                hue = clamp((mouseX - hueX) / SV_SIZE);
+                updateColor();
+            }
         }
 
         int a = (int) (255 * alpha);
-        float px = x + 2;
-        float pw = width - 4;
-
-        // 名稱 + hex
         String name = prop.getName();
         String hex = String.format("#%06X", prop.getValue() & 0xFFFFFF);
         int tc = Theme.rgba(Theme.TEXT, a);
+
         if (FontManager.productSans16 != null) {
             FontManager.productSans16.drawString(name, x + 2, y + 4, tc);
             float hw = (float) FontManager.productSans16.getStringWidth(hex);
@@ -98,51 +152,83 @@ public class ColorElement extends SettingElement {
             mc.fontRendererObj.drawStringWithShadow(name, x + 2, y + 5, tc);
         }
 
-        // 右側顏色預覽方塊
         int previewColor = (a << 24) | (prop.getValue() & 0x00FFFFFF);
-        RenderUtil.drawRoundedRect(x + width - 14, y + 5, 10, 10, 2f, previewColor, true, true, true, true);
+        RenderUtil.drawRoundedRect(x + width - 14, y + 5, PREVIEW_SIZE, PREVIEW_SIZE, 2f,
+                previewColor, true, true, true, true);
+    }
 
-        // SV 面板
-        float svY = y + HEADER_H + GAP;
+    // ─── 延伸小窗（必須在 scissor 外繪製）────────────────
+
+    public void renderPopup(float alpha) {
+        int a = (int) (255 * alpha);
+        int pw = getPopupWidth();
+        int ph = getPopupHeight();
+
+        // 背景
+        RenderUtil.drawRoundedRect(popupX, popupY, pw, ph, Theme.RADIUS_SM,
+                Theme.rgba(Theme.PANEL, a), true, true, true, true);
+
+        float svX = popupX + PAD;
+        float svY = popupY + PAD;
+
+        // SV 正方形
         int hueRgb = Color.HSBtoRGB(hue, 1f, 1f);
-        RenderUtil.drawRect(px, svY, px + pw, svY + SV_H, hueRgb);
-        drawGradientRect(px, svY, pw, SV_H, 0xFFFFFFFF, 0x00FFFFFF, true);
-        drawGradientRect(px, svY, pw, SV_H, 0x00000000, 0xFF000000, false);
+        RenderUtil.drawRect(svX, svY, svX + SV_SIZE, svY + SV_SIZE, hueRgb);
+        drawGradientRect(svX, svY, SV_SIZE, SV_SIZE, 0xFFFFFFFF, 0x00FFFFFF, true);
+        drawGradientRect(svX, svY, SV_SIZE, SV_SIZE, 0x00000000, 0xFF000000, false);
 
-        // SV 指示點
-        float ix = px + saturation * pw;
-        float iy = svY + (1f - brightness) * SV_H;
+        float ix = svX + saturation * SV_SIZE;
+        float iy = svY + (1f - brightness) * SV_SIZE;
         RenderUtil.drawCircleOutline(ix, iy, 3f, 2.0f, 0xFF000000);
         RenderUtil.drawCircleOutline(ix, iy, 3f, 1.0f, 0xFFFFFFFF);
 
         // Hue 條
-        float hueY = svY + SV_H + GAP;
-        drawRainbowRect(px, hueY, pw, HUE_H);
-        float hx = px + hue * pw;
+        float hueY = svY + SV_SIZE + 4;
+        drawRainbowRect(svX, hueY, SV_SIZE, HUE_H);
+        float hx = svX + hue * SV_SIZE;
         RenderUtil.drawRect(hx - 1, hueY - 1, hx + 1, hueY + HUE_H + 1, 0xFFFFFFFF);
     }
 
-    @Override
-    public boolean mouseClicked(int mouseX, int mouseY, int button) {
-        if (button != 0 || !isVisible()) return false;
+    public boolean mouseClickedPopup(int mouseX, int mouseY, int button) {
+        if (button != 0 && button != 1) return false;
+        if (!isInsidePopup(mouseX, mouseY)) return false;
 
-        float px = x + 2;
-        float pw = width - 4;
-        float svY = y + HEADER_H + GAP;
+        float svX = popupX + PAD;
+        float svY = popupY + PAD;
 
-        if (mouseX >= px && mouseX <= px + pw && mouseY >= svY && mouseY <= svY + SV_H) {
+        if (mouseX >= svX && mouseX <= svX + SV_SIZE
+                && mouseY >= svY && mouseY <= svY + SV_SIZE) {
             draggingSV = true;
-            saturation = clamp((mouseX - px) / pw);
-            brightness = clamp(1f - (mouseY - svY) / SV_H);
+            saturation = clamp((mouseX - svX) / SV_SIZE);
+            brightness = clamp(1f - (mouseY - svY) / SV_SIZE);
             updateColor();
             return true;
         }
 
-        float hueY = svY + SV_H + GAP;
-        if (mouseX >= px && mouseX <= px + pw && mouseY >= hueY && mouseY <= hueY + HUE_H) {
+        float hueY = svY + SV_SIZE + 4;
+        if (mouseX >= svX && mouseX <= svX + SV_SIZE
+                && mouseY >= hueY && mouseY <= hueY + HUE_H) {
             draggingHue = true;
-            hue = clamp((mouseX - px) / pw);
+            hue = clamp((mouseX - svX) / SV_SIZE);
             updateColor();
+            return true;
+        }
+        return true; // 點在小窗空白處也算消費，避免關掉
+    }
+
+    @Override
+    public boolean mouseClicked(int mouseX, int mouseY, int button) {
+        if (!isVisible()) return false;
+        if (button != 0 && button != 1) return false;
+
+        if (isInsideSwatchArea(mouseX, mouseY)) {
+            if (openPicker == this) {
+                closePicker();
+            } else {
+                openPicker = this;
+                cachedColor = prop.getValue();
+                updateHSB();
+            }
             return true;
         }
         return false;
@@ -152,10 +238,6 @@ public class ColorElement extends SettingElement {
     public void mouseReleased(int mouseX, int mouseY, int button) {
         draggingSV = false;
         draggingHue = false;
-    }
-
-    private static float clamp(float v) {
-        return Math.max(0f, Math.min(1f, v));
     }
 
     private void drawRainbowRect(float x, float y, float width, float height) {
@@ -169,7 +251,8 @@ public class ColorElement extends SettingElement {
         }
     }
 
-    private void drawGradientRect(float x, float y, float width, float height, int startColor, int endColor, boolean horizontal) {
+    private void drawGradientRect(float x, float y, float width, float height,
+                                  int startColor, int endColor, boolean horizontal) {
         float sa = (startColor >> 24 & 255) / 255f;
         float sr = (startColor >> 16 & 255) / 255f;
         float sg = (startColor >> 8 & 255) / 255f;
