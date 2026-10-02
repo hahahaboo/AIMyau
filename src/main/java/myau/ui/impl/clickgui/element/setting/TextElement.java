@@ -11,8 +11,24 @@ public class TextElement extends SettingElement {
     private boolean focused;
 
     public TextElement(TextProperty prop, int x, int y, int width) {
-        super(x, y, width, Theme.SETTING_H);
+        super(x, y, width, Theme.SETTING_H + 6);
         this.prop = prop;
+    }
+
+    public boolean isFocused() {
+        return focused;
+    }
+
+    public void unfocus() {
+        focused = false;
+    }
+
+    /** 輸入框區域（不含名稱） */
+    private boolean isInsideInputBox(int mouseX, int mouseY) {
+        int boxY = y + 11;
+        int boxH = 12;
+        return mouseX >= x + 2 && mouseX <= x + width - 2
+                && mouseY >= boxY && mouseY < boxY + boxH;
     }
 
     @Override
@@ -25,12 +41,10 @@ public class TextElement extends SettingElement {
         if (!isVisible()) return;
         int a = (int) (255 * alpha);
 
-        // 名稱
         if (FontManager.productSans16 != null) {
             FontManager.productSans16.drawString(prop.getName(), x + 2, y + 2, Theme.rgba(Theme.TEXT, a));
         }
 
-        // 輸入框
         int boxY = y + 11;
         int boxH = 12;
         RenderUtil.drawRoundedRect(x + 2, boxY, width - 4, boxH, 3f,
@@ -44,8 +58,17 @@ public class TextElement extends SettingElement {
 
     @Override
     public boolean mouseClicked(int mouseX, int mouseY, int button) {
-        focused = isHovered(mouseX, mouseY) && button == 0;
-        return focused;
+        // 右鍵在輸入欄上 → 失焦
+        if (button == 1 && isInsideInputBox(mouseX, mouseY)) {
+            focused = false;
+            return true;
+        }
+        // 左鍵：只有點在輸入框內才 focus，否則失焦
+        if (button == 0) {
+            focused = isInsideInputBox(mouseX, mouseY);
+            return focused;
+        }
+        return false;
     }
 
     @Override
@@ -54,10 +77,12 @@ public class TextElement extends SettingElement {
         String cur = prop.getValue() == null ? "" : prop.getValue().toString();
         if (keyCode == Keyboard.KEY_BACK && !cur.isEmpty()) {
             prop.setValue(cur.substring(0, cur.length() - 1));
+        } else if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+            focused = false;
+        } else if (keyCode == Keyboard.KEY_ESCAPE) {
+            focused = false;
         } else if (typedChar >= 32 && typedChar < 127) {
             prop.setValue(cur + typedChar);
-        } else if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_ESCAPE) {
-            focused = false;
         }
     }
 }
