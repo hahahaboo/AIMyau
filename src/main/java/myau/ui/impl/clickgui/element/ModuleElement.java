@@ -199,4 +199,29 @@ public class ModuleElement extends Element {
         }
         return false;
     }
+
+    public boolean isTextFocused() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement && ((TextElement) s).isFocused()) return true;
+        }
+        return false;
+    }
+
+    public void unfocusText() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement) ((TextElement) s).unfocus();
+        }
+    }
+
+    /** 列超出內容可視區時失焦 */
+    public void unfocusTextIfOutside(int contentX, int contentY, int contentW, int contentH) {
+        for (SettingElement s : settings) {
+            if (!(s instanceof TextElement)) continue;
+            TextElement t = (TextElement) s;
+            if (!t.isFocused()) continue;
+            boolean visible = t.x < contentX + contentW && t.x + t.width > contentX
+                    && t.y < contentY + contentH && t.y + t.height > contentY;
+            if (!visible) t.unfocus();
+        }
+    }
 }
