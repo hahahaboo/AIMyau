@@ -143,6 +143,11 @@ public class ClickGuiScreen extends GuiScreen {
     }
 
     private void handleInvWalk() {
+        // 正在 TextElement 打字時不觸發移動鍵
+        for (ModuleElement mod : modules) {
+            if (mod.isTextFocused()) return;
+        }
+
         try {
             Module invWalk = Myau.moduleManager.getModule("InvWalk");
             if (invWalk == null || !invWalk.isEnabled()) return;
