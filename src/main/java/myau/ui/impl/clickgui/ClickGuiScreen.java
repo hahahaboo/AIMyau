@@ -7,6 +7,7 @@ import myau.module.modules.ClickGUIModule;
 import myau.ui.impl.clickgui.element.CategoryElement;
 import myau.ui.impl.clickgui.element.Element;
 import myau.ui.impl.clickgui.element.ModuleElement;
+import myau.ui.impl.clickgui.element.setting.ColorElement;
 import myau.util.RenderUtil;
 import myau.util.shader.ShadowShader;
 import net.minecraft.client.gui.GuiScreen;
@@ -60,6 +61,7 @@ public class ClickGuiScreen extends GuiScreen {
 
     private void rebuildModules() {
         modules.clear();
+        ColorElement.closePicker();
         if (Myau.moduleManager == null) return;
         for (Module m : Myau.moduleManager.getModulesInCategory(selected)) {
             modules.add(new ModuleElement(m, 0, 0, Theme.WINDOW_W - Theme.SIDEBAR_W - 16));
@@ -97,6 +99,7 @@ public class ClickGuiScreen extends GuiScreen {
         ScaledResolution sr = new ScaledResolution(mc);
         int sw = sr.getScaledWidth();
         int sh = sr.getScaledHeight();
+        // 整個視窗不得超出螢幕四邊
         guiX = Math.max(0, Math.min(guiX, sw - Theme.WINDOW_W));
         guiY = Math.max(0, Math.min(guiY, sh - Theme.WINDOW_H));
     }
@@ -111,6 +114,7 @@ public class ClickGuiScreen extends GuiScreen {
     public void initGui() {
         closing = false;
         dragging = false;
+        ColorElement.closePicker();
         openTime = System.currentTimeMillis();
         openAnim = 0;
         lastFrameTime = System.nanoTime();
@@ -131,6 +135,7 @@ public class ClickGuiScreen extends GuiScreen {
             closing = true;
             openTime = System.currentTimeMillis();
             savePosition();
+            ColorElement.closePicker();
         }
     }
 
@@ -222,6 +227,22 @@ public class ClickGuiScreen extends GuiScreen {
         }
         RenderUtil.releaseScissor();
 
+        // Color 取色小窗（必須在 scissor 外，貼主視窗旁）
+        ColorElement picker = ColorElement.getOpenPicker();
+        if (picker != null) {
+            int popupW = picker.getPopupWidth();
+            int popupH = picker.getPopupHeight();
+            ScaledResolution sr = new ScaledResolution(mc);
+            int px = guiX + Theme.WINDOW_W + 8;
+            if (px + popupW > sr.getScaledWidth()) {
+                px = guiX - popupW - 8;
+            }
+            if (px < 0) px = 0;
+            int py = Math.max(0, Math.min(picker.y, sr.getScaledHeight() - popupH));
+            picker.setPopupPos(px, py);
+            picker.renderPopup(alpha);
+        }
+
         handleInvWalk();
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
@@ -240,6 +261,17 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
         if (closing) return;
+
+        // 取色小窗優先
+        ColorElement picker = ColorElement.getOpenPicker();
+        if (picker != null) {
+            if (picker.isInsidePopup(mouseX, mouseY)) {
+                picker.mouseClickedPopup(mouseX, mouseY, button);
+                return;
+            }
+            // 點在小窗外 → 關閉；若點到另一色塊，後面 module 仍可再開
+            ColorElement.closePicker();
+        }
 
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
@@ -277,6 +309,10 @@ public class ClickGuiScreen extends GuiScreen {
             dragging = false;
             savePosition();
         }
+        ColorElement picker = ColorElement.getOpenPicker();
+        if (picker != null) {
+            picker.mouseReleased(mouseX, mouseY, state);
+        }
         for (ModuleElement mod : modules) {
             mod.mouseReleased(mouseX, mouseY, state);
         }
@@ -306,7 +342,19 @@ public class ClickGuiScreen extends GuiScreen {
         }
         if (binding) return;
 
+        // Enter 關閉取色小窗
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+            if (ColorElement.isPickerOpen()) {
+                ColorElement.closePicker();
+                return;
+            }
+        }
+
         if (keyCode == Keyboard.KEY_ESCAPE) {
+            if (ColorElement.isPickerOpen()) {
+                ColorElement.closePicker();
+                return;
+            }
             close();
             return;
         }
@@ -328,6 +376,7 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     public void onGuiClosed() {
         dragging = false;
+        ColorElement.closePicker();
         savePosition();
         Module gui = Myau.moduleManager.getModule("ClickGUI");
         if (gui != null && gui.isEnabled()) {
