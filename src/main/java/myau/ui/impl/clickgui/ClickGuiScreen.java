@@ -227,20 +227,28 @@ public class ClickGuiScreen extends GuiScreen {
         }
         RenderUtil.releaseScissor();
 
-        // Color 取色小窗（必須在 scissor 外，貼主視窗旁）
+        // Color 取色小窗（scissor 外；列被裁切則關閉）
         ColorElement picker = ColorElement.getOpenPicker();
         if (picker != null) {
-            int popupW = picker.getPopupWidth();
-            int popupH = picker.getPopupHeight();
-            ScaledResolution sr = new ScaledResolution(mc);
-            int px = guiX + Theme.WINDOW_W + 8;
-            if (px + popupW > sr.getScaledWidth()) {
-                px = guiX - popupW - 8;
+            boolean rowVisible =
+                    picker.x < contentX + contentW && picker.x + picker.width > contentX
+                            && picker.y < contentY + contentH && picker.y + picker.height > contentY;
+
+            if (!rowVisible) {
+                ColorElement.closePicker();
+            } else {
+                int popupW = picker.getPopupWidth();
+                int popupH = picker.getPopupHeight();
+                ScaledResolution sr = new ScaledResolution(mc);
+                int px = guiX + Theme.WINDOW_W + 8;
+                if (px + popupW > sr.getScaledWidth()) {
+                    px = guiX - popupW - 8;
+                }
+                if (px < 0) px = 0;
+                int py = Math.max(0, Math.min(picker.y, sr.getScaledHeight() - popupH));
+                picker.setPopupPos(px, py);
+                picker.renderPopup(alpha);
             }
-            if (px < 0) px = 0;
-            int py = Math.max(0, Math.min(picker.y, sr.getScaledHeight() - popupH));
-            picker.setPopupPos(px, py);
-            picker.renderPopup(alpha);
         }
 
         handleInvWalk();
@@ -262,26 +270,24 @@ public class ClickGuiScreen extends GuiScreen {
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
         if (closing) return;
 
-        // 取色小窗優先
         ColorElement picker = ColorElement.getOpenPicker();
-        if (picker != null) {
-            if (picker.isInsidePopup(mouseX, mouseY)) {
-                picker.mouseClickedPopup(mouseX, mouseY, button);
-                return;
-            }
-            // 點在小窗外 → 關閉；若點到另一色塊，後面 module 仍可再開
-            ColorElement.closePicker();
+
+        // 點在小窗內 → 只處理取色
+        if (picker != null && picker.isInsidePopup(mouseX, mouseY)) {
+            picker.mouseClickedPopup(mouseX, mouseY, button);
+            return;
         }
+
+        boolean handled = false;
 
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
                 selected = cat.getCategory();
                 rebuildModules();
-                return;
+                return; // rebuildModules 內已 closePicker
             }
         }
 
-        // 只有點在右側可視內容區內，才處理 module / setting
         int contentX = guiX + Theme.SIDEBAR_W + 8;
         int contentY = guiY + DRAG_H + 6;
         int contentW = Theme.WINDOW_W - Theme.SIDEBAR_W - 16;
@@ -290,11 +296,18 @@ public class ClickGuiScreen extends GuiScreen {
         if (mouseX >= contentX && mouseX < contentX + contentW
                 && mouseY >= contentY && mouseY < contentY + contentH) {
             for (ModuleElement mod : modules) {
-                if (mod.mouseClicked(mouseX, mouseY, button)) return;
+                if (mod.mouseClicked(mouseX, mouseY, button)) {
+                    handled = true;
+                    break;
+                }
             }
         }
 
-        // 僅頂部空白可拖曳
+        // 點在小窗外、且不是色塊 toggle → 關閉小窗
+        if (!handled && ColorElement.isPickerOpen()) {
+            ColorElement.closePicker();
+        }
+
         if (button == 0 && isInsideDragArea(mouseX, mouseY)) {
             dragging = true;
             dragOffsetX = mouseX - guiX;
@@ -353,7 +366,6 @@ public class ClickGuiScreen extends GuiScreen {
         if (keyCode == Keyboard.KEY_ESCAPE) {
             if (ColorElement.isPickerOpen()) {
                 ColorElement.closePicker();
-                return;
             }
             close();
             return;
