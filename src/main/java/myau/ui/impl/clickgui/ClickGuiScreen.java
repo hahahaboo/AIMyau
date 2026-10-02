@@ -397,7 +397,9 @@ public class ClickGuiScreen extends GuiScreen {
         }
 
         if (keyCode == Keyboard.KEY_ESCAPE) {
-            ColorElement.closePicker();
+            if (ColorElement.isPickerOpen()) {
+                ColorElement.closePicker();
+            }
             close();
             return;
         }
