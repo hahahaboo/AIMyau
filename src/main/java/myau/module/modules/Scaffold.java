@@ -82,30 +82,45 @@ public class Scaffold extends Module {
     private boolean snapRotating = false;
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Hypixel", "Snap"});
-        public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-        public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 6);
+    // Grim (advanced snap) state
+    private int grimHoldCounter = 0;
+    private float grimLastYaw = Float.NaN;
+    private float grimLastPitch = 0.0F;
+    private int grimDelayCounter = 0;
+    private int grimPlaceDelayCounter = 0;
+    private GrimTarget grimPendingTarget = null;
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Hypixel", "Snap", "Grim"});
+    public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+    public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+    public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+    public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
+    public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 6);
+    public final FloatProperty grimEdgeThreshold = new FloatProperty("grim-edge-threshold", 0.01F, 0.01F, 0.5F, () -> this.rotationMode.getValue() == 7);
+    public final FloatProperty grimForwardSpeed = new FloatProperty("grim-forward-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 7);
+    public final FloatProperty grimBackSpeed = new FloatProperty("grim-back-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 7);
+    public final BooleanProperty grimEarlySnap = new BooleanProperty("grim-early-snap", true, () -> this.rotationMode.getValue() == 7);
+    public final FloatProperty grimForwardPitch = new FloatProperty("grim-forward-pitch", 80.0F, 0.0F, 90.0F, () -> this.rotationMode.getValue() == 7);
+    public final IntProperty grimHoldTicks = new IntProperty("grim-hold-ticks", 2, 0, 5, () -> this.rotationMode.getValue() == 7);
+    public final BooleanProperty grimDelayPlacement = new BooleanProperty("grim-delay-placement", false, () -> this.rotationMode.getValue() == 7);
+    public final IntProperty grimPlaceDelay = new IntProperty("grim-place-delay", 1, 0, 5, () -> this.rotationMode.getValue() == 7);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
     public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
-        public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false, () -> this.tower.getValue() == 3);
-        public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
-            public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
-            public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 0);
-            public final IntProperty safeUnmoveTicks = new IntProperty("unmove-ticks", 1, 1, 5, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 1);
+    public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false);
+    public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
+    public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
+    public final IntProperty safeStuckDelayTicksProperty = new IntProperty("safe-delay-ticks", 1, 1, 3, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 0);
+    public final IntProperty safeUnmoveTicks = new IntProperty("unmove-ticks", 1, 1, 5, () -> this.tower.getValue() == 3 && this.safe.getValue() && this.safeMode.getValue() == 1);
     public final ModeProperty keepY = new ModeProperty("keep-y", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY", "EXTRATELLY"});
-        public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
-        public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
+    public final BooleanProperty keepYonPress = new BooleanProperty("keep-y-on-press", false, () -> this.keepY.getValue() != 0);
+    public final BooleanProperty disableWhileJumpActive = new BooleanProperty("not-on-jump-potion", false, () -> this.keepY.getValue() != 0);
     public final BooleanProperty eagle = new BooleanProperty("eagle", false);
-        public final FloatProperty edgeDistance = new FloatProperty("edge-distance", 0.13F, 0.0F, 0.5F, () -> this.eagle.getValue());
-        public final IntProperty sneakDelay = new IntProperty("sneak-delay", 80, 0, 500, () -> this.eagle.getValue());
-        public final IntProperty blocksPerSneak = new IntProperty("blocks-per-sneak", 1, 1, 5, () -> this.eagle.getValue());
+    public final FloatProperty edgeDistance = new FloatProperty("edge-distance", 0.13F, 0.0F, 0.5F, () -> this.eagle.getValue());
+    public final IntProperty sneakDelay = new IntProperty("sneak-delay", 80, 0, 500, () -> this.eagle.getValue());
+    public final IntProperty blocksPerSneak = new IntProperty("blocks-per-sneak", 1, 1, 5, () -> this.eagle.getValue());
     public final BooleanProperty biggestStack = new BooleanProperty("biggest-stack", true);
     public final BooleanProperty multiplace = new BooleanProperty("multi-place", false);
     public final BooleanProperty safeWalk = new BooleanProperty("safe-walk", false);
@@ -361,6 +376,219 @@ public class Scaffold extends Module {
         return 0.2155 - RandomUtil.nextDouble(1.0E-4, 9.0E-4);
     }
 
+
+    // ========== Grim (advanced snap) helpers ==========
+    private static final double FACE_DEPTH = 0.001;
+    private static final double[] GRIM_OFFSETS = new double[]{0.5, 0.3, 0.7, 0.15, 0.85, 0.05, 0.95};
+
+    private boolean isValidHit(MovingObjectPosition mop, BlockPos blockPos, EnumFacing facing) {
+        return mop != null && mop.typeOfHit == MovingObjectType.BLOCK
+                && mop.getBlockPos().equals(blockPos) && mop.sideHit == facing;
+    }
+
+    private Vec3 facePoint(BlockPos blockPos, EnumFacing facing, double a, double b) {
+        double n = facing.getAxisDirection() == EnumFacing.AxisDirection.POSITIVE ? 1.0 - FACE_DEPTH : FACE_DEPTH;
+        switch (facing.getAxis()) {
+            case X:
+                return new Vec3(blockPos.getX() + n, blockPos.getY() + a, blockPos.getZ() + b);
+            case Y:
+                return new Vec3(blockPos.getX() + a, blockPos.getY() + n, blockPos.getZ() + b);
+            default:
+                return new Vec3(blockPos.getX() + a, blockPos.getY() + b, blockPos.getZ() + n);
+        }
+    }
+
+    private double[] predictPositionGrim() {
+        double[] move = MoveUtil.predictMovement();
+        return new double[]{
+                mc.thePlayer.posX + mc.thePlayer.motionX + move[0],
+                mc.thePlayer.posZ + mc.thePlayer.motionZ + move[1]
+        };
+    }
+
+    private BlockPos edgeCell(double x, double z, int y) {
+        int bx = MathHelper.floor_double(x);
+        int bz = MathHelper.floor_double(z);
+        double threshold = this.grimEdgeThreshold.getValue();
+        double xOff = x - bx;
+        double zOff = z - bz;
+        int dx = xOff < threshold ? -1 : (xOff > 1.0 - threshold ? 1 : 0);
+        int dz = zOff < threshold ? -1 : (zOff > 1.0 - threshold ? 1 : 0);
+        int[][] candidates = {{dx, 0}, {0, dz}, {dx, dz}};
+        for (int[] c : candidates) {
+            if (c[0] == 0 && c[1] == 0) continue;
+            BlockPos pos = new BlockPos(bx + c[0], y, bz + c[1]);
+            if (BlockUtil.isReplaceable(pos)) return pos;
+        }
+        return null;
+    }
+
+    private MovingObjectPosition rayTraceFrom(Vec3 eye, float yaw, float pitch) {
+        Vec3 look = ((myau.mixin.IAccessorEntity) mc.thePlayer).callGetVectorForRotation(pitch, yaw);
+        double reach = mc.playerController.getBlockReachDistance();
+        return mc.theWorld.rayTraceBlocks(
+                eye,
+                eye.addVector(look.xCoord * reach, look.yCoord * reach, look.zCoord * reach)
+        );
+    }
+
+    private float[] rotationsToPoint(Vec3 point, Vec3 eye) {
+        double dx = point.xCoord - eye.xCoord;
+        double dy = point.yCoord - eye.yCoord;
+        double dz = point.zCoord - eye.zCoord;
+        double horiz = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90.0F;
+        float pitch = (float) (-(Math.atan2(dy, horiz) * 180.0 / Math.PI));
+        return new float[]{yaw, MathHelper.clamp_float(pitch, -90.0F, 90.0F)};
+    }
+
+    private GrimTarget solveFace(Vec3 eye, BlockPos support, EnumFacing face) {
+        GrimTarget best = null;
+        double bestCenter = Double.MAX_VALUE;
+        for (double a : GRIM_OFFSETS) {
+            for (double b : GRIM_OFFSETS) {
+                double center = (a - 0.5) * (a - 0.5) + (b - 0.5) * (b - 0.5);
+                if (center >= bestCenter) continue;
+                Vec3 point = this.facePoint(support, face, a, b);
+                float[] rot = this.rotationsToPoint(point, eye);
+                MovingObjectPosition mop = this.rayTraceFrom(eye, rot[0], rot[1]);
+                if (!this.isValidHit(mop, support, face)) continue;
+                bestCenter = center;
+                best = new GrimTarget(support, face, rot[0], rot[1], eye.squareDistanceTo(mop.hitVec));
+            }
+        }
+        return best;
+    }
+
+    private GrimTarget solveCell(Vec3 eye, BlockPos cell) {
+        if (!BlockUtil.isReplaceable(cell)) return null;
+        GrimTarget best = null;
+        for (EnumFacing dir : EnumFacing.VALUES) {
+            if (dir == EnumFacing.UP) continue;
+            BlockPos support = cell.offset(dir);
+            if (BlockUtil.isReplaceable(support) || BlockUtil.isInteractable(support)) continue;
+            GrimTarget target = this.solveFace(eye, support, dir.getOpposite());
+            if (target != null && (best == null || target.distance < best.distance)) best = target;
+        }
+        return best;
+    }
+
+    private GrimTarget solveBridge(Vec3 eye, BlockPos cell) {
+        GrimTarget best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (EnumFacing dir : new EnumFacing[]{EnumFacing.NORTH, EnumFacing.EAST, EnumFacing.SOUTH, EnumFacing.WEST}) {
+            BlockPos neighbor = cell.offset(dir);
+            double dist = neighbor.distanceSqToCenter(mc.thePlayer.posX, neighbor.getY() + 0.5, mc.thePlayer.posZ);
+            if (dist >= bestDist) continue;
+            GrimTarget target = this.solveCell(eye, neighbor);
+            if (target != null) {
+                best = target;
+                bestDist = dist;
+            }
+        }
+        return best;
+    }
+
+    private GrimTarget findGrimTarget(Vec3 eye) {
+        int playerY = MathHelper.floor_double(mc.thePlayer.posY);
+        int y = (this.stage != 0 && !this.shouldKeepY ? Math.min(playerY, this.startY) : playerY) - 1;
+        BlockPos below = new BlockPos(MathHelper.floor_double(mc.thePlayer.posX), y, MathHelper.floor_double(mc.thePlayer.posZ));
+        if (BlockUtil.isReplaceable(below)) {
+            GrimTarget target = this.solveCell(eye, below);
+            return target != null ? target : this.solveBridge(eye, below);
+        }
+        if (!this.grimEarlySnap.getValue() || !mc.thePlayer.onGround) return null;
+        double[] next = this.predictPositionGrim();
+        BlockPos edge = this.edgeCell(next[0], next[1], y);
+        return edge == null ? null : this.solveCell(eye, edge);
+    }
+
+    private float[] stepRotation(float fromYaw, float fromPitch, float toYaw, float toPitch, float yawSpeed, float pitchSpeed) {
+        float yawDiff = MathHelper.wrapAngleTo180_float(toYaw - fromYaw);
+        float pitchDiff = toPitch - fromPitch;
+        float nextYaw = fromYaw + RotationUtil.clampAngle(yawDiff, yawSpeed);
+        float nextPitch = fromPitch + RotationUtil.clampAngle(pitchDiff, pitchSpeed);
+        return new float[]{
+                RotationUtil.quantizeAngle(nextYaw),
+                RotationUtil.quantizeAngle(MathHelper.clamp_float(nextPitch, -90.0F, 90.0F))
+        };
+    }
+
+    private void applyGrimRotation(UpdateEvent event, float yaw, float pitch) {
+        this.yaw = yaw;
+        this.pitch = pitch;
+        this.canRotate = true;
+        event.setRotation(yaw, pitch, 3);
+        if (this.moveFix.getValue() == 1) {
+            event.setPervRotation(yaw, 3);
+        }
+    }
+
+    private void updateGrim(UpdateEvent event, boolean allowPlace) {
+        if (this.grimPlaceDelayCounter > 0) this.grimPlaceDelayCounter--;
+        if (this.grimHoldCounter > 0) this.grimHoldCounter--;
+        if (this.grimDelayCounter > 0) this.grimDelayCounter--;
+        // 與 Snap 相同：預設非 snap 旋轉，僅在瞄準/保持放塊朝向時設為 true，此時 keep-y 不可跳
+        this.snapRotating = false;
+        if (!this.canPlace() || !ItemUtil.isHoldingBlock()) return;
+
+        GrimTarget target = allowPlace ? this.findGrimTarget(mc.thePlayer.getPositionEyes(1.0F)) : null;
+        float targetYaw;
+        float targetPitch;
+        float speed;
+
+        if (this.grimDelayPlacement.getValue() && target != null) {
+            if (this.grimPendingTarget == null || !this.grimPendingTarget.blockPos().equals(target.blockPos())) {
+                this.grimPendingTarget = target;
+                this.grimDelayCounter = 1;
+            }
+            targetYaw = RotationUtil.wrapAngleDiff(target.yaw, event.getYaw());
+            targetPitch = target.pitch;
+            speed = this.grimBackSpeed.getValue();
+            this.grimHoldCounter = this.grimHoldTicks.getValue();
+            this.grimLastYaw = target.yaw;
+            this.grimLastPitch = target.pitch;
+            this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
+        } else if (target != null) {
+            targetYaw = RotationUtil.wrapAngleDiff(target.yaw, event.getYaw());
+            targetPitch = target.pitch;
+            speed = this.grimBackSpeed.getValue();
+            this.grimHoldCounter = this.grimHoldTicks.getValue();
+            this.grimLastYaw = target.yaw;
+            this.grimLastPitch = target.pitch;
+            this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
+        } else if (this.grimHoldCounter > 0 && !Float.isNaN(this.grimLastYaw)) {
+            targetYaw = RotationUtil.wrapAngleDiff(this.grimLastYaw, event.getYaw());
+            targetPitch = this.grimLastPitch;
+            speed = this.grimBackSpeed.getValue();
+            this.snapRotating = true; // 仍在 hold 放塊朝向 → keep-y 不跳
+        } else {
+            // Forward 朝向（非 snap rotation）→ keep-y 可以跳
+            targetYaw = RotationUtil.wrapAngleDiff(this.getCurrentYaw(), event.getYaw());
+            targetPitch = this.grimForwardPitch.getValue();
+            speed = this.grimForwardSpeed.getValue();
+            this.grimLastYaw = Float.NaN;
+            this.grimPendingTarget = null;
+            this.snapRotating = false;
+        }
+
+        float[] next = this.stepRotation(event.getYaw(), event.getPitch(), targetYaw, targetPitch, speed, speed);
+        this.applyGrimRotation(event, next[0], next[1]);
+
+        GrimTarget placeTarget = this.grimDelayPlacement.getValue() && this.grimDelayCounter == 0
+                ? this.grimPendingTarget
+                : target;
+        if (placeTarget == null || this.grimPlaceDelayCounter > 0) return;
+
+        MovingObjectPosition mop = RotationUtil.rayTrace(next[0], next[1], mc.playerController.getBlockReachDistance(), 1.0F);
+        if (!this.isValidHit(mop, placeTarget.blockPos(), placeTarget.facing())) return;
+
+        this.place(placeTarget.blockPos(), placeTarget.facing(), mop.hitVec);
+        this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
+        this.grimPendingTarget = null;
+    }
+    // ========== end Grim helpers ==========
+
     private float getCurrentYaw() {
         return MoveUtil.adjustYaw(
                 mc.thePlayer.rotationYaw, (float) MoveUtil.getForwardValue(), (float) MoveUtil.getLeftValue()
@@ -478,6 +706,11 @@ public class Scaffold extends Module {
                         }
                     }
                 }
+                if (this.rotationMode.getValue() == 7) {
+                    boolean tellyGround = (this.keepY.getValue() == 3 || this.keepY.getValue() == 4)
+                            && mc.thePlayer.onGround && this.stage > 0;
+                    this.updateGrim(event, !tellyGround);
+                } else {
                 float currentYaw = this.getCurrentYaw();
                 float yawDiffTo180 = RotationUtil.wrapAngleDiff(currentYaw - 180.0F, event.getYaw());
                 float diagonalYaw = this.isDiagonal(currentYaw)
@@ -733,6 +966,7 @@ public class Scaffold extends Module {
                         }
                     }
                 }
+                } // end else (!grim)
             }
         }
     }
@@ -1094,6 +1328,12 @@ public class Scaffold extends Module {
         this.snapRotating = false;
         this.lastSnapPlaceYaw = Float.NaN;
         this.lastSnapPlacePitch = Float.NaN;
+        this.grimHoldCounter = 0;
+        this.grimLastYaw = Float.NaN;
+        this.grimLastPitch = 0.0F;
+        this.grimDelayCounter = 0;
+        this.grimPlaceDelayCounter = 0;
+        this.grimPendingTarget = null;
     }
 
     @Override
@@ -1117,6 +1357,12 @@ public class Scaffold extends Module {
         this.legitActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
+        this.grimHoldCounter = 0;
+        this.grimLastYaw = Float.NaN;
+        this.grimLastPitch = 0.0F;
+        this.grimDelayCounter = 0;
+        this.grimPlaceDelayCounter = 0;
+        this.grimPendingTarget = null;
     }
 
     public int getBlockCount() {
@@ -1138,6 +1384,19 @@ public class Scaffold extends Module {
 
         public EnumFacing facing() {
             return this.facing;
+        }
+    }
+
+    private static final class GrimTarget extends BlockData {
+        private final float yaw;
+        private final float pitch;
+        private final double distance;
+
+        private GrimTarget(BlockPos blockPos, EnumFacing facing, float yaw, float pitch, double distance) {
+            super(blockPos, facing);
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.distance = distance;
         }
     }
 }
