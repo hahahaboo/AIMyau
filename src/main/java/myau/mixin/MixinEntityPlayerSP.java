@@ -114,6 +114,11 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
             )}
     )
     private void onMotionUpdate(CallbackInfo callbackInfo) {
+        // EarlyPlace: before onUpdateWalkingPlayer (Leader-aligned timing)
+        // Prefer override rotation set in UpdateEvent PRE this tick
+        float placeYaw = !Float.isNaN(this.overrideYaw) ? this.overrideYaw : this.rotationYaw;
+        float placePitch = !Float.isNaN(this.overridePitch) ? this.overridePitch : this.rotationPitch;
+        EventManager.call(new EarlyPlaceEvent(placeYaw, placePitch));
         EventManager.call(new PlayerUpdateEvent());
     }
 
@@ -126,16 +131,6 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
     )
     private void onLivingUpdate(CallbackInfo callbackInfo) {
         EventManager.call(new LivingUpdateEvent());
-
-        // EarlyPlace：對應原本 aiStep 早期放置時機
-        // 優先使用 override 旋轉（Scaffold / Rotation 系統寫入的 server rotation）
-        float placeYaw = !Float.isNaN(this.overrideYaw) ? this.overrideYaw : this.rotationYaw;
-        float placePitch = !Float.isNaN(this.overridePitch) ? this.overridePitch : this.rotationPitch;
-        EventManager.call(new EarlyPlaceEvent(
-                (EntityPlayerSP) (Object) this,
-                placeYaw,
-                placePitch
-        ));
     }
 
     @Inject(
