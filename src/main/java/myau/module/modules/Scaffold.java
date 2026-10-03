@@ -166,21 +166,31 @@ public class Scaffold extends Module {
     }
 
     /**
-     * GRIM searchTarget replica:
-     * origin = feet below, 3x3 place candidates, support faces with collision, ray-validated hit, nearest score.
+     * GRIM searchTarget — fixed for scaffold use:
+     * Prefer the cell under feet / same layer extension, not "closest to eye" side walls.
+     * Score prioritizes: under-player cell, same Y layer, movement direction, then eye distance.
      */
     private BlockData searchGrimTarget() {
         this.grimHitVec = null;
+        int feetY = MathHelper.floor_double(mc.thePlayer.posY) - 1;
+        // Respect keep-y / stage like getBlockData
+        if (this.stage != 0 && !this.shouldKeepY) {
+            feetY = Math.min(feetY, this.startY - 1);
+        }
         BlockPos origin = new BlockPos(
                 MathHelper.floor_double(mc.thePlayer.posX),
-                MathHelper.floor_double(mc.thePlayer.posY) - 1,
+                feetY,
                 MathHelper.floor_double(mc.thePlayer.posZ)
         );
         BlockData best = null;
         double bestScore = Double.MAX_VALUE;
         Vec3 eye = mc.thePlayer.getPositionEyes(1.0F);
         double reach = mc.playerController.getBlockReachDistance();
-        double maxDistSq = Math.max(18.0, reach * reach);
+        double maxDistSq = reach * reach;
+        float moveYaw = this.getCurrentYaw();
+        double moveX = -MathHelper.sin(moveYaw * (float) Math.PI / 180.0F);
+        double moveZ = MathHelper.cos(moveYaw * (float) Math.PI / 180.0F);
+        boolean moving = MoveUtil.isForwardPressed() || mc.thePlayer.motionX * mc.thePlayer.motionX + mc.thePlayer.motionZ * mc.thePlayer.motionZ > 0.001;
 
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
@@ -188,12 +198,25 @@ public class Scaffold extends Module {
                 if (!BlockUtil.isReplaceable(place)) {
                     continue;
                 }
+                // Only same scaffold layer (do not tower / dig around)
+                if (place.getY() != origin.getY()) {
+                    continue;
+                }
                 for (EnumFacing d : EnumFacing.VALUES) {
+                    // Prefer horizontal expansion + under-feet UP; skip DOWN (place above head)
+                    if (d == EnumFacing.DOWN) {
+                        continue;
+                    }
                     BlockPos support = place.offset(d);
-                    if (BlockUtil.isReplaceable(support)) {
+                    if (BlockUtil.isReplaceable(support) || BlockUtil.isInteractable(support)) {
                         continue;
                     }
                     EnumFacing face = d.getOpposite();
+                    // Disallow placing "on top of neighbor" which builds side pillars around you
+                    // unless the place cell is exactly under the player
+                    if (face == EnumFacing.UP && (x != 0 || z != 0)) {
+                        continue;
+                    }
                     Vec3 hit = new Vec3(
                             (double) support.getX() + 0.5 + (double) face.getFrontOffsetX() * 0.5,
                             (double) support.getY() + 0.5 + (double) face.getFrontOffsetY() * 0.5,
@@ -206,6 +229,7 @@ public class Scaffold extends Module {
                     double dy = hit.yCoord - eye.yCoord;
                     double dz = hit.zCoord - eye.zCoord;
                     float[] rot = RotationUtil.getRotationsTo(dx, dy, dz, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+                    // After snap45 the ray may miss; validate with unsnapped aim first
                     MovingObjectPosition ray = RotationUtil.rayTrace(rot[0], rot[1], reach, 1.0F);
                     if (ray == null
                             || ray.typeOfHit != MovingObjectType.BLOCK
@@ -213,7 +237,32 @@ public class Scaffold extends Module {
                             || ray.sideHit != face) {
                         continue;
                     }
-                    double score = eye.squareDistanceTo(hit);
+
+                    // --- scaffold scoring (NOT pure eye distance) ---
+                    double score = 0.0;
+                    // 1) Prefer under feet (0,0)
+                    if (x == 0 && z == 0) {
+                        score += 0.0;
+                    } else {
+                        score += 8.0 + (x * x + z * z) * 4.0;
+                    }
+                    // 2) Prefer in movement direction
+                    if (moving && (x != 0 || z != 0)) {
+                        double placeDx = (place.getX() + 0.5) - mc.thePlayer.posX;
+                        double placeDz = (place.getZ() + 0.5) - mc.thePlayer.posZ;
+                        double len = MathHelper.sqrt_double(placeDx * placeDx + placeDz * placeDz);
+                        if (len > 1.0E-3) {
+                            double dot = (placeDx / len) * moveX + (placeDz / len) * moveZ;
+                            score += (1.0 - dot) * 6.0; // behind = higher score
+                        }
+                    }
+                    // 3) Slight preference for closer hit (tie-break)
+                    score += eye.squareDistanceTo(hit) * 0.15;
+                    // 4) Prefer UP under feet / horizontal faces for bridge
+                    if (face == EnumFacing.UP && x == 0 && z == 0) {
+                        score -= 2.0;
+                    }
+
                     if (score < bestScore) {
                         bestScore = score;
                         best = new BlockData(support, face);
@@ -1221,37 +1270,20 @@ public class Scaffold extends Module {
         if (!ItemUtil.isHoldingBlock() || this.blockCount <= 0) {
             return;
         }
+        // Only place the pre-searched scaffold target — never free-ray into side walls
+        if (this.grimTarget == null) {
+            return;
+        }
 
         float useYaw = event.getYaw();
         float usePitch = event.getPitch();
-
-        // Prefer pre-searched GRIM target when ray matches it
-        if (this.grimTarget != null) {
-            MovingObjectPosition mop = this.getPlacementMop(this.grimTarget, useYaw, usePitch);
-            Vec3 hit = mop != null ? mop.hitVec : this.grimHitVec;
-            if (hit != null) {
-                this.place(this.grimTarget.blockPos(), this.grimTarget.facing(), hit);
-                if (this.placedThisTick) {
-                    event.markPlaced();
-                    this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
-                    this.grimTarget = null;
-                    this.grimHitVec = null;
-                    return;
-                }
-            }
-        }
-
-        // Fallback: ray with event rotation (Leader-style)
-        MovingObjectPosition mop = RotationUtil.rayTrace(
-                useYaw, usePitch, mc.playerController.getBlockReachDistance(), 1.0F);
-        if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK || mop.sideHit == null) {
+        MovingObjectPosition mop = this.getPlacementMop(this.grimTarget, useYaw, usePitch);
+        Vec3 hit = mop != null ? mop.hitVec : this.grimHitVec;
+        if (hit == null) {
             return;
         }
-        BlockPos support = mop.getBlockPos();
-        if (BlockUtil.isReplaceable(support) || BlockUtil.isInteractable(support)) {
-            return;
-        }
-        this.place(support, mop.sideHit, mop.hitVec);
+        // If snap45 broke the ray, still try stored hit on the known support face
+        this.place(this.grimTarget.blockPos(), this.grimTarget.facing(), hit);
         if (this.placedThisTick) {
             event.markPlaced();
             this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
