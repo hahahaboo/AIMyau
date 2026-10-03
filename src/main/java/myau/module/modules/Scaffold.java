@@ -529,6 +529,8 @@ public class Scaffold extends Module {
         if (this.grimPlaceDelayCounter > 0) this.grimPlaceDelayCounter--;
         if (this.grimHoldCounter > 0) this.grimHoldCounter--;
         if (this.grimDelayCounter > 0) this.grimDelayCounter--;
+        // 與 Snap 相同：預設非 snap 旋轉，僅在瞄準/保持放塊朝向時設為 true，此時 keep-y 不可跳
+        this.snapRotating = false;
         if (!this.canPlace() || !ItemUtil.isHoldingBlock()) return;
 
         GrimTarget target = allowPlace ? this.findGrimTarget(mc.thePlayer.getPositionEyes(1.0F)) : null;
@@ -547,6 +549,7 @@ public class Scaffold extends Module {
             this.grimHoldCounter = this.grimHoldTicks.getValue();
             this.grimLastYaw = target.yaw;
             this.grimLastPitch = target.pitch;
+            this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
         } else if (target != null) {
             targetYaw = RotationUtil.wrapAngleDiff(target.yaw, event.getYaw());
             targetPitch = target.pitch;
@@ -554,16 +557,20 @@ public class Scaffold extends Module {
             this.grimHoldCounter = this.grimHoldTicks.getValue();
             this.grimLastYaw = target.yaw;
             this.grimLastPitch = target.pitch;
+            this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
         } else if (this.grimHoldCounter > 0 && !Float.isNaN(this.grimLastYaw)) {
             targetYaw = RotationUtil.wrapAngleDiff(this.grimLastYaw, event.getYaw());
             targetPitch = this.grimLastPitch;
             speed = this.grimBackSpeed.getValue();
+            this.snapRotating = true; // 仍在 hold 放塊朝向 → keep-y 不跳
         } else {
+            // Forward 朝向（非 snap rotation）→ keep-y 可以跳
             targetYaw = RotationUtil.wrapAngleDiff(this.getCurrentYaw(), event.getYaw());
             targetPitch = this.grimForwardPitch.getValue();
             speed = this.grimForwardSpeed.getValue();
             this.grimLastYaw = Float.NaN;
             this.grimPendingTarget = null;
+            this.snapRotating = false;
         }
 
         float[] next = this.stepRotation(event.getYaw(), event.getPitch(), targetYaw, targetPitch, speed, speed);
