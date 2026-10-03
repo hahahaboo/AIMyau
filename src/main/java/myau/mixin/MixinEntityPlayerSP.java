@@ -166,7 +166,7 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
             method = {"onLivingUpdate"},
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/entity/EntityPlayerSP;isPotionActive(Lnet/minecraft/potion.Potion;)Z"
+                    target = "Lnet/minecraft/client/entity/EntityPlayerSP;isPotionActive(Lnet/minecraft/potion/Potion;)Z"
             )
     )
     private boolean checkPotion(EntityPlayerSP entityPlayerSP, Potion potion) {
@@ -181,10 +181,10 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
 
     @Redirect(
             method = {"onUpdateWalkingPlayer"},
-            at = {@At(
+            at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/entity/EntityPlayerSP;isCurrentViewEntity()Z"
-            )}
+            )
     )
     private boolean motionViewEntity(EntityPlayerSP entityPlayerSP) {
         return this.isCurrentViewEntity() || FreeCam.freeEntity != null;
