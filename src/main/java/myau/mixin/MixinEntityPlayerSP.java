@@ -3,6 +3,7 @@ package myau.mixin;
 import myau.Myau;
 import myau.event.EventManager;
 import myau.event.types.EventType;
+import myau.events.EarlyPlaceEvent;
 import myau.events.LivingUpdateEvent;
 import myau.events.MoveInputEvent;
 import myau.events.PlayerUpdateEvent;
@@ -125,6 +126,16 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
     )
     private void onLivingUpdate(CallbackInfo callbackInfo) {
         EventManager.call(new LivingUpdateEvent());
+
+        // EarlyPlace：對應原本 aiStep 早期放置時機
+        // 優先使用 override 旋轉（Scaffold / Rotation 系統寫入的 server rotation）
+        float placeYaw = !Float.isNaN(this.overrideYaw) ? this.overrideYaw : this.rotationYaw;
+        float placePitch = !Float.isNaN(this.overridePitch) ? this.overridePitch : this.rotationPitch;
+        EventManager.call(new EarlyPlaceEvent(
+                (EntityPlayerSP) (Object) this,
+                placeYaw,
+                placePitch
+        ));
     }
 
     @Inject(
@@ -155,7 +166,7 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
             method = {"onLivingUpdate"},
             at = @At(
                     value = "INVOKE",
-                    target = "Lnet/minecraft/client/entity/EntityPlayerSP;isPotionActive(Lnet/minecraft/potion/Potion;)Z"
+                    target = "Lnet/minecraft/client/entity/EntityPlayerSP;isPotionActive(Lnet/minecraft/potion.Potion;)Z"
             )
     )
     private boolean checkPotion(EntityPlayerSP entityPlayerSP, Potion potion) {
@@ -170,10 +181,10 @@ public abstract class MixinEntityPlayerSP extends MixinEntityPlayer {
 
     @Redirect(
             method = {"onUpdateWalkingPlayer"},
-            at = @At(
+            at = {@At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/client/entity/EntityPlayerSP;isCurrentViewEntity()Z"
-            )
+            )}
     )
     private boolean motionViewEntity(EntityPlayerSP entityPlayerSP) {
         return this.isCurrentViewEntity() || FreeCam.freeEntity != null;
