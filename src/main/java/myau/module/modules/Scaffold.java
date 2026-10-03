@@ -82,10 +82,13 @@ public class Scaffold extends Module {
     private boolean snapRotating = false;
     private float lastSnapPlaceYaw = Float.NaN;
     private float lastSnapPlacePitch = Float.NaN;
-    // GRIM mode state (replicated from Souvenir Grim)
+    // GRIM mode: forward-45 (sprint) <-> back-45 (place) cycle
     private BlockData grimTarget = null;
     private Vec3 grimHitVec = null;
     private int grimPlaceDelayCounter = 0;
+    /** 0 = forward 45 (sprint), 1 = back 45 (aim + place) */
+    private int grimPhase = 0;
+    private int grimPhaseTicks = 0;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Hypixel", "Snap", "GRIM"});
         public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
         public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
@@ -94,6 +97,10 @@ public class Scaffold extends Module {
         public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 6);
         public final IntProperty grimPlaceDelay = new IntProperty("grim-place-delay", 0, 0, 5, () -> this.rotationMode.getValue() == 7);
         public final BooleanProperty grimDiagonal = new BooleanProperty("grim-diagonal", true, () -> this.rotationMode.getValue() == 7);
+        public final IntProperty grimForwardTicks = new IntProperty("grim-forward-ticks", 2, 1, 8, () -> this.rotationMode.getValue() == 7);
+        public final IntProperty grimBackTicks = new IntProperty("grim-back-ticks", 2, 1, 8, () -> this.rotationMode.getValue() == 7);
+        public final FloatProperty grimForwardPitch = new FloatProperty("grim-forward-pitch", 35.0F, 0.0F, 90.0F, () -> this.rotationMode.getValue() == 7);
+        public final FloatProperty grimBackPitch = new FloatProperty("grim-back-pitch", 80.0F, 50.0F, 90.0F, () -> this.rotationMode.getValue() == 7);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -126,10 +133,13 @@ public class Scaffold extends Module {
     private boolean shouldStopSprint() {
         if (this.isTowering()) {
             return false;
-        } else {
-            boolean stage = this.keepY.getValue() == 1 || this.keepY.getValue() == 2 || this.keepY.getValue() == 4;
-            return (!stage || this.stage <= 0) && this.sprintMode.getValue() == 0;
         }
+        // GRIM forward phase: allow sprint
+        if (this.rotationMode.getValue() == 7 && this.grimPhase == 0) {
+            return false;
+        }
+        boolean stage = this.keepY.getValue() == 1 || this.keepY.getValue() == 2 || this.keepY.getValue() == 4;
+        return (!stage || this.stage <= 0) && this.sprintMode.getValue() == 0;
     }
 
     private boolean canPlace() {
@@ -274,21 +284,67 @@ public class Scaffold extends Module {
         return best;
     }
 
-    /** GRIM: real aim yaw/pitch to hit, optional snap45 on yaw */
-    private float[] getGrimRotation(Vec3 hit) {
-        Vec3 eye = mc.thePlayer.getPositionEyes(1.0F);
-        double dx = hit.xCoord - eye.xCoord;
-        double dy = hit.yCoord - eye.yCoord;
-        double dz = hit.zCoord - eye.zCoord;
-        double dist = MathHelper.sqrt_double(dx * dx + dz * dz);
-        float aimYaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90.0F;
-        float aimPitch = (float) (-(Math.atan2(dy, dist) * 180.0 / Math.PI));
-        if (this.grimDiagonal.getValue()) {
-            aimYaw = snap45(aimYaw);
+    /** Pick stable +45 / -45 offset from movement so diagonal stays consistent. */
+    private float grimSideSign(float moveYaw) {
+        float mod = MathHelper.wrapAngleTo180_float(moveYaw);
+        // keep same diagonal side while moving
+        float m = ((mod % 90.0F) + 90.0F) % 90.0F;
+        return m < 45.0F ? -1.0F : 1.0F;
+    }
+
+    /**
+     * GRIM cycle rotation:
+     * phase 0 forward-45 (sprint) / phase 1 back-45 (place).
+     */
+    private float[] getGrimCycleRotation(float moveYaw, Vec3 hit) {
+        float side = this.grimDiagonal.getValue() ? this.grimSideSign(moveYaw) * 45.0F : 0.0F;
+        if (this.grimPhase == 0) {
+            // Forward 45° relative to movement
+            float yaw = snap45(moveYaw + side);
+            float pitch = this.grimForwardPitch.getValue();
+            return new float[]{RotationUtil.quantizeAngle(yaw), RotationUtil.quantizeAngle(pitch)};
         }
-        aimYaw = RotationUtil.quantizeAngle(aimYaw);
-        aimPitch = RotationUtil.quantizeAngle(MathHelper.clamp_float(aimPitch, -90.0F, 90.0F));
-        return new float[]{aimYaw, aimPitch};
+        // Back 45°: face opposite movement on the same diagonal
+        float backBase = moveYaw + 180.0F;
+        float yaw = snap45(backBase + side);
+        float pitch = this.grimBackPitch.getValue();
+        // If we have a place hit, blend pitch toward real aim (still keep yaw on 45 grid)
+        if (hit != null) {
+            Vec3 eye = mc.thePlayer.getPositionEyes(1.0F);
+            double dx = hit.xCoord - eye.xCoord;
+            double dy = hit.yCoord - eye.yCoord;
+            double dz = hit.zCoord - eye.zCoord;
+            double dist = MathHelper.sqrt_double(dx * dx + dz * dz);
+            float aimPitch = (float) (-(Math.atan2(dy, dist) * 180.0 / Math.PI));
+            pitch = MathHelper.clamp_float(aimPitch, 55.0F, 90.0F);
+            // Prefer snap45 of pure aim yaw only if still roughly backward
+            float aimYaw = (float) (Math.atan2(dz, dx) * 180.0 / Math.PI) - 90.0F;
+            float aimBackDiff = Math.abs(MathHelper.wrapAngleTo180_float(aimYaw - backBase));
+            if (aimBackDiff < 50.0F) {
+                yaw = snap45(aimYaw);
+            }
+        }
+        return new float[]{RotationUtil.quantizeAngle(yaw), RotationUtil.quantizeAngle(pitch)};
+    }
+
+    private void tickGrimPhase(boolean placed) {
+        this.grimPhaseTicks++;
+        if (this.grimPhase == 0) {
+            if (this.grimPhaseTicks >= this.grimForwardTicks.getValue()) {
+                this.grimPhase = 1;
+                this.grimPhaseTicks = 0;
+            }
+        } else {
+            // Back phase: switch after place, or after hold ticks even if no place
+            if (placed || this.grimPhaseTicks >= this.grimBackTicks.getValue()) {
+                this.grimPhase = 0;
+                this.grimPhaseTicks = 0;
+            }
+        }
+    }
+
+    private boolean isGrimPlacePhase() {
+        return this.rotationMode.getValue() == 7 && this.grimPhase == 1;
     }
 
     private BlockData getBlockData() {
@@ -679,15 +735,11 @@ public class Scaffold extends Module {
                             this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
                             this.pitch = RotationUtil.quantizeAngle(85.0F);
                             break;
-                        case 7: // GRIM
-                            if (this.grimTarget != null && this.grimHitVec != null) {
-                                float[] grimRot = this.getGrimRotation(this.grimHitVec);
+                        case 7: // GRIM forward-45 / back-45 cycle
+                            {
+                                float[] grimRot = this.getGrimCycleRotation(currentYaw, this.grimHitVec);
                                 this.yaw = grimRot[0];
                                 this.pitch = grimRot[1];
-                            } else {
-                                float grimFallback = this.isDiagonal(currentYaw) ? diagonalYaw : yawDiffTo180;
-                                this.yaw = RotationUtil.quantizeAngle(snap45(grimFallback));
-                                this.pitch = RotationUtil.quantizeAngle(85.0F);
                             }
                             break;
                     }
@@ -696,9 +748,15 @@ public class Scaffold extends Module {
                 if (grimMode) {
                     this.grimTarget = this.searchGrimTarget();
                     blockData = this.grimTarget;
+                    // Advance forward phase even when no place happens this tick
+                    if (this.grimPhase == 0) {
+                        this.tickGrimPhase(false);
+                    }
                 } else {
                     this.grimTarget = null;
                     this.grimHitVec = null;
+                    this.grimPhase = 0;
+                    this.grimPhaseTicks = 0;
                     blockData = this.getBlockData();
                 }
 
@@ -754,13 +812,10 @@ public class Scaffold extends Module {
                         }
                     }
                     if (bestYaw != -180.0F || bestPitch != 0.0F) {
-                        if (grimMode && this.grimHitVec != null) {
-                            float[] grimRot = this.getGrimRotation(this.grimHitVec);
+                        if (grimMode) {
+                            float[] grimRot = this.getGrimCycleRotation(currentYaw, this.grimHitVec);
                             this.yaw = grimRot[0];
                             this.pitch = grimRot[1];
-                        } else if (grimMode) {
-                            this.yaw = this.grimDiagonal.getValue() ? RotationUtil.quantizeAngle(snap45(bestYaw)) : bestYaw;
-                            this.pitch = bestPitch;
                         } else {
                             this.yaw = bestYaw;
                             this.pitch = bestPitch;
@@ -846,8 +901,10 @@ public class Scaffold extends Module {
                 }
                 boolean canPlaceNow;
                 if (grimMode) {
-                    // GRIM: prefer EarlyPlace; still allow here if delay ready and not already placed
-                    canPlaceNow = blockData != null && hitVec != null && this.grimPlaceDelayCounter <= 0 && !this.placedThisTick;
+                    // Only place during back-45 phase
+                    canPlaceNow = this.isGrimPlacePhase()
+                            && blockData != null && hitVec != null
+                            && this.grimPlaceDelayCounter <= 0 && !this.placedThisTick;
                 } else {
                     canPlaceNow = blockData != null && hitVec != null && snapCanPlace && (this.rotationTick <= 0 || snapAlreadyLooking);
                 }
@@ -857,6 +914,7 @@ public class Scaffold extends Module {
                         this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
                         this.grimTarget = null;
                         this.grimHitVec = null;
+                        this.tickGrimPhase(this.placedThisTick);
                     }
                     if (snapMode) {
                         this.rememberSnapRotation();
@@ -893,6 +951,10 @@ public class Scaffold extends Module {
                             }
                         }
                     }
+                }
+                // GRIM back phase: advance cycle even if place failed this tick
+                if (grimMode && this.grimPhase == 1 && !this.placedThisTick) {
+                    this.tickGrimPhase(false);
                 }
                 if (this.targetFacing != null) {
                     if (this.rotationTick <= 0 && !this.placedThisTick) {
@@ -1264,13 +1326,16 @@ public class Scaffold extends Module {
         if (this.grimPlaceDelayCounter > 0 || this.placedThisTick) {
             return;
         }
+        // Only during back-45 place phase
+        if (!this.isGrimPlacePhase()) {
+            return;
+        }
         if (!this.canPlace()) {
             return;
         }
         if (!ItemUtil.isHoldingBlock() || this.blockCount <= 0) {
             return;
         }
-        // Only place the pre-searched scaffold target — never free-ray into side walls
         if (this.grimTarget == null) {
             return;
         }
@@ -1282,13 +1347,13 @@ public class Scaffold extends Module {
         if (hit == null) {
             return;
         }
-        // If snap45 broke the ray, still try stored hit on the known support face
         this.place(this.grimTarget.blockPos(), this.grimTarget.facing(), hit);
         if (this.placedThisTick) {
             event.markPlaced();
             this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
             this.grimTarget = null;
             this.grimHitVec = null;
+            this.tickGrimPhase(true);
         }
     }
 
@@ -1325,6 +1390,8 @@ public class Scaffold extends Module {
         this.grimTarget = null;
         this.grimHitVec = null;
         this.grimPlaceDelayCounter = 0;
+        this.grimPhase = 0;
+        this.grimPhaseTicks = 0;
     }
 
     @Override
@@ -1351,6 +1418,8 @@ public class Scaffold extends Module {
         this.grimTarget = null;
         this.grimHitVec = null;
         this.grimPlaceDelayCounter = 0;
+        this.grimPhase = 0;
+        this.grimPhaseTicks = 0;
     }
 
     public int getBlockCount() {
