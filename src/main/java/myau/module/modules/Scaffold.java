@@ -1200,8 +1200,9 @@ public class Scaffold extends Module {
     }
 
     /**
-     * EarlyPlace replica (Souvenir Grim onEarlyPlace).
-     * Fired from MixinEntityPlayerSP at start of onLivingUpdate — earlier than Update PRE place.
+     * EarlyPlace (Souvenir Grim / Leader-aligned).
+     * Fired from MixinEntityPlayerSP just before onUpdateWalkingPlayer,
+     * after UpdateEvent PRE has applied GRIM rotation this tick.
      */
     @EventTarget(Priority.HIGH)
     public void onEarlyPlace(EarlyPlaceEvent event) {
@@ -1209,9 +1210,6 @@ public class Scaffold extends Module {
             return;
         }
         if (mc.thePlayer == null || mc.theWorld == null) {
-            return;
-        }
-        if (this.grimTarget == null || this.grimHitVec == null) {
             return;
         }
         if (this.grimPlaceDelayCounter > 0 || this.placedThisTick) {
@@ -1224,13 +1222,36 @@ public class Scaffold extends Module {
             return;
         }
 
-        // Prefer ray-validated hit with current GRIM rotation (event yaw/pitch or stored)
-        float useYaw = this.canRotate ? this.yaw : event.yaw();
-        float usePitch = this.canRotate ? this.pitch : event.pitch();
-        MovingObjectPosition mop = this.getPlacementMop(this.grimTarget, useYaw, usePitch);
-        Vec3 hit = mop != null ? mop.hitVec : this.grimHitVec;
+        float useYaw = event.getYaw();
+        float usePitch = event.getPitch();
 
-        this.place(this.grimTarget.blockPos(), this.grimTarget.facing(), hit);
+        // Prefer pre-searched GRIM target when ray matches it
+        if (this.grimTarget != null) {
+            MovingObjectPosition mop = this.getPlacementMop(this.grimTarget, useYaw, usePitch);
+            Vec3 hit = mop != null ? mop.hitVec : this.grimHitVec;
+            if (hit != null) {
+                this.place(this.grimTarget.blockPos(), this.grimTarget.facing(), hit);
+                if (this.placedThisTick) {
+                    event.markPlaced();
+                    this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
+                    this.grimTarget = null;
+                    this.grimHitVec = null;
+                    return;
+                }
+            }
+        }
+
+        // Fallback: ray with event rotation (Leader-style)
+        MovingObjectPosition mop = RotationUtil.rayTrace(
+                useYaw, usePitch, mc.playerController.getBlockReachDistance(), 1.0F);
+        if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK || mop.sideHit == null) {
+            return;
+        }
+        BlockPos support = mop.getBlockPos();
+        if (BlockUtil.isReplaceable(support) || BlockUtil.isInteractable(support)) {
+            return;
+        }
+        this.place(support, mop.sideHit, mop.hitVec);
         if (this.placedThisTick) {
             event.markPlaced();
             this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
