@@ -60,7 +60,7 @@ public class AntiVoid extends Module {
                 if (this.scafEnableByAntiVoid){
                     Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
                     if (!scaffold.isEnabled()) {
-                        this.this.scafEnableByAntiVoid = false;
+                        this.scafEnableByAntiVoid = false;
                     } else {
                         this.scafTimer++;
                         if (this.scafTimer >= 20){
