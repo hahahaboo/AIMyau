@@ -12,7 +12,6 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
-import myau.util.TimerUtil;
 import myau.util.PlayerUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
@@ -59,15 +58,17 @@ public class AntiVoid extends Module {
             this.isInVoid = !mc.thePlayer.capabilities.allowFlying && PlayerUtil.isInWater();
             if (this.mode.getValue() == 0) {
                 if (this.scafEnableByAntiVoid){
-                    this.scafTimer++;
-                    if (this.scafTimer >= 20){
-                        this.scafEnableByAntiVoid = false;
-                        Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
-                        if (scaffold.isEnabled()){
+                    Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
+                    if (!scaffold.isEnabled()) {
+                        this.this.scafEnableByAntiVoid = false;
+                    } else {
+                        this.scafTimer++;
+                        if (this.scafTimer >= 20){
+                            this.scafEnableByAntiVoid = false;
                             scaffold.setEnabled(false);
                         }
                     }
-                } else if (this.scafTimer > 0) {
+                } else if (this.scafTimer != 0) {
                     this.scafTimer = 0;
                 }
                 if (!this.isInVoid) {
