@@ -95,7 +95,6 @@ public class AntiVoid extends Module {
                 if (!this.wasInVoid && this.isInVoid && this.canUseAntiVoid()) {
                     Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
                     if (Myau.blinkManager.setBlinkState(true, BlinkModules.ANTI_VOID)) {
-                        this.needScaf = true;
                         this.lastSafePosition = new double[]{mc.thePlayer.prevPosX, mc.thePlayer.prevPosY, mc.thePlayer.prevPosZ};
                     }
                 }
@@ -109,6 +108,7 @@ public class AntiVoid extends Module {
                                             this.lastSafePosition[0], this.lastSafePosition[1] - RandomUtil.nextDouble(10.0, 20.0), this.lastSafePosition[2], false
                                     )
                             );
+                    this.needScaf = true;
                     this.resetBlink();
                 }
             }
