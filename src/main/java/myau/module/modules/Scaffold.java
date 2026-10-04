@@ -80,29 +80,26 @@ public class Scaffold extends Module {
     private boolean placedThisTick = false;
     private boolean safeStuckActive = false;
     private boolean snapRotating = false;
-    private float lastSnapPlaceYaw = Float.NaN;
-    private float lastSnapPlacePitch = Float.NaN;
-    // Grim (advanced snap) state
-    private int grimHoldCounter = 0;
-    private float grimLastYaw = Float.NaN;
-    private float grimLastPitch = 0.0F;
-    private int grimDelayCounter = 0;
-    private int grimPlaceDelayCounter = 0;
-    private GrimTarget grimPendingTarget = null;
-    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Hypixel", "Snap", "Grim"});
+    // Snap (advanced) state
+    private int snapHoldCounter = 0;
+    private float snapLastYaw = Float.NaN;
+    private float snapLastPitch = 0.0F;
+    private int snapDelayCounter = 0;
+    private int snapPlaceDelayCounter = 0;
+    private SnapTarget snapPendingTarget = null;
+    public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Snap"});
     public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final FloatProperty tellynormalrotationminspeed = new FloatProperty("normal-min-speed", 30.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final FloatProperty tellynormalrotationmaxspeed = new FloatProperty("normal-max-speed", 35.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
-    public final IntProperty snapDelay = new IntProperty("snap-delay", 1, 0, 2, () -> this.rotationMode.getValue() == 6);
-    public final FloatProperty grimEdgeThreshold = new FloatProperty("grim-edge-threshold", 0.01F, 0.01F, 0.5F, () -> this.rotationMode.getValue() == 7);
-    public final FloatProperty grimForwardSpeed = new FloatProperty("grim-forward-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 7);
-    public final FloatProperty grimBackSpeed = new FloatProperty("grim-back-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 7);
-    public final BooleanProperty grimEarlySnap = new BooleanProperty("grim-early-snap", true, () -> this.rotationMode.getValue() == 7);
-    public final FloatProperty grimForwardPitch = new FloatProperty("grim-forward-pitch", 80.0F, 0.0F, 90.0F, () -> this.rotationMode.getValue() == 7);
-    public final IntProperty grimHoldTicks = new IntProperty("grim-hold-ticks", 2, 0, 5, () -> this.rotationMode.getValue() == 7);
-    public final BooleanProperty grimDelayPlacement = new BooleanProperty("grim-delay-placement", false, () -> this.rotationMode.getValue() == 7);
-    public final IntProperty grimPlaceDelay = new IntProperty("grim-place-delay", 1, 0, 5, () -> this.rotationMode.getValue() == 7);
+    public final FloatProperty snapEdgeThreshold = new FloatProperty("snap-edge-threshold", 0.01F, 0.01F, 0.5F, () -> this.rotationMode.getValue() == 5);
+    public final FloatProperty snapForwardSpeed = new FloatProperty("snap-forward-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 5);
+    public final FloatProperty snapBackSpeed = new FloatProperty("snap-back-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 5);
+    public final BooleanProperty snapEarlySnap = new BooleanProperty("snap-early-snap", true, () -> this.rotationMode.getValue() == 5);
+    public final FloatProperty snapForwardPitch = new FloatProperty("snap-forward-pitch", 80.0F, 0.0F, 90.0F, () -> this.rotationMode.getValue() == 5);
+    public final IntProperty snapHoldTicks = new IntProperty("snap-hold-ticks", 2, 0, 5, () -> this.rotationMode.getValue() == 5);
+    public final BooleanProperty snapDelayPlacement = new BooleanProperty("snap-delay-placement", false, () -> this.rotationMode.getValue() == 5);
+    public final IntProperty snapPlaceDelay = new IntProperty("snap-place-delay", 1, 0, 5, () -> this.rotationMode.getValue() == 5);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT"});
     public final ModeProperty sprintMode = new ModeProperty("sprint", 0, new String[]{"NONE", "VANILLA"});
     public final PercentProperty groundMotion = new PercentProperty("ground-motion", 100);
@@ -261,38 +258,6 @@ public class Scaffold extends Module {
         return mop;
     }
 
-    private boolean isDuplicateSnapRotation(float yaw, float pitch) {
-        return !Float.isNaN(this.lastSnapPlaceYaw)
-                && Math.abs(MathHelper.wrapAngleTo180_float(yaw - this.lastSnapPlaceYaw)) < 0.35F;
-    }
-
-    private float[] getSnapRotation(BlockData blockData, float yaw, float pitch) {
-        float baseYaw = RotationUtil.quantizeAngle(yaw);
-        float basePitch = RotationUtil.quantizeAngle(MathHelper.clamp_float(pitch, -90.0F, 90.0F));
-
-        if (!this.isDuplicateSnapRotation(baseYaw, basePitch)) {
-            return new float[]{baseYaw, basePitch};
-        }
-
-        for (int i = 0; i < 24; i++) {
-            float yawStep = 0.35F + 0.075F * (float) (i / 2);
-            float pitchStep = 0.025F + 0.01F * (float) (i / 3);
-            float testYaw = RotationUtil.quantizeAngle(baseYaw + (i % 2 == 0 ? yawStep : -yawStep));
-            float testPitch = RotationUtil.quantizeAngle(MathHelper.clamp_float(basePitch + (i % 4 < 2 ? pitchStep : -pitchStep), -90.0F, 90.0F));
-
-            if (!this.isDuplicateSnapRotation(testYaw, testPitch) && this.getPlacementMop(blockData, testYaw, testPitch) != null) {
-                return new float[]{testYaw, testPitch};
-            }
-        }
-
-        return null;
-    }
-
-    private void rememberSnapRotation() {
-        this.lastSnapPlaceYaw = this.yaw;
-        this.lastSnapPlacePitch = this.pitch;
-    }
-
     private EnumFacing yawToFacing(float yaw) {
         if (yaw < -135.0F || yaw > 135.0F) {
             return EnumFacing.NORTH;
@@ -377,9 +342,9 @@ public class Scaffold extends Module {
     }
 
 
-    // ========== Grim (advanced snap) helpers ==========
+    // ========== Snap helpers ==========
     private static final double FACE_DEPTH = 0.001;
-    private static final double[] GRIM_OFFSETS = new double[]{0.5, 0.3, 0.7, 0.15, 0.85, 0.05, 0.95};
+    private static final double[] SNAP_OFFSETS = new double[]{0.5, 0.3, 0.7, 0.15, 0.85, 0.05, 0.95};
 
     private boolean isValidHit(MovingObjectPosition mop, BlockPos blockPos, EnumFacing facing) {
         return mop != null && mop.typeOfHit == MovingObjectType.BLOCK
@@ -398,7 +363,7 @@ public class Scaffold extends Module {
         }
     }
 
-    private double[] predictPositionGrim() {
+    private double[] predictPositionSnap() {
         double[] move = MoveUtil.predictMovement();
         return new double[]{
                 mc.thePlayer.posX + mc.thePlayer.motionX + move[0],
@@ -409,7 +374,7 @@ public class Scaffold extends Module {
     private BlockPos edgeCell(double x, double z, int y) {
         int bx = MathHelper.floor_double(x);
         int bz = MathHelper.floor_double(z);
-        double threshold = this.grimEdgeThreshold.getValue();
+        double threshold = this.snapEdgeThreshold.getValue();
         double xOff = x - bx;
         double zOff = z - bz;
         int dx = xOff < threshold ? -1 : (xOff > 1.0 - threshold ? 1 : 0);
@@ -442,11 +407,11 @@ public class Scaffold extends Module {
         return new float[]{yaw, MathHelper.clamp_float(pitch, -90.0F, 90.0F)};
     }
 
-    private GrimTarget solveFace(Vec3 eye, BlockPos support, EnumFacing face) {
-        GrimTarget best = null;
+    private SnapTarget solveFace(Vec3 eye, BlockPos support, EnumFacing face) {
+        SnapTarget best = null;
         double bestCenter = Double.MAX_VALUE;
-        for (double a : GRIM_OFFSETS) {
-            for (double b : GRIM_OFFSETS) {
+        for (double a : SNAP_OFFSETS) {
+            for (double b : SNAP_OFFSETS) {
                 double center = (a - 0.5) * (a - 0.5) + (b - 0.5) * (b - 0.5);
                 if (center >= bestCenter) continue;
                 Vec3 point = this.facePoint(support, face, a, b);
@@ -454,33 +419,33 @@ public class Scaffold extends Module {
                 MovingObjectPosition mop = this.rayTraceFrom(eye, rot[0], rot[1]);
                 if (!this.isValidHit(mop, support, face)) continue;
                 bestCenter = center;
-                best = new GrimTarget(support, face, rot[0], rot[1], eye.squareDistanceTo(mop.hitVec));
+                best = new SnapTarget(support, face, rot[0], rot[1], eye.squareDistanceTo(mop.hitVec));
             }
         }
         return best;
     }
 
-    private GrimTarget solveCell(Vec3 eye, BlockPos cell) {
+    private SnapTarget solveCell(Vec3 eye, BlockPos cell) {
         if (!BlockUtil.isReplaceable(cell)) return null;
-        GrimTarget best = null;
+        SnapTarget best = null;
         for (EnumFacing dir : EnumFacing.VALUES) {
             if (dir == EnumFacing.UP) continue;
             BlockPos support = cell.offset(dir);
             if (BlockUtil.isReplaceable(support) || BlockUtil.isInteractable(support)) continue;
-            GrimTarget target = this.solveFace(eye, support, dir.getOpposite());
+            SnapTarget target = this.solveFace(eye, support, dir.getOpposite());
             if (target != null && (best == null || target.distance < best.distance)) best = target;
         }
         return best;
     }
 
-    private GrimTarget solveBridge(Vec3 eye, BlockPos cell) {
-        GrimTarget best = null;
+    private SnapTarget solveBridge(Vec3 eye, BlockPos cell) {
+        SnapTarget best = null;
         double bestDist = Double.MAX_VALUE;
         for (EnumFacing dir : new EnumFacing[]{EnumFacing.NORTH, EnumFacing.EAST, EnumFacing.SOUTH, EnumFacing.WEST}) {
             BlockPos neighbor = cell.offset(dir);
             double dist = neighbor.distanceSqToCenter(mc.thePlayer.posX, neighbor.getY() + 0.5, mc.thePlayer.posZ);
             if (dist >= bestDist) continue;
-            GrimTarget target = this.solveCell(eye, neighbor);
+            SnapTarget target = this.solveCell(eye, neighbor);
             if (target != null) {
                 best = target;
                 bestDist = dist;
@@ -489,16 +454,16 @@ public class Scaffold extends Module {
         return best;
     }
 
-    private GrimTarget findGrimTarget(Vec3 eye) {
+    private SnapTarget findSnapTarget(Vec3 eye) {
         int playerY = MathHelper.floor_double(mc.thePlayer.posY);
         int y = (this.stage != 0 && !this.shouldKeepY ? Math.min(playerY, this.startY) : playerY) - 1;
         BlockPos below = new BlockPos(MathHelper.floor_double(mc.thePlayer.posX), y, MathHelper.floor_double(mc.thePlayer.posZ));
         if (BlockUtil.isReplaceable(below)) {
-            GrimTarget target = this.solveCell(eye, below);
+            SnapTarget target = this.solveCell(eye, below);
             return target != null ? target : this.solveBridge(eye, below);
         }
-        if (!this.grimEarlySnap.getValue() || !mc.thePlayer.onGround) return null;
-        double[] next = this.predictPositionGrim();
+        if (!this.snapEarlySnap.getValue() || !mc.thePlayer.onGround) return null;
+        double[] next = this.predictPositionSnap();
         BlockPos edge = this.edgeCell(next[0], next[1], y);
         return edge == null ? null : this.solveCell(eye, edge);
     }
@@ -514,7 +479,7 @@ public class Scaffold extends Module {
         };
     }
 
-    private void applyGrimRotation(UpdateEvent event, float yaw, float pitch) {
+    private void applySnapRotation(UpdateEvent event, float yaw, float pitch) {
         this.yaw = yaw;
         this.pitch = pitch;
         this.canRotate = true;
@@ -524,70 +489,70 @@ public class Scaffold extends Module {
         }
     }
 
-    private void updateGrim(UpdateEvent event, boolean allowPlace) {
-        if (this.grimPlaceDelayCounter > 0) this.grimPlaceDelayCounter--;
-        if (this.grimHoldCounter > 0) this.grimHoldCounter--;
-        if (this.grimDelayCounter > 0) this.grimDelayCounter--;
+    private void updateSnap(UpdateEvent event, boolean allowPlace) {
+        if (this.snapPlaceDelayCounter > 0) this.snapPlaceDelayCounter--;
+        if (this.snapHoldCounter > 0) this.snapHoldCounter--;
+        if (this.snapDelayCounter > 0) this.snapDelayCounter--;
         // 與 Snap 相同：預設非 snap 旋轉，僅在瞄準/保持放塊朝向時設為 true，此時 keep-y 不可跳
         this.snapRotating = false;
         if (!this.canPlace() || !ItemUtil.isHoldingBlock()) return;
 
-        GrimTarget target = allowPlace ? this.findGrimTarget(mc.thePlayer.getPositionEyes(1.0F)) : null;
+        SnapTarget target = allowPlace ? this.findSnapTarget(mc.thePlayer.getPositionEyes(1.0F)) : null;
         float targetYaw;
         float targetPitch;
         float speed;
 
-        if (this.grimDelayPlacement.getValue() && target != null) {
-            if (this.grimPendingTarget == null || !this.grimPendingTarget.blockPos().equals(target.blockPos())) {
-                this.grimPendingTarget = target;
-                this.grimDelayCounter = 1;
+        if (this.snapDelayPlacement.getValue() && target != null) {
+            if (this.snapPendingTarget == null || !this.snapPendingTarget.blockPos().equals(target.blockPos())) {
+                this.snapPendingTarget = target;
+                this.snapDelayCounter = 1;
             }
             targetYaw = RotationUtil.wrapAngleDiff(target.yaw, event.getYaw());
             targetPitch = target.pitch;
-            speed = this.grimBackSpeed.getValue();
-            this.grimHoldCounter = this.grimHoldTicks.getValue();
-            this.grimLastYaw = target.yaw;
-            this.grimLastPitch = target.pitch;
+            speed = this.snapBackSpeed.getValue();
+            this.snapHoldCounter = this.snapHoldTicks.getValue();
+            this.snapLastYaw = target.yaw;
+            this.snapLastPitch = target.pitch;
             this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
         } else if (target != null) {
             targetYaw = RotationUtil.wrapAngleDiff(target.yaw, event.getYaw());
             targetPitch = target.pitch;
-            speed = this.grimBackSpeed.getValue();
-            this.grimHoldCounter = this.grimHoldTicks.getValue();
-            this.grimLastYaw = target.yaw;
-            this.grimLastPitch = target.pitch;
+            speed = this.snapBackSpeed.getValue();
+            this.snapHoldCounter = this.snapHoldTicks.getValue();
+            this.snapLastYaw = target.yaw;
+            this.snapLastPitch = target.pitch;
             this.snapRotating = true; // 正在 snap 到放塊角度 → keep-y 不跳
-        } else if (this.grimHoldCounter > 0 && !Float.isNaN(this.grimLastYaw)) {
-            targetYaw = RotationUtil.wrapAngleDiff(this.grimLastYaw, event.getYaw());
-            targetPitch = this.grimLastPitch;
-            speed = this.grimBackSpeed.getValue();
+        } else if (this.snapHoldCounter > 0 && !Float.isNaN(this.snapLastYaw)) {
+            targetYaw = RotationUtil.wrapAngleDiff(this.snapLastYaw, event.getYaw());
+            targetPitch = this.snapLastPitch;
+            speed = this.snapBackSpeed.getValue();
             this.snapRotating = true; // 仍在 hold 放塊朝向 → keep-y 不跳
         } else {
             // Forward 朝向（非 snap rotation）→ keep-y 可以跳
             targetYaw = RotationUtil.wrapAngleDiff(this.getCurrentYaw(), event.getYaw());
-            targetPitch = this.grimForwardPitch.getValue();
-            speed = this.grimForwardSpeed.getValue();
-            this.grimLastYaw = Float.NaN;
-            this.grimPendingTarget = null;
+            targetPitch = this.snapForwardPitch.getValue();
+            speed = this.snapForwardSpeed.getValue();
+            this.snapLastYaw = Float.NaN;
+            this.snapPendingTarget = null;
             this.snapRotating = false;
         }
 
         float[] next = this.stepRotation(event.getYaw(), event.getPitch(), targetYaw, targetPitch, speed, speed);
-        this.applyGrimRotation(event, next[0], next[1]);
+        this.applySnapRotation(event, next[0], next[1]);
 
-        GrimTarget placeTarget = this.grimDelayPlacement.getValue() && this.grimDelayCounter == 0
-                ? this.grimPendingTarget
+        SnapTarget placeTarget = this.snapDelayPlacement.getValue() && this.snapDelayCounter == 0
+                ? this.snapPendingTarget
                 : target;
-        if (placeTarget == null || this.grimPlaceDelayCounter > 0) return;
+        if (placeTarget == null || this.snapPlaceDelayCounter > 0) return;
 
         MovingObjectPosition mop = RotationUtil.rayTrace(next[0], next[1], mc.playerController.getBlockReachDistance(), 1.0F);
         if (!this.isValidHit(mop, placeTarget.blockPos(), placeTarget.facing())) return;
 
         this.place(placeTarget.blockPos(), placeTarget.facing(), mop.hitVec);
-        this.grimPlaceDelayCounter = this.grimPlaceDelay.getValue();
-        this.grimPendingTarget = null;
+        this.snapPlaceDelayCounter = this.snapPlaceDelay.getValue();
+        this.snapPendingTarget = null;
     }
-    // ========== end Grim helpers ==========
+    // ========== end Snap helpers ==========
 
     private float getCurrentYaw() {
         return MoveUtil.adjustYaw(
@@ -706,17 +671,16 @@ public class Scaffold extends Module {
                         }
                     }
                 }
-                if (this.rotationMode.getValue() == 7) {
+                if (this.rotationMode.getValue() == 5) {
                     boolean tellyGround = (this.keepY.getValue() == 3 || this.keepY.getValue() == 4)
                             && mc.thePlayer.onGround && this.stage > 0;
-                    this.updateGrim(event, !tellyGround);
+                    this.updateSnap(event, !tellyGround);
                 } else {
                 float currentYaw = this.getCurrentYaw();
                 float yawDiffTo180 = RotationUtil.wrapAngleDiff(currentYaw - 180.0F, event.getYaw());
                 float diagonalYaw = this.isDiagonal(currentYaw)
                         ? yawDiffTo180
                         : RotationUtil.wrapAngleDiff(currentYaw - 135.0F * ((currentYaw + 180.0F) % 90.0F < 45.0F ? 1.0F : -1.0F), event.getYaw());
-                boolean snapMode = this.rotationMode.getValue() == 6;
                 this.snapRotating = false;
                 if (!this.canRotate) {
                     switch (this.rotationMode.getValue()) {
@@ -757,19 +721,6 @@ public class Scaffold extends Module {
                             } else {
                                 this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                             }
-                            break;
-                        case 5: // Hypixel
-                            //idk what to put here so imma just do the same as sideways for now
-                            if (this.yaw == -180.0F && this.pitch == 0.0F) {
-                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
-                                this.pitch = RotationUtil.quantizeAngle(85.0F);
-                            } else {
-                                this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
-                            }
-                            break;
-                        case 6: // Snap
-                            this.yaw = RotationUtil.quantizeAngle(yawDiffTo180);
-                            this.pitch = RotationUtil.quantizeAngle(85.0F);
                             break;
                     }
                 }
@@ -833,45 +784,8 @@ public class Scaffold extends Module {
                     }
                 }
                 boolean towerRotating = this.towering || this.isTowering();
-                boolean snapAlreadyLooking = false;
                 boolean snapCanPlace = true;
-                if (snapMode && !towerRotating && blockData != null) {
-                    MovingObjectPosition currentMop = this.getPlacementMop(blockData, event.getYaw(), event.getPitch());
-                    if (currentMop != null) {
-                        float[] snapRotation = this.getSnapRotation(blockData, event.getYaw(), event.getPitch());
-                        if (snapRotation == null) {
-                            snapCanPlace = false;
-                            hitVec = null;
-                        } else {
-                            this.yaw = snapRotation[0];
-                            this.pitch = snapRotation[1];
-                            this.canRotate = true;
-                            MovingObjectPosition snapMop = this.getPlacementMop(blockData, this.yaw, this.pitch);
-                            hitVec = snapMop != null ? snapMop.hitVec : currentMop.hitVec;
-                            this.snapRotating = true;
-                            if (this.rotationTick > this.snapDelay.getValue()) {
-                                this.rotationTick = this.snapDelay.getValue();
-                            }
-                        }
-                    } else if (hitVec != null && this.canRotate) {
-                        float[] snapRotation = this.getSnapRotation(blockData, this.yaw, this.pitch);
-                        if (snapRotation == null) {
-                            snapCanPlace = false;
-                            hitVec = null;
-                        } else {
-                            this.yaw = snapRotation[0];
-                            this.pitch = snapRotation[1];
-                            MovingObjectPosition snapMop = this.getPlacementMop(blockData, this.yaw, this.pitch);
-                            if (snapMop != null) {
-                                hitVec = snapMop.hitVec;
-                            }
-                            this.snapRotating = true;
-                            if (this.rotationTick > this.snapDelay.getValue()) {
-                                this.rotationTick = this.snapDelay.getValue();
-                            }
-                        }
-                    }
-                }
+                boolean snapAlreadyLooking = false;
                 if (this.canRotate && MoveUtil.isForwardPressed() && Math.abs(MathHelper.wrapAngleTo180_float(yawDiffTo180 - this.yaw)) < 90.0F) {
                     switch (this.rotationMode.getValue()) {
                         case 3: // Backwards
@@ -881,7 +795,7 @@ public class Scaffold extends Module {
                             this.yaw = RotationUtil.quantizeAngle(diagonalYaw);
                     }
                 }
-                if (this.rotationMode.getValue() != 0 && (!snapMode || this.snapRotating || towerRotating)) {
+                if (this.rotationMode.getValue() != 0 && true) {
                     float targetYaw = this.yaw;
                     float targetPitch = this.pitch;
                     if (this.towering && (mc.thePlayer.motionY > 0.0 || mc.thePlayer.posY > (double) (this.startY + 1))) {
@@ -907,10 +821,7 @@ public class Scaffold extends Module {
                 }
                 if (blockData != null && hitVec != null && snapCanPlace && (this.rotationTick <= 0 || snapAlreadyLooking)) {
                     this.place(blockData.blockPos(), blockData.facing(), hitVec);
-                    if (snapMode) {
-                        this.rememberSnapRotation();
-                    }
-                    if (this.multiplace.getValue() && !snapMode) {
+                    if (this.multiplace.getValue()) {
                         for (int i = 0; i < 3; i++) {
                             blockData = this.getBlockData();
                             if (blockData == null) {
@@ -966,7 +877,7 @@ public class Scaffold extends Module {
                         }
                     }
                 }
-                } // end else (!grim)
+                } // end else (!snap)
             }
         }
     }
@@ -1326,14 +1237,12 @@ public class Scaffold extends Module {
         this.eagleBlocksPlaced = 0;
         this.eagleLastSneakTime = 0L;
         this.snapRotating = false;
-        this.lastSnapPlaceYaw = Float.NaN;
-        this.lastSnapPlacePitch = Float.NaN;
-        this.grimHoldCounter = 0;
-        this.grimLastYaw = Float.NaN;
-        this.grimLastPitch = 0.0F;
-        this.grimDelayCounter = 0;
-        this.grimPlaceDelayCounter = 0;
-        this.grimPendingTarget = null;
+        this.snapHoldCounter = 0;
+        this.snapLastYaw = Float.NaN;
+        this.snapLastPitch = 0.0F;
+        this.snapDelayCounter = 0;
+        this.snapPlaceDelayCounter = 0;
+        this.snapPendingTarget = null;
     }
 
     @Override
@@ -1357,12 +1266,12 @@ public class Scaffold extends Module {
         this.legitActive = false;
         this.eagleSneaking = false;
         this.eagleSneakTicks = 0;
-        this.grimHoldCounter = 0;
-        this.grimLastYaw = Float.NaN;
-        this.grimLastPitch = 0.0F;
-        this.grimDelayCounter = 0;
-        this.grimPlaceDelayCounter = 0;
-        this.grimPendingTarget = null;
+        this.snapHoldCounter = 0;
+        this.snapLastYaw = Float.NaN;
+        this.snapLastPitch = 0.0F;
+        this.snapDelayCounter = 0;
+        this.snapPlaceDelayCounter = 0;
+        this.snapPendingTarget = null;
     }
 
     public int getBlockCount() {
@@ -1387,12 +1296,12 @@ public class Scaffold extends Module {
         }
     }
 
-    private static final class GrimTarget extends BlockData {
+    private static final class SnapTarget extends BlockData {
         private final float yaw;
         private final float pitch;
         private final double distance;
 
-        private GrimTarget(BlockPos blockPos, EnumFacing facing, float yaw, float pitch, double distance) {
+        private SnapTarget(BlockPos blockPos, EnumFacing facing, float yaw, float pitch, double distance) {
             super(blockPos, facing);
             this.yaw = yaw;
             this.pitch = pitch;
