@@ -84,6 +84,7 @@ public class Scaffold extends Module {
     private int snapHoldCounter = 0;
     private float snapLastYaw = Float.NaN;
     private float snapLastPitch = 0.0F;
+    private float snapForwardSideOffset = 0.0F;
     private int snapDelayCounter = 0;
     private int snapPlaceDelayCounter = 0;
     private SnapTarget snapPendingTarget = null;
@@ -529,22 +530,23 @@ public class Scaffold extends Module {
             speed = this.snapBackSpeed.getValue();
             this.snapRotating = true; // 仍在 hold 放塊朝向 → keep-y 不跳
         } else {
-            // Forward 朝向（非 snap rotation）→ keep-y 可以跳
-            // 0 度 = 實際前進方向 (getCurrentYaw)
-            // snap-forward-yaw = 相對前進方向左右偏移上限
-            // 若有上一次放置 yaw，則選 ±offset 中較接近放置 yaw 的那一側
+            // Forward 朝向（常駐角度 = 實際前進方向 ± snap-forward-yaw）
+            // 不再退回 0°，直到下次放置才依放置 yaw 重新選邊
             float forwardBase = this.getCurrentYaw();
             float offset = this.snapForwardYaw.getValue();
-            if (offset <= 0.0F || Float.isNaN(this.snapLastYaw)) {
-                targetYaw = RotationUtil.wrapAngleDiff(forwardBase, event.getYaw());
-            } else {
+
+            if (offset > 0.0F && !Float.isNaN(this.snapLastYaw)) {
+                // 剛從放置/hold 轉來：依放置 yaw 選較近的一側，並記住
                 float cand1 = forwardBase + offset;
                 float cand2 = forwardBase - offset;
                 float dist1 = Math.abs(MathHelper.wrapAngleTo180_float(cand1 - this.snapLastYaw));
                 float dist2 = Math.abs(MathHelper.wrapAngleTo180_float(cand2 - this.snapLastYaw));
-                float chosen = dist1 <= dist2 ? cand1 : cand2;
-                targetYaw = RotationUtil.wrapAngleDiff(chosen, event.getYaw());
+                this.snapForwardSideOffset = dist1 <= dist2 ? offset : -offset;
+            } else if (offset <= 0.0F) {
+                this.snapForwardSideOffset = 0.0F;
             }
+            // else：offset > 0 且 snapLastYaw 已是 NaN → 沿用上次記住的 snapForwardSideOffset
+            targetYaw = RotationUtil.wrapAngleDiff(forwardBase + this.snapForwardSideOffset, event.getYaw());
             targetPitch = this.snapForwardPitch.getValue();
             speed = this.snapForwardSpeed.getValue();
             this.snapLastYaw = Float.NaN;
@@ -1255,6 +1257,7 @@ public class Scaffold extends Module {
         this.snapHoldCounter = 0;
         this.snapLastYaw = Float.NaN;
         this.snapLastPitch = 0.0F;
+        this.snapForwardSideOffset = 0.0F;
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
@@ -1284,6 +1287,7 @@ public class Scaffold extends Module {
         this.snapHoldCounter = 0;
         this.snapLastYaw = Float.NaN;
         this.snapLastPitch = 0.0F;
+        this.snapForwardSideOffset = 0.0F;
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
