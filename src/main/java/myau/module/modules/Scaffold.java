@@ -96,6 +96,7 @@ public class Scaffold extends Module {
     public final FloatProperty snapForwardSpeed = new FloatProperty("snap-forward-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 5);
     public final FloatProperty snapBackSpeed = new FloatProperty("snap-back-speed", 180.0F, 1.0F, 180.0F, () -> this.rotationMode.getValue() == 5);
     public final BooleanProperty snapEarlySnap = new BooleanProperty("snap-early-snap", true, () -> this.rotationMode.getValue() == 5);
+    public final FloatProperty snapForwardYaw = new FloatProperty("snap-forward-yaw", 0.0F, 0.0F, 180.0F, () -> this.rotationMode.getValue() == 5);
     public final FloatProperty snapForwardPitch = new FloatProperty("snap-forward-pitch", 80.0F, 0.0F, 90.0F, () -> this.rotationMode.getValue() == 5);
     public final IntProperty snapHoldTicks = new IntProperty("snap-hold-ticks", 2, 0, 5, () -> this.rotationMode.getValue() == 5);
     public final BooleanProperty snapDelayPlacement = new BooleanProperty("snap-delay-placement", false, () -> this.rotationMode.getValue() == 5);
@@ -529,7 +530,21 @@ public class Scaffold extends Module {
             this.snapRotating = true; // 仍在 hold 放塊朝向 → keep-y 不跳
         } else {
             // Forward 朝向（非 snap rotation）→ keep-y 可以跳
-            targetYaw = RotationUtil.wrapAngleDiff(this.getCurrentYaw(), event.getYaw());
+            // 0 度 = 實際前進方向 (getCurrentYaw)
+            // snap-forward-yaw = 相對前進方向左右偏移上限
+            // 若有上一次放置 yaw，則選 ±offset 中較接近放置 yaw 的那一側
+            float forwardBase = this.getCurrentYaw();
+            float offset = this.snapForwardYaw.getValue();
+            if (offset <= 0.0F || Float.isNaN(this.snapLastYaw)) {
+                targetYaw = RotationUtil.wrapAngleDiff(forwardBase, event.getYaw());
+            } else {
+                float cand1 = forwardBase + offset;
+                float cand2 = forwardBase - offset;
+                float dist1 = Math.abs(MathHelper.wrapAngleTo180_float(cand1 - this.snapLastYaw));
+                float dist2 = Math.abs(MathHelper.wrapAngleTo180_float(cand2 - this.snapLastYaw));
+                float chosen = dist1 <= dist2 ? cand1 : cand2;
+                targetYaw = RotationUtil.wrapAngleDiff(chosen, event.getYaw());
+            }
             targetPitch = this.snapForwardPitch.getValue();
             speed = this.snapForwardSpeed.getValue();
             this.snapLastYaw = Float.NaN;
