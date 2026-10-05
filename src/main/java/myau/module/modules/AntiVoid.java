@@ -9,6 +9,7 @@ import myau.events.KeyEvent;
 import myau.events.PlayerUpdateEvent;
 import myau.module.Category;
 import myau.module.Module;
+import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.PlayerUtil;
@@ -23,8 +24,11 @@ public class AntiVoid extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"BLINK"});
     public final FloatProperty distance = new FloatProperty("distance", 5.0F, 0.0F, 16.0F);
+    public final BooleanProperty enableScaf = new BooleanProperty("enable-scaffold", false);
     private boolean isInVoid = false;
     private boolean wasInVoid = false;
+    private boolean scafEnableByAntiVoid = false;
+    private int scafTimer = 0;
     private double[] lastSafePosition = null;
 
     public AntiVoid() {
@@ -32,7 +36,18 @@ public class AntiVoid extends Module {
     }
 
     private void resetBlink() {
+        this.resetBlink(false);
+    }
+
+    private void resetBlink(boolean needScaf) {
         Myau.blinkManager.setBlinkState(false, BlinkModules.ANTI_VOID);
+        if(this.enableScaf.getValue()){
+            Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
+            if (!scaffold.isEnabled() && needScaf){
+                scaffold.setEnabled(true);
+                this.scafEnableByAntiVoid = true;
+            }
+        }
         this.lastSafePosition = null;
     }
 
@@ -46,6 +61,20 @@ public class AntiVoid extends Module {
         if (this.isEnabled()) {
             this.isInVoid = !mc.thePlayer.capabilities.allowFlying && PlayerUtil.isInWater();
             if (this.mode.getValue() == 0) {
+                if (this.scafEnableByAntiVoid){
+                    Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
+                    if (!scaffold.isEnabled()) {
+                        this.scafEnableByAntiVoid = false;
+                    } else {
+                        this.scafTimer++;
+                        if (this.scafTimer >= 20){
+                            this.scafEnableByAntiVoid = false;
+                            scaffold.setEnabled(false);
+                        }
+                    }
+                } else if (this.scafTimer != 0) {
+                    this.scafTimer = 0;
+                }
                 if (!this.isInVoid) {
                     this.resetBlink();
                 }
@@ -81,7 +110,7 @@ public class AntiVoid extends Module {
                                             this.lastSafePosition[0], this.lastSafePosition[1] - RandomUtil.nextDouble(10.0, 20.0), this.lastSafePosition[2], false
                                     )
                             );
-                    this.resetBlink();
+                    this.resetBlink(true);
                 }
             }
             this.wasInVoid = this.isInVoid;
