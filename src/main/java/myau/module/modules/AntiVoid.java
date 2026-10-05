@@ -28,7 +28,6 @@ public class AntiVoid extends Module {
     private boolean isInVoid = false;
     private boolean wasInVoid = false;
     private boolean scafEnableByAntiVoid = false;
-    private boolean needScaf = false;
     private int scafTimer = 0;
     private double[] lastSafePosition = null;
 
@@ -37,12 +36,15 @@ public class AntiVoid extends Module {
     }
 
     private void resetBlink() {
+        this.resetBlink(false);
+    }
+
+    private void resetBlink(boolean needScaf) {
         Myau.blinkManager.setBlinkState(false, BlinkModules.ANTI_VOID);
         if(this.enableScaf.getValue()){
             Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
-            if (!scaffold.isEnabled() && this.needScaf){
+            if (!scaffold.isEnabled() && needScaf){
                 scaffold.setEnabled(true);
-                this.needScaf = false;
                 this.scafEnableByAntiVoid = true;
             }
         }
@@ -108,8 +110,7 @@ public class AntiVoid extends Module {
                                             this.lastSafePosition[0], this.lastSafePosition[1] - RandomUtil.nextDouble(10.0, 20.0), this.lastSafePosition[2], false
                                     )
                             );
-                    this.needScaf = true;
-                    this.resetBlink();
+                    this.resetBlink(true);
                 }
             }
             this.wasInVoid = this.isInVoid;
