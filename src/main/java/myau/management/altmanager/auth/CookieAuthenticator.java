@@ -1,9 +1,6 @@
 package myau.management.altmanager.auth;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 
 import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
@@ -318,7 +315,7 @@ public class CookieAuthenticator {
         JsonObject properties = new JsonObject();
         properties.addProperty("SandboxId", "RETAIL");
         JsonArray userTokens = new JsonArray();
-        userTokens.add(xboxToken);
+        userTokens.add(new JsonPrimitive(xboxToken));
         properties.add("UserTokens", userTokens);
 
         JsonObject body = new JsonObject();
