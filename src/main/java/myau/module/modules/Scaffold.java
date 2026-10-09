@@ -87,7 +87,7 @@ public class Scaffold extends Module {
     private int snapDelayCounter = 0;
     private int snapPlaceDelayCounter = 0;
     private SnapTarget snapPendingTarget = null;
-    private boolean snapDealyJump = false;
+    private boolean snapDelayJump = false;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Snap"});
     public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
@@ -1277,7 +1277,7 @@ public class Scaffold extends Module {
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
-        this.snapDealyJump = false;
+        this.snapDelayJump = false;
     }
 
     @Override
@@ -1308,7 +1308,7 @@ public class Scaffold extends Module {
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
-        this.snapDealyJump = false;
+        this.snapDelayJump = false;
     }
 
     public int getBlockCount() {
