@@ -80,7 +80,6 @@ public class Scaffold extends Module {
     private boolean placedThisTick = false;
     private boolean safeStuckActive = false;
     private boolean snapRotating = false;
-    // Snap (advanced) state
     private int snapHoldCounter = 0;
     private float snapLastYaw = Float.NaN;
     private float snapLastPitch = 0.0F;
@@ -88,6 +87,7 @@ public class Scaffold extends Module {
     private int snapDelayCounter = 0;
     private int snapPlaceDelayCounter = 0;
     private SnapTarget snapPendingTarget = null;
+    private boolean snapDelayJump = false;
     public final ModeProperty rotationMode = new ModeProperty("rotations", 1, new String[]{"None", "Default", "Smooth", "Backwards", "Sideways", "Snap"});
     public final FloatProperty tellystartrotationminspeed = new FloatProperty("start-min-speed", 90.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
     public final FloatProperty tellystartrotationmaxspeed = new FloatProperty("start-max-speed", 95.0F, 1.0F, 180.0F, () -> this.keepY.getValue() == 3 || this.keepY.getValue() == 4);
@@ -108,6 +108,7 @@ public class Scaffold extends Module {
     public final PercentProperty airMotion = new PercentProperty("air-motion", 100);
     public final PercentProperty speedMotion = new PercentProperty("speed-motion", 100);
     public final ModeProperty tower = new ModeProperty("tower", 0, new String[]{"NONE", "VANILLA", "EXTRA", "TELLY"});
+    public final BooleanProperty jumpFix = new BooleanProperty("jump-fix", true, () -> this.rotationMode.getValue() == 5 && (this.tower.getValue() == 0 || this.tower.getValue() == 3));
     public final BooleanProperty hypixeltower = new BooleanProperty("hypixeltower", false);
     public final BooleanProperty safe = new BooleanProperty("safe", false, () -> this.tower.getValue() == 3);
     public final ModeProperty safeMode = new ModeProperty("safe-mode", 0, new String[]{"STUCK", "LEGIT"}, () -> this.tower.getValue() == 3 && this.safe.getValue());
@@ -1075,6 +1076,22 @@ public class Scaffold extends Module {
             if (mc.thePlayer.onGround && this.stage > 0 && MoveUtil.isForwardPressed() && !this.snapRotating) {
                 mc.thePlayer.movementInput.jump = true;
             }
+
+            // ===== 新增 jump-fix =====
+            if (this.snapDelayJump && !this.snapRotating) {
+                this.snapDelayJump = false;
+                mc.thePlayer.movementInput.jump = true;
+            }
+            if (this.jumpFix.getValue()
+                    && this.rotationMode.getValue() == 5
+                    && (this.tower.getValue() == 0 || this.tower.getValue() == 3)
+                    && mc.gameSettings.keyBindJump.isKeyDown()
+                    && this.snapRotating) {
+                this.snapDelayJump = true;
+                mc.thePlayer.movementInput.jump = false;
+            }
+            // ========================
+
             if (this.eagleSneaking && !mc.thePlayer.movementInput.sneak) {
                 mc.thePlayer.movementInput.sneak = true;
                 mc.thePlayer.movementInput.moveForward *= 0.3F;
@@ -1082,7 +1099,6 @@ public class Scaffold extends Module {
             }
         }
     }
-
 
     @EventTarget
     public void onLivingUpdate(LivingUpdateEvent event) {
@@ -1261,6 +1277,7 @@ public class Scaffold extends Module {
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
+        this.snapDelayJump = false;
     }
 
     @Override
@@ -1291,6 +1308,7 @@ public class Scaffold extends Module {
         this.snapDelayCounter = 0;
         this.snapPlaceDelayCounter = 0;
         this.snapPendingTarget = null;
+        this.snapDelayJump = false;
     }
 
     public int getBlockCount() {
