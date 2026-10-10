@@ -18,7 +18,7 @@ public class ModuleElement extends Element {
     private final List<SettingElement> settings = new ArrayList<>();
     private boolean expanded;
     private float hoverAnim;
-    /** 目前設定區高度（像素），固定速度開合 */
+    private float expandAnim;
     private float drawnH;
     private static final float EXPAND_SPEED = 800f;
 
@@ -70,6 +70,7 @@ public class ModuleElement extends Element {
 
         float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
         hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, dt);
+        expandAnim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, expandAnim, 14f, dt);
 
         float settingsH = getSettingsTotalHeight();
         float targetH = expanded ? settingsH : 0f;
@@ -88,19 +89,25 @@ public class ModuleElement extends Element {
         }
 
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
-        float ty = y + (Theme.MOD_H - 8) / 2f;
-        if (FontManager.productSans16 != null) {
-            FontManager.productSans16.drawString(module.getName(), x + 18, ty, nameColor);
+        float ty = y + (Theme.MOD_H - 11) / 2f;
+        if (FontManager.productSansMedium != null) {
+            FontManager.productSansMedium.drawString(module.getName(), x + 18, ty, nameColor);
         } else {
             mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 16, y + 8, nameColor);
         }
 
         if (!settings.isEmpty()) {
-            String arrow = expanded ? "v" : "^";
-            if (FontManager.productSans16 != null) {
-                float aw = (float) FontManager.productSans16.getStringWidth(arrow);
-                FontManager.productSans16.drawString(arrow, x + width - aw - 10, ty, Theme.rgba(Theme.TEXT_DIM, a));
-            }
+            int sw = 20, sh = 11;
+            int sx = x + width - sw - 8;
+            int sy = y + (Theme.MOD_H - sh) / 2;   // 若已改用 height 就寫 (height - sh) / 2
+
+            // 軌道
+            int track = Theme.rgba(expandAnim > 0.5f ? Theme.ACCENT : Theme.SWITCH_OFF, a);
+            RenderUtil.drawRoundedRect(sx, sy, sw, sh, sh / 2f, track, true, true, true, true);
+
+            // 圓點
+            int knobX = sx + (int) (expandAnim * (sw - sh));
+            RenderUtil.drawRoundedRect(knobX + 1, sy + 1, sh - 2, sh - 2, (sh - 2) / 2f, -1, true, true, true, true);
         }
 
         // 設定區
