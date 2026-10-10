@@ -18,9 +18,13 @@ public class ModuleElement extends Element {
     private final List<SettingElement> settings = new ArrayList<>();
     private boolean expanded;
     private float hoverAnim;
-    /** 目前設定區高度（像素），固定速度開合 */
+    /** module 開關動畫 0~1 */
+    private float enableAnim;
     private float drawnH;
-    private static final float EXPAND_SPEED = 800f;
+    /** 預設展開速度（像素／秒） */
+    private static final float EXPAND_SPEED = 600f;
+    /** 展開／收合最長時間（秒）；超過則提高速度以在此時間內完成 */
+    private static final float MAX_EXPAND_TIME = 0.35f;
 
     public ModuleElement(Module module, int x, int y, int width) {
         super(x, y, width, Theme.MOD_H);
@@ -70,11 +74,21 @@ public class ModuleElement extends Element {
 
         float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
         hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, dt);
+        enableAnim = AnimationUtil.animateSmooth(module.isEnabled() ? 1f : 0f, enableAnim, 14f, dt);
 
         float settingsH = getSettingsTotalHeight();
         float targetH = expanded ? settingsH : 0f;
-        // 固定像素速度：設定越多開越久，手感速度一致
-        drawnH = AnimationUtil.animate(targetH, drawnH, EXPAND_SPEED, dt);
+
+        // 固定速度；若預估時間 > MAX_EXPAND_TIME，則加速到在上限內完成
+        float distance = Math.abs(targetH - drawnH);
+        float speed = EXPAND_SPEED;
+        if (distance > 0.001f) {
+            float timeNeeded = distance / EXPAND_SPEED;
+            if (timeNeeded > MAX_EXPAND_TIME) {
+                speed = distance / MAX_EXPAND_TIME;
+            }
+        }
+        drawnH = AnimationUtil.animate(targetH, drawnH, speed, dt);
         if (drawnH > settingsH) drawnH = settingsH;
         if (drawnH < 0f) drawnH = 0f;
 
@@ -82,25 +96,26 @@ public class ModuleElement extends Element {
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
         RenderUtil.drawRoundedRect(x, y, width, Theme.MOD_H, Theme.RADIUS_SM, bg, true, true, true, true);
 
-        if (module.isEnabled()) {
-            RenderUtil.drawRoundedRect(x + 8, y + Theme.MOD_H / 2f - 2.5f, 5, 5, 2.5f,
-                    Theme.rgba(Theme.ACCENT, a), true, true, true, true);
-        }
-
+        // 名稱（已移除左側啟用小圓點）
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
-        float ty = y + (Theme.MOD_H - 8) / 2f;
-        if (FontManager.productSans16 != null) {
-            FontManager.productSans16.drawString(module.getName(), x + 18, ty, nameColor);
+        float ty = y + (Theme.MOD_H - 11) / 2f;
+        if (FontManager.productSansMedium != null) {
+            FontManager.productSansMedium.drawString(module.getName(), x + 16, ty, nameColor);
         } else {
             mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 16, y + 8, nameColor);
         }
 
-        if (!settings.isEmpty()) {
-            String arrow = expanded ? "v" : "^";
-            if (FontManager.productSans16 != null) {
-                float aw = (float) FontManager.productSans16.getStringWidth(arrow);
-                FontManager.productSans16.drawString(arrow, x + width - aw - 10, ty, Theme.rgba(Theme.TEXT_DIM, a));
-            }
+        // 右側 module enable/disable 開關（與 BooleanElement 同風格）
+        {
+            int sw = 20, sh = 11;
+            int sx = x + width - sw - 8;
+            int sy = y + (Theme.MOD_H - sh) / 2;
+
+            int track = Theme.rgba(enableAnim > 0.5f ? Theme.ACCENT : Theme.SWITCH_OFF, a);
+            RenderUtil.drawRoundedRect(sx, sy, sw, sh, sh / 2f, track, true, true, true, true);
+
+            int knobX = sx + (int) (enableAnim * (sw - sh));
+            RenderUtil.drawRoundedRect(knobX + 1, sy + 1, sh - 2, sh - 2, (sh - 2) / 2f, -1, true, true, true, true);
         }
 
         // 設定區

@@ -18,7 +18,7 @@ public class SliderElement extends SettingElement {
     private boolean dragging;
 
     public SliderElement(Property<?> prop, int x, int y, int width) {
-        super(x, y, width, Theme.SETTING_H + 6);
+        super(x, y, width, Theme.SETTING_H + 8);
         this.prop = prop;
         if (prop instanceof IntProperty) {
             min = ((IntProperty) prop).getMinimum();
@@ -63,13 +63,14 @@ public class SliderElement extends SettingElement {
                         String.format("%.2f", val);
 
         int tc = Theme.rgba(Theme.TEXT, a);
+        int textY = y + height - 26;
         if (FontManager.productSans16 != null) {
-            FontManager.productSans16.drawString(name, x + 2, y + 2, tc);
+            FontManager.productSans16.drawString(name, x + 2, textY, tc);
             float vw = (float) FontManager.productSans16.getStringWidth(valStr);
-            FontManager.productSans16.drawString(valStr, x + width - vw - 2, y + 2, tc);
+            FontManager.productSans16.drawString(valStr, x + width - vw - 2, textY, tc);
         } else {
-            mc.fontRendererObj.drawStringWithShadow(name, x + 2, y + 2, tc);
-            mc.fontRendererObj.drawStringWithShadow(valStr, x + width - mc.fontRendererObj.getStringWidth(valStr) - 2, y + 2, tc);
+            mc.fontRendererObj.drawStringWithShadow(name, x + 2, textY, tc);
+            mc.fontRendererObj.drawStringWithShadow(valStr, x + width - mc.fontRendererObj.getStringWidth(valStr) - 2, textY, tc);
         }
 
         // 軌道
