@@ -21,7 +21,10 @@ public class ModuleElement extends Element {
     /** module 開關動畫 0~1 */
     private float enableAnim;
     private float drawnH;
+    /** 預設展開速度（像素／秒） */
     private static final float EXPAND_SPEED = 800f;
+    /** 展開／收合最長時間（秒）；超過則提高速度以在此時間內完成 */
+    private static final float MAX_EXPAND_TIME = 0.5f;
 
     public ModuleElement(Module module, int x, int y, int width) {
         super(x, y, width, Theme.MOD_H);
@@ -75,8 +78,17 @@ public class ModuleElement extends Element {
 
         float settingsH = getSettingsTotalHeight();
         float targetH = expanded ? settingsH : 0f;
-        // 固定像素速度：設定越多開越久，手感速度一致
-        drawnH = AnimationUtil.animate(targetH, drawnH, EXPAND_SPEED, dt);
+
+        // 固定速度；若預估時間 > MAX_EXPAND_TIME，則加速到在上限內完成
+        float distance = Math.abs(targetH - drawnH);
+        float speed = EXPAND_SPEED;
+        if (distance > 0.001f) {
+            float timeNeeded = distance / EXPAND_SPEED;
+            if (timeNeeded > MAX_EXPAND_TIME) {
+                speed = distance / MAX_EXPAND_TIME;
+            }
+        }
+        drawnH = AnimationUtil.animate(targetH, drawnH, speed, dt);
         if (drawnH > settingsH) drawnH = settingsH;
         if (drawnH < 0f) drawnH = 0f;
 
@@ -84,7 +96,7 @@ public class ModuleElement extends Element {
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
         RenderUtil.drawRoundedRect(x, y, width, Theme.MOD_H, Theme.RADIUS_SM, bg, true, true, true, true);
 
-        // 名稱（已移除左側啟用小圓點，文字略往左）
+        // 名稱（已移除左側啟用小圓點）
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
         float ty = y + (Theme.MOD_H - 11) / 2f;
         if (FontManager.productSansMedium != null) {
