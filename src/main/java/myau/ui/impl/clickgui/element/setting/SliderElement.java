@@ -132,14 +132,14 @@ public class SliderElement extends SettingElement {
         String name = prop.getName();
         String valStr = focused ? (inputBuffer + "_") : formatValue(val);
 
-        int tc = Theme.rgba(focused ? Theme.ACCENT : Theme.TEXT, a);
+        int tc = Theme.rgba(Theme.TEXT, a); // focused 也不改色，只顯示 "_"
         int textY = y + height - 26;
         if (FontManager.productSans16 != null) {
-            FontManager.productSans16.drawString(name, x + 2, textY, Theme.rgba(Theme.TEXT, a));
+            FontManager.productSans16.drawString(name, x + 2, textY, tc);
             float vw = (float) FontManager.productSans16.getStringWidth(valStr);
             FontManager.productSans16.drawString(valStr, x + width - vw - 2, textY, tc);
         } else {
-            mc.fontRendererObj.drawStringWithShadow(name, x + 2, textY, Theme.rgba(Theme.TEXT, a));
+            mc.fontRendererObj.drawStringWithShadow(name, x + 2, textY, tc);
             mc.fontRendererObj.drawStringWithShadow(valStr, x + width - mc.fontRendererObj.getStringWidth(valStr) - 2, textY, tc);
         }
 
