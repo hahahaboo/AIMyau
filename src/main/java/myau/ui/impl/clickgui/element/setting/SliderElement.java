@@ -18,7 +18,7 @@ public class SliderElement extends SettingElement {
     private boolean dragging;
 
     public SliderElement(Property<?> prop, int x, int y, int width) {
-        super(x, y, width, Theme.SETTING_H + 6);
+        super(x, y, width, Theme.SETTING_H + 10);
         this.prop = prop;
         if (prop instanceof IntProperty) {
             min = ((IntProperty) prop).getMinimum();
