@@ -22,9 +22,9 @@ public class ModuleElement extends Element {
     private float enableAnim;
     private float drawnH;
     /** 預設展開速度（像素／秒） */
-    private static final float EXPAND_SPEED = 800f;
+    private static final float EXPAND_SPEED = 600f;
     /** 展開／收合最長時間（秒）；超過則提高速度以在此時間內完成 */
-    private static final float MAX_EXPAND_TIME = 0.5f;
+    private static final float MAX_EXPAND_TIME = 0.35f;
 
     public ModuleElement(Module module, int x, int y, int width) {
         super(x, y, width, Theme.MOD_H);
