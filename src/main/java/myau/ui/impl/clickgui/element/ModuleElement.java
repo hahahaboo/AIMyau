@@ -88,9 +88,9 @@ public class ModuleElement extends Element {
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
         float ty = y + (Theme.MOD_H - 11) / 2f;
         if (FontManager.productSansMedium != null) {
-            FontManager.productSansMedium.drawString(module.getName(), x + 10, ty, nameColor);
+            FontManager.productSansMedium.drawString(module.getName(), x + 16, ty, nameColor);
         } else {
-            mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 10, y + 8, nameColor);
+            mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 16, y + 8, nameColor);
         }
 
         // 右側 module enable/disable 開關（與 BooleanElement 同風格）
