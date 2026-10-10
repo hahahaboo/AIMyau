@@ -97,14 +97,24 @@ public class SliderElement extends SettingElement {
         try {
             if (isFloatProp()) {
                 float v = Float.parseFloat(inputBuffer);
+                // 超出範圍 → 不套用（等同取消）
+                if (v < min || v > max) {
+                    return;
+                }
                 double stepped = Math.round(v / step) * step;
                 BigDecimal bd = new BigDecimal(stepped).setScale(2, RoundingMode.HALF_UP);
-                float clamped = (float) Math.max(min, Math.min(max, bd.doubleValue()));
-                prop.setValue(clamped);
+                float finalVal = (float) bd.doubleValue();
+                // step 進位後仍須在範圍內
+                if (finalVal < min || finalVal > max) {
+                    return;
+                }
+                prop.setValue(finalVal);
             } else {
                 int v = (int) Math.round(Double.parseDouble(inputBuffer));
-                int clamped = (int) Math.max(min, Math.min(max, v));
-                prop.setValue(clamped);
+                if (v < min || v > max) {
+                    return;
+                }
+                prop.setValue(v);
             }
         } catch (NumberFormatException ignored) {
             // 非法輸入不套用
