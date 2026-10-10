@@ -32,8 +32,8 @@ public final class Theme {
     public static final float RADIUS       = 10f;
     public static final float RADIUS_SM    = 6f;
     public static final int   CAT_H        = 30;
-    public static final int   MOD_H        = 40;
-    public static final int   SETTING_H    = 28;
+    public static final int   MOD_H        = 28;
+    public static final int   SETTING_H    = 26;
 
     public static int rgba(Color c, int alpha) {
         return new Color(c.getRed(), c.getGreen(), c.getBlue(), Math.max(0, Math.min(255, alpha))).getRGB();
