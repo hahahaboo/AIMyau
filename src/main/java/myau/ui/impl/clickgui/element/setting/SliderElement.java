@@ -63,7 +63,7 @@ public class SliderElement extends SettingElement {
                         String.format("%.2f", val);
 
         int tc = Theme.rgba(Theme.TEXT, a);
-        int textY = y + height - 26
+        int textY = y + height - 26;
         if (FontManager.productSans16 != null) {
             FontManager.productSans16.drawString(name, x + 2, textY, tc);
             float vw = (float) FontManager.productSans16.getStringWidth(valStr);
