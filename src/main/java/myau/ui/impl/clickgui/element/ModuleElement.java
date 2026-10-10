@@ -18,7 +18,8 @@ public class ModuleElement extends Element {
     private final List<SettingElement> settings = new ArrayList<>();
     private boolean expanded;
     private float hoverAnim;
-    private float expandAnim;
+    /** module 開關動畫 0~1 */
+    private float enableAnim;
     private float drawnH;
     private static final float EXPAND_SPEED = 800f;
 
@@ -70,7 +71,7 @@ public class ModuleElement extends Element {
 
         float dt = Element.deltaTime > 0f ? Element.deltaTime : 0.016f;
         hoverAnim = AnimationUtil.animateSmooth(hover ? 1f : 0f, hoverAnim, 12f, dt);
-        expandAnim = AnimationUtil.animateSmooth(expanded ? 1f : 0f, expandAnim, 14f, dt);
+        enableAnim = AnimationUtil.animateSmooth(module.isEnabled() ? 1f : 0f, enableAnim, 14f, dt);
 
         float settingsH = getSettingsTotalHeight();
         float targetH = expanded ? settingsH : 0f;
@@ -83,30 +84,25 @@ public class ModuleElement extends Element {
         int bg = Theme.rgba(hoverAnim > 0.01f ? Theme.MODULE_HOVER : Theme.MODULE, a);
         RenderUtil.drawRoundedRect(x, y, width, Theme.MOD_H, Theme.RADIUS_SM, bg, true, true, true, true);
 
-        if (module.isEnabled()) {
-            RenderUtil.drawRoundedRect(x + 8, y + Theme.MOD_H / 2f - 2.5f, 5, 5, 2.5f,
-                    Theme.rgba(Theme.ACCENT, a), true, true, true, true);
-        }
-
+        // 名稱（已移除左側啟用小圓點，文字略往左）
         int nameColor = module.isEnabled() ? Theme.rgba(Theme.ACCENT, a) : Theme.rgba(Theme.TEXT, a);
         float ty = y + (Theme.MOD_H - 11) / 2f;
         if (FontManager.productSansMedium != null) {
-            FontManager.productSansMedium.drawString(module.getName(), x + 18, ty, nameColor);
+            FontManager.productSansMedium.drawString(module.getName(), x + 10, ty, nameColor);
         } else {
-            mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 16, y + 8, nameColor);
+            mc.fontRendererObj.drawStringWithShadow(module.getName(), x + 10, y + 8, nameColor);
         }
 
-        if (!settings.isEmpty()) {
+        // 右側 module enable/disable 開關（與 BooleanElement 同風格）
+        {
             int sw = 20, sh = 11;
             int sx = x + width - sw - 8;
-            int sy = y + (Theme.MOD_H - sh) / 2;   // 若已改用 height 就寫 (height - sh) / 2
+            int sy = y + (Theme.MOD_H - sh) / 2;
 
-            // 軌道
-            int track = Theme.rgba(expandAnim > 0.5f ? Theme.ACCENT : Theme.SWITCH_OFF, a);
+            int track = Theme.rgba(enableAnim > 0.5f ? Theme.ACCENT : Theme.SWITCH_OFF, a);
             RenderUtil.drawRoundedRect(sx, sy, sw, sh, sh / 2f, track, true, true, true, true);
 
-            // 圓點
-            int knobX = sx + (int) (expandAnim * (sw - sh));
+            int knobX = sx + (int) (enableAnim * (sw - sh));
             RenderUtil.drawRoundedRect(knobX + 1, sy + 1, sh - 2, sh - 2, (sh - 2) / 2f, -1, true, true, true, true);
         }
 
