@@ -218,25 +218,60 @@ public class ModuleElement extends Element {
     public boolean isTextFocused() {
         for (SettingElement s : settings) {
             if (s instanceof TextElement && ((TextElement) s).isFocused()) return true;
+            if (s instanceof SliderElement && ((SliderElement) s).isFocused()) return true;
         }
         return false;
     }
 
+    /** 套用後失焦（點空白等） */
     public void unfocusText() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement) ((TextElement) s).unfocus();
+            if (s instanceof SliderElement) ((SliderElement) s).unfocus();
+        }
+    }
+
+    /** 僅 Text 失焦；Slider 交給各自 mouseClicked / 後續套用邏輯 */
+    public void unfocusTextOnly() {
         for (SettingElement s : settings) {
             if (s instanceof TextElement) ((TextElement) s).unfocus();
         }
     }
 
-    /** 列超出內容可視區時失焦 */
+    /** 仍 focused 的 Slider 套用並失焦（點在空白時） */
+    public void applySliderFocusIfStillFocused() {
+        for (SettingElement s : settings) {
+            if (s instanceof SliderElement) {
+                SliderElement sl = (SliderElement) s;
+                if (sl.isFocused()) sl.unfocus();
+            }
+        }
+    }
+
+    /** 取消修改並失焦（Esc、關閉 GUI） */
+    public void cancelTextFocus() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement) ((TextElement) s).unfocus();
+            if (s instanceof SliderElement) ((SliderElement) s).cancelFocus();
+        }
+    }
+
+    /** 列超出內容可視區時失焦（Slider 視為點其他位置 → 套用） */
     public void unfocusTextIfOutside(int contentX, int contentY, int contentW, int contentH) {
         for (SettingElement s : settings) {
-            if (!(s instanceof TextElement)) continue;
-            TextElement t = (TextElement) s;
-            if (!t.isFocused()) continue;
-            boolean visible = t.x < contentX + contentW && t.x + t.width > contentX
-                    && t.y < contentY + contentH && t.y + t.height > contentY;
-            if (!visible) t.unfocus();
+            if (s instanceof TextElement) {
+                TextElement t = (TextElement) s;
+                if (!t.isFocused()) continue;
+                boolean visible = t.x < contentX + contentW && t.x + t.width > contentX
+                        && t.y < contentY + contentH && t.y + t.height > contentY;
+                if (!visible) t.unfocus();
+            } else if (s instanceof SliderElement) {
+                SliderElement sl = (SliderElement) s;
+                if (!sl.isFocused()) continue;
+                boolean visible = sl.x < contentX + contentW && sl.x + sl.width > contentX
+                        && sl.y < contentY + contentH && sl.y + sl.height > contentY;
+                if (!visible) sl.unfocus();
+            }
         }
     }
 }
