@@ -134,7 +134,7 @@ public class ClickGuiScreen extends GuiScreen {
         if (!closing) {
             closing = true;
             for (ModuleElement mod : modules) {
-                mod.unfocusText();
+                mod.cancelTextFocus();
             }
             openTime = System.currentTimeMillis();
             savePosition();
@@ -288,15 +288,19 @@ public class ClickGuiScreen extends GuiScreen {
     protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
         if (closing) return;
 
-        // 先全部失焦；若點到輸入框，TextElement 會再 focus
+        // Text 先失焦；Slider 由各自 mouseClicked 或點空白後套用
         for (ModuleElement mod : modules) {
-            mod.unfocusText();
+            mod.unfocusTextOnly();
         }
 
         ColorElement picker = ColorElement.getOpenPicker();
 
         // 點在小窗內 → 只處理取色
         if (picker != null && picker.isInsidePopup(mouseX, mouseY)) {
+            // 點取色窗時，把仍 focused 的 slider 套用
+            for (ModuleElement mod : modules) {
+                mod.applySliderFocusIfStillFocused();
+            }
             picker.mouseClickedPopup(mouseX, mouseY, button);
             return;
         }
@@ -306,6 +310,9 @@ public class ClickGuiScreen extends GuiScreen {
         for (CategoryElement cat : categories) {
             if (cat.mouseClicked(mouseX, mouseY, button)) {
                 selected = cat.getCategory();
+                for (ModuleElement mod : modules) {
+                    mod.applySliderFocusIfStillFocused();
+                }
                 rebuildModules();
                 return; // rebuildModules 內已 closePicker
             }
@@ -323,6 +330,13 @@ public class ClickGuiScreen extends GuiScreen {
                     handled = true;
                     break;
                 }
+            }
+        }
+
+        // 點空白或其他未處理區域 → Slider 套用並失焦
+        if (!handled) {
+            for (ModuleElement mod : modules) {
+                mod.applySliderFocusIfStillFocused();
             }
         }
 
@@ -369,7 +383,7 @@ public class ClickGuiScreen extends GuiScreen {
         if (closing) return;
         if (System.currentTimeMillis() - this.openTime < 150) return;
 
-        // Text 輸入優先
+        // Text / Slider 輸入優先
         boolean textFocused = false;
         for (ModuleElement mod : modules) {
             if (mod.isTextFocused()) {
@@ -378,9 +392,9 @@ public class ClickGuiScreen extends GuiScreen {
             }
         }
         if (textFocused) {
-            // ESC：只關 focused，不關 GUI
+            // ESC：取消修改並失焦，不關 GUI
             if (keyCode == Keyboard.KEY_ESCAPE) {
-                for (ModuleElement mod : modules) mod.unfocusText();
+                for (ModuleElement mod : modules) mod.cancelTextFocus();
                 return;
             }
             for (ModuleElement mod : modules) {
@@ -410,7 +424,7 @@ public class ClickGuiScreen extends GuiScreen {
             if (ColorElement.isPickerOpen()) {
                 ColorElement.closePicker();
             }
-            close();
+            close(); // close() 內已 cancelTextFocus
             return;
         }
         Module guiMod = Myau.moduleManager.getModule("ClickGUI");
@@ -431,7 +445,7 @@ public class ClickGuiScreen extends GuiScreen {
     @Override
     public void onGuiClosed() {
         for (ModuleElement mod : modules) {
-            mod.unfocusText();
+            mod.cancelTextFocus();
         }
         dragging = false;
         ColorElement.closePicker();
