@@ -7,6 +7,7 @@ import myau.property.properties.PercentProperty;
 import myau.ui.impl.clickgui.Theme;
 import myau.util.RenderUtil;
 import myau.util.font.FontManager;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.math.BigDecimal;
@@ -17,6 +18,10 @@ public class SliderElement extends SettingElement {
     private final double min, max, step;
     private boolean dragging;
 
+    /** 點擊數值後進入編輯 */
+    private boolean focused;
+    private String inputBuffer = "";
+
     public SliderElement(Property<?> prop, int x, int y, int width) {
         super(x, y, width, Theme.SETTING_H + 8);
         this.prop = prop;
@@ -25,11 +30,94 @@ public class SliderElement extends SettingElement {
             max = ((IntProperty) prop).getMaximum();
             step = 1;
         } else if (prop instanceof PercentProperty) {
-            min = 0; max = 100; step = 1;
+            min = 0;
+            max = 100;
+            step = 1;
         } else {
             min = ((FloatProperty) prop).getMinimum();
             max = ((FloatProperty) prop).getMaximum();
             step = 0.05;
+        }
+    }
+
+    public boolean isFocused() {
+        return focused;
+    }
+
+    /** 套用後失焦（點其他位置、右鍵數值、Enter） */
+    public void unfocus() {
+        if (!focused) return;
+        applyInput();
+        focused = false;
+        inputBuffer = "";
+    }
+
+    /** 取消修改並失焦（點軌道、Esc、關閉 GUI） */
+    public void cancelFocus() {
+        focused = false;
+        inputBuffer = "";
+    }
+
+    private boolean isFloatProp() {
+        return prop instanceof FloatProperty;
+    }
+
+    private double getValue() {
+        if (prop instanceof IntProperty || prop instanceof PercentProperty) return (Integer) prop.getValue();
+        return (Float) prop.getValue();
+    }
+
+    private String formatValue(double val) {
+        if (prop instanceof PercentProperty) return ((int) val) + "%";
+        if (prop instanceof IntProperty) return String.valueOf((int) val);
+        return String.format("%.2f", val);
+    }
+
+    /** 數值文字區域（右側） */
+    private boolean isInsideValueText(int mouseX, int mouseY) {
+        int textY = y + height - 26;
+        String valStr = focused ? (inputBuffer.isEmpty() ? " " : inputBuffer) : formatValue(getValue());
+        float vw;
+        if (FontManager.productSans16 != null) {
+            vw = (float) FontManager.productSans16.getStringWidth(valStr);
+        } else {
+            vw = mc.fontRendererObj.getStringWidth(valStr);
+        }
+        int pad = 4;
+        float left = x + width - vw - 2 - pad;
+        float right = x + width - 2 + pad;
+        return mouseX >= left && mouseX <= right
+                && mouseY >= textY - 2 && mouseY <= textY + 12;
+    }
+
+    private void applyInput() {
+        if (inputBuffer == null || inputBuffer.isEmpty() || inputBuffer.equals(".") || inputBuffer.equals("-")) {
+            return;
+        }
+        try {
+            if (isFloatProp()) {
+                float v = Float.parseFloat(inputBuffer);
+                // 超出範圍 → 不套用（等同取消）
+                if (v < min || v > max) {
+                    return;
+                }
+                double stepped = Math.round(v / step) * step;
+                BigDecimal bd = new BigDecimal(stepped).setScale(2, RoundingMode.HALF_UP);
+                float finalVal = (float) bd.doubleValue();
+                // step 進位後仍須在範圍內
+                if (finalVal < min || finalVal > max) {
+                    return;
+                }
+                prop.setValue(finalVal);
+            } else {
+                int v = (int) Math.round(Double.parseDouble(inputBuffer));
+                if (v < min || v > max) {
+                    return;
+                }
+                prop.setValue(v);
+            }
+        } catch (NumberFormatException ignored) {
+            // 非法輸入不套用
         }
     }
 
@@ -38,15 +126,10 @@ public class SliderElement extends SettingElement {
         return prop.isVisible();
     }
 
-    private double getValue() {
-        if (prop instanceof IntProperty || prop instanceof PercentProperty) return (Integer) prop.getValue();
-        return (Float) prop.getValue();
-    }
-
     @Override
     public void render(int mouseX, int mouseY, float partialTicks, float alpha) {
         if (!isVisible()) return;
-        if (dragging) {
+        if (dragging && !focused) {
             if (Mouse.isButtonDown(0)) update(mouseX);
             else dragging = false;
         }
@@ -56,13 +139,10 @@ public class SliderElement extends SettingElement {
         double progress = (max - min == 0) ? 0 : (val - min) / (max - min);
         progress = Math.max(0, Math.min(1, progress));
 
-        // 名稱 + 數值
         String name = prop.getName();
-        String valStr = (prop instanceof PercentProperty) ? ((int) val) + "%" :
-                (prop instanceof IntProperty) ? String.valueOf((int) val) :
-                        String.format("%.2f", val);
+        String valStr = focused ? (inputBuffer + "_") : formatValue(val);
 
-        int tc = Theme.rgba(Theme.TEXT, a);
+        int tc = Theme.rgba(Theme.TEXT, a); // focused 也不改色，只顯示 "_"
         int textY = y + height - 26;
         if (FontManager.productSans16 != null) {
             FontManager.productSans16.drawString(name, x + 2, textY, tc);
@@ -98,10 +178,37 @@ public class SliderElement extends SettingElement {
 
     @Override
     public boolean mouseClicked(int mouseX, int mouseY, int button) {
-        if (isHovered(mouseX, mouseY) && button == 0) {
-            dragging = true;
-            update(mouseX);
+        if (!isVisible()) return false;
+
+        // 右鍵數值 → 套用並失焦
+        if (button == 1 && isInsideValueText(mouseX, mouseY)) {
+            unfocus();
             return true;
+        }
+
+        if (button == 0) {
+            // 點數值 → 進入編輯
+            if (isInsideValueText(mouseX, mouseY)) {
+                focused = true;
+                dragging = false;
+                if (prop instanceof PercentProperty || prop instanceof IntProperty) {
+                    inputBuffer = String.valueOf((int) getValue());
+                } else {
+                    float fv = (Float) prop.getValue();
+                    if (fv == (int) fv) inputBuffer = String.valueOf((int) fv);
+                    else inputBuffer = String.valueOf(fv);
+                }
+                return true;
+            }
+            // 點軌道（或本列其他區域）→ 取消修改並開始拖曳
+            if (isHovered(mouseX, mouseY)) {
+                if (focused) {
+                    cancelFocus();
+                }
+                dragging = true;
+                update(mouseX);
+                return true;
+            }
         }
         return false;
     }
@@ -109,5 +216,32 @@ public class SliderElement extends SettingElement {
     @Override
     public void mouseReleased(int mouseX, int mouseY, int button) {
         dragging = false;
+    }
+
+    @Override
+    public void keyTyped(char typedChar, int keyCode) {
+        if (!focused) return;
+
+        if (keyCode == Keyboard.KEY_BACK && !inputBuffer.isEmpty()) {
+            inputBuffer = inputBuffer.substring(0, inputBuffer.length() - 1);
+            return;
+        }
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+            unfocus();
+            return;
+        }
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            cancelFocus();
+            return;
+        }
+
+        // 僅允許數字；Float 額外允許一個小數點
+        if (typedChar >= '0' && typedChar <= '9') {
+            inputBuffer += typedChar;
+            return;
+        }
+        if (isFloatProp() && typedChar == '.' && !inputBuffer.contains(".")) {
+            inputBuffer += ".";
+        }
     }
 }

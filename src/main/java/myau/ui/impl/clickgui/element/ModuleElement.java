@@ -215,28 +215,83 @@ public class ModuleElement extends Element {
         return false;
     }
 
+    /** 是否有文字或數值正在編輯（InvWalk / 按鍵優先用） */
     public boolean isTextFocused() {
         for (SettingElement s : settings) {
             if (s instanceof TextElement && ((TextElement) s).isFocused()) return true;
+            if (s instanceof SliderElement && ((SliderElement) s).isFocused()) return true;
         }
         return false;
     }
 
+    /**
+     * 套用後失焦。
+     * Text：僅失焦（值已即時寫入）。
+     * Slider：套用草稿後失焦。
+     */
     public void unfocusText() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement) ((TextElement) s).unfocus();
+            if (s instanceof SliderElement) ((SliderElement) s).unfocus();
+        }
+    }
+
+    /**
+     * 僅 Text 失焦。
+     * 點擊前使用；Slider 不在此處理，改由各自 mouseClicked
+     * 或點空白後的 applySliderFocusIfStillFocused 決定套用/取消。
+     */
+    public void unfocusTextOnly() {
         for (SettingElement s : settings) {
             if (s instanceof TextElement) ((TextElement) s).unfocus();
         }
     }
 
-    /** 列超出內容可視區時失焦 */
+    /**
+     * 仍 focused 的 Slider 套用並失焦（點在空白等未處理區域時）。
+     * Text 無草稿，不在此處理。
+     */
+    public void applySliderFocusIfStillFocused() {
+        for (SettingElement s : settings) {
+            if (s instanceof SliderElement) {
+                SliderElement sl = (SliderElement) s;
+                if (sl.isFocused()) sl.unfocus();
+            }
+        }
+    }
+
+    /**
+     * 取消並失焦（Esc、關閉 GUI）。
+     * Text：僅失焦（無草稿可取消）。
+     * Slider：丟棄草稿，不寫入 property。
+     */
+    public void cancelTextFocus() {
+        for (SettingElement s : settings) {
+            if (s instanceof TextElement) ((TextElement) s).unfocus();
+            if (s instanceof SliderElement) ((SliderElement) s).cancelFocus();
+        }
+    }
+
+    /**
+     * 列超出內容可視區時失焦。
+     * Text：僅失焦。
+     * Slider：視為離開編輯區 → 套用後失焦。
+     */
     public void unfocusTextIfOutside(int contentX, int contentY, int contentW, int contentH) {
         for (SettingElement s : settings) {
-            if (!(s instanceof TextElement)) continue;
-            TextElement t = (TextElement) s;
-            if (!t.isFocused()) continue;
-            boolean visible = t.x < contentX + contentW && t.x + t.width > contentX
-                    && t.y < contentY + contentH && t.y + t.height > contentY;
-            if (!visible) t.unfocus();
+            if (s instanceof TextElement) {
+                TextElement t = (TextElement) s;
+                if (!t.isFocused()) continue;
+                boolean visible = t.x < contentX + contentW && t.x + t.width > contentX
+                        && t.y < contentY + contentH && t.y + t.height > contentY;
+                if (!visible) t.unfocus();
+            } else if (s instanceof SliderElement) {
+                SliderElement sl = (SliderElement) s;
+                if (!sl.isFocused()) continue;
+                boolean visible = sl.x < contentX + contentW && sl.x + sl.width > contentX
+                        && sl.y < contentY + contentH && sl.y + sl.height > contentY;
+                if (!visible) sl.unfocus();
+            }
         }
     }
 }
