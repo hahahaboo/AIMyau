@@ -52,14 +52,15 @@ public class BackTrack extends Module {
     public final FloatProperty maxHurtTime = new FloatProperty("max-hurt-time", 500.0F, 0.0F, 500.0F);
     public final BooleanProperty disableAdventure = new BooleanProperty("disable-adventure", true);
     public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", true);
+    public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
     public final BooleanProperty weaponOnly = new BooleanProperty("weapon-only", false);
     public final BooleanProperty showServerPosition = new BooleanProperty("show-server-position", true);
     public final ColorProperty positionColor =
             new ColorProperty("position-color", 0x0000FA, () -> this.showServerPosition.getValue());
-    public final BooleanProperty debug = new BooleanProperty("debug", false);
     public final IntProperty positionAlpha =
             new IntProperty("position-alpha", 100, 0, 255, () -> this.showServerPosition.getValue());
+    public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
     private Vec3 targetPos = null;
@@ -204,7 +205,8 @@ public class BackTrack extends Module {
             return;
         }
         EntityPlayer attacked = (EntityPlayer) event.getTarget();
-        if (TeamUtil.isBot(attacked) || TeamUtil.isFriend(attacked)
+        if (this.ignoreBots.getValue() && TeamUtil.isBot(attacked)
+                || TeamUtil.isFriend(attacked)
                 || this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(attacked)) {
             return;
         }
