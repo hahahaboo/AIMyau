@@ -35,6 +35,7 @@ import net.minecraft.util.Vec3;
 import net.minecraft.world.WorldSettings.GameType;
 
 import java.util.Queue;
+import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BackTrack extends Module {
@@ -45,7 +46,8 @@ public class BackTrack extends Module {
     private static final double MOVEMENT_DISTANCE_EPS = 0.001;
     private static final int WARMUP_TICKS = 20;
 
-    public final FloatProperty maxDelay = new FloatProperty("delay", 200.0F, 50.0F, 500.0F);
+    public final FloatProperty minDelay = new FloatProperty("min-delay", 100.0F, 0.0F, 500.0F);
+    public final FloatProperty maxDelay = new FloatProperty("max-delay", 200.0F, 0.0F, 1000.0F);
     public final FloatProperty minDistance = new FloatProperty("distance-min", 0.0F, 0.0F, 3.0F);
     public final FloatProperty maxDistance = new FloatProperty("distance-max", 4.0F, 1.0F, 6.0F);
     public final FloatProperty cooldown = new FloatProperty("cooldown", 0.0F, 0.0F, 2000.0F);
@@ -57,15 +59,16 @@ public class BackTrack extends Module {
     public final BooleanProperty weaponOnly = new BooleanProperty("weapon-only", false);
     public final BooleanProperty showServerPosition = new BooleanProperty("show-server-position", true);
     public final ColorProperty positionColor =
-            new ColorProperty("position-color", 0x0000FA, () -> this.showServerPosition.getValue());
+            new ColorProperty("position-color", 0xFFFFFF, () -> this.showServerPosition.getValue());
     public final IntProperty positionAlpha =
-            new IntProperty("position-alpha", 100, 0, 255, () -> this.showServerPosition.getValue());
+            new IntProperty("position-alpha", 255, 0, 255, () -> this.showServerPosition.getValue());
     public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
     private Vec3 targetPos = null;
     private Vec3 lastTargetSnapshot = null;
     private EntityPlayer target = null;
+    private int lastDelay = 0;
     private int currentDelay = 0;
     private long lastDeactivationTime = 0L;
     private long lastQueuedReleaseAt = 0L;
@@ -82,7 +85,10 @@ public class BackTrack extends Module {
 
     @Override
     public String[] getSuffix() {
-        return this.currentDelay > 0 ? new String[]{this.currentDelay + "ms"} : new String[0];
+        if (this.currentDelay > 0) {
+            this.lastDelay = this.currentDelay;
+        }
+        return this.lastDelay > 0 ? new String[]{this.lastDelay + "ms"} : null;
     }
 
     @Override
@@ -91,6 +97,7 @@ public class BackTrack extends Module {
         this.targetPos = null;
         this.lastTargetSnapshot = null;
         this.target = null;
+        this.lastDelay = 0;
         this.currentDelay = 0;
         this.lastDeactivationTime = 0L;
         this.delayingPackets = false;
@@ -108,6 +115,7 @@ public class BackTrack extends Module {
         this.target = null;
         this.targetPos = null;
         this.lastTargetSnapshot = null;
+        this.lastDelay = 0;
         this.currentDelay = 0;
         this.clearPositionInterp();
     }
@@ -223,7 +231,10 @@ public class BackTrack extends Module {
             this.targetPos = attacked.getPositionVector();
         }
         this.target = attacked;
-        this.currentDelay = (int) this.maxDelay.getValue().floatValue();
+        float min = Math.min(this.minDelay.getValue(), this.maxDelay.getValue());
+        float max = Math.max(this.minDelay.getValue(), this.maxDelay.getValue());
+        int range = Math.max(1, (int) (max - min));
+        this.currentDelay = (int) min + new Random().nextInt(range + 1);
     }
 
     @EventTarget(Priority.LOW)
@@ -395,6 +406,7 @@ public class BackTrack extends Module {
         this.target = null;
         this.targetPos = null;
         this.lastTargetSnapshot = null;
+        this.lastDelay = 0;
         this.currentDelay = 0;
         this.lastDeactivationTime = 0L;
         this.delayingPackets = false;
