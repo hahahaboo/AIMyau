@@ -46,7 +46,7 @@ public class BackTrack extends Module {
     private static final double MOVEMENT_DISTANCE_EPS = 0.001;
     private static final int WARMUP_TICKS = 20;
 
-    public final FloatProperty minDelay = new FloatProperty("min-delay", 100.0F, 0.0F, 500.0F);
+    public final FloatProperty minDelay = new FloatProperty("min-delay", 100.0F, 0.0F, 1000.0F);
     public final FloatProperty maxDelay = new FloatProperty("max-delay", 200.0F, 0.0F, 1000.0F);
     public final FloatProperty minDistance = new FloatProperty("distance-min", 0.0F, 0.0F, 3.0F);
     public final FloatProperty maxDistance = new FloatProperty("distance-max", 4.0F, 1.0F, 6.0F);
