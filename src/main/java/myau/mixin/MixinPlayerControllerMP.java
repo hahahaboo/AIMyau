@@ -2,10 +2,12 @@ package myau.mixin;
 
 import myau.Myau;
 import myau.event.EventManager;
+import myau.events.AttackEvent;
 import myau.events.CancelUseEvent;
 import myau.events.WindowClickEvent;
 import myau.module.modules.AbortBreaking;
 import net.minecraft.client.multiplayer.PlayerControllerMP;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
@@ -57,6 +59,22 @@ public abstract class MixinPlayerControllerMP {
                 && Myau.moduleManager.modules.get(AbortBreaking.class) != null
                 && Myau.moduleManager.modules.get(AbortBreaking.class).isEnabled()) {
             cir.setReturnValue(false);
+        }
+    }
+
+    @Inject(
+            method = "attackEntity",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/multiplayer/PlayerControllerMP;syncCurrentPlayItem()V"
+            ),
+            cancellable = true
+    )
+    private void attackEntity(EntityPlayer entityPlayer, Entity targetEntity, CallbackInfo callbackInfo) {
+        AttackEvent event = new AttackEvent(targetEntity);
+        EventManager.call(event);
+        if (event.isCancelled()) {
+            callbackInfo.cancel();
         }
     }
 }
