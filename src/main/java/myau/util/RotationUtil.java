@@ -195,4 +195,16 @@ public class RotationUtil {
 
         return new float[]{compliedYaw, compliedPitch};
     }
+
+    public static double distanceToBoxAt(Entity entity, Vec3 position) {
+        if (entity == null || position == null || RotationUtil.mc.thePlayer == null) {
+            return Double.MAX_VALUE;
+        }
+        float borderSize = entity.getCollisionBorderSize();
+        AxisAlignedBB boundingBox = entity.getEntityBoundingBox()
+                .offset(position.xCoord - entity.posX, position.yCoord - entity.posY,
+                        position.zCoord - entity.posZ)
+                .expand(borderSize, borderSize, borderSize);
+        return RotationUtil.clampVecToBox(boundingBox, RotationUtil.mc.thePlayer.getPositionEyes(1.0f));
+    }
 }
