@@ -62,7 +62,6 @@ public class BackTrack extends Module {
             new ColorProperty("position-color", 0xFFFFFF, () -> this.showServerPosition.getValue());
     public final IntProperty positionAlpha =
             new IntProperty("position-alpha", 255, 0, 255, () -> this.showServerPosition.getValue());
-    public final BooleanProperty debug = new BooleanProperty("debug", false);
 
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
     private Vec3 targetPos = null;
@@ -77,7 +76,6 @@ public class BackTrack extends Module {
     private Vec3 positionInterpFrom = null;
     private Vec3 positionInterpTo = null;
     private long positionInterpStartMs = 0L;
-    private String lastDebugLine = null;
 
     public BackTrack() {
         super("BackTrack", "Delay entity position packets to hit past opponents", Category.COMBAT, 0, false, false);
@@ -163,29 +161,6 @@ public class BackTrack extends Module {
             this.targetPos = this.target.getPositionVector();
         }
         this.wasActive = this.currentDelay > 0 && !this.isPacketQueueEmpty();
-        if (this.debug.getValue()) {
-            this.reportState();
-        } else {
-            this.lastDebugLine = null;
-        }
-    }
-
-    private void reportState() {
-        int queued = this.packetQueue.size();
-        double offset = -1.0;
-        if (this.target != null && this.targetPos != null) {
-            offset = this.targetPos.distanceTo(this.target.getPositionVector());
-        }
-        String line = String.format(
-                "[BT] target=%s delay=%d queue=%d delaying=%b active=%b offset=%.2f draw=%b",
-                this.target == null ? "none" : this.target.getName(),
-                this.currentDelay, queued, this.delayingPackets, this.wasActive, offset,
-                this.target != null && this.targetPos != null && this.currentDelay > 0
-                        && this.showServerPosition.getValue());
-        if (!line.equals(this.lastDebugLine)) {
-            this.lastDebugLine = line;
-            System.out.println(line);
-        }
     }
 
     private static boolean isAdventure() {
