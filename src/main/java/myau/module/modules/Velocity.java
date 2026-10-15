@@ -32,7 +32,7 @@ public class Velocity extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     private boolean pendingExplosion = false;
-    private boolean allowNext = true;
+    private boolean wasHurt = false;
     private boolean delayActive = false;
     private boolean slot = false;
     private boolean attack = false;
@@ -63,10 +63,10 @@ public class Velocity extends Module {
     public final IntProperty tick4000 = new IntProperty("4000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick5000 = new IntProperty("5000", 6, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick6000 = new IntProperty("6000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
-    public final IntProperty tick7000 = new IntProperty("7000", 7, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick7000 = new IntProperty("7000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final IntProperty tick8000 = new IntProperty("8000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
-    public final IntProperty tick9000 = new IntProperty("9000", 8, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
-    public final IntProperty tick10000 = new IntProperty("10000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick9000 = new IntProperty("9000", 9, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
+    public final IntProperty tick10000 = new IntProperty("10000", 10, 0, 20, () -> this.mode.getValue() == 2 && this.tickExactEnable.getValue());
     public final BooleanProperty badPacketsBool = new BooleanProperty("bad-packets", true, () -> this.mode.getValue() == 2);
     public final BooleanProperty slotBP = new BooleanProperty("bad-packets-slot", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty attackBP = new BooleanProperty("bad-packets-attack", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
@@ -74,7 +74,8 @@ public class Velocity extends Module {
     public final BooleanProperty blockBP = new BooleanProperty("bad-packets-block", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty inventoryBP = new BooleanProperty("bad-packets-inventory", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty digBP = new BooleanProperty("bad-packets-dig", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
+    public final BooleanProperty hurtCheck = new BooleanProperty("hurt-check", true);
+    public final BooleanProperty fallCheck = new BooleanProperty("fall-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean isInLiquidOrWeb() {
@@ -135,12 +136,13 @@ public class Velocity extends Module {
     public void onKnockback(KnockbackEvent event) {
         if (!this.isEnabled() || event.isCancelled()) {
             this.pendingExplosion = false;
-            this.allowNext = true;
+            this.wasHurt = false;
             return;
         }
 
-        if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
-            this.allowNext = true;
+        // hurt-check 關閉 → 永遠處理；開啟 → 只有 wasHurt 才處理
+        if (!this.hurtCheck.getValue() || this.wasHurt) {
+            this.wasHurt = false;
 
             if (this.pendingExplosion) {
                 this.pendingExplosion = false;
@@ -296,7 +298,7 @@ public class Velocity extends Module {
                 // ATTACKREDUCE
                 if (this.mode.getValue() == 2 
                     && !this.pendingExplosion 
-                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                    && (!this.hurtCheck.getValue() || this.wasHurt)) {
                         this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
@@ -306,7 +308,7 @@ public class Velocity extends Module {
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
                         && !this.pendingExplosion
-                        && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())
+                        && (!this.hurtCheck.getValue() || this.wasHurt)
                         && (!longJump.isEnabled() || !longJump.canStartJump())) {
 
                     boolean applyDelayThisTime = this.randomChance.nextDouble() <= (double) this.delayChance.getValue() / 100.0;
@@ -369,10 +371,12 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                if (this.fakeCheck.getValue() && this.fallDist > 3.0F) {
+                if (this.fallCheck.getValue() && this.fallDist > 3.0F) {
+                    // 落地傷害 → 不標記 wasHurt
                     this.fallDist = 0.0F;
                 } else {
-                    this.allowNext = false;
+                    // 真實受傷
+                    this.wasHurt = true;
                 }
             }
         }
@@ -382,6 +386,7 @@ public class Velocity extends Module {
     public void onLoadWorld(LoadWorldEvent event) {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
         fallDist = 0.0F;
     }
 
@@ -389,6 +394,7 @@ public class Velocity extends Module {
     public void onEnabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
         fallDist = 0.0F;
     }
 
@@ -396,6 +402,7 @@ public class Velocity extends Module {
     public void onDisabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
         fallDist = 0.0F;
     }
     
