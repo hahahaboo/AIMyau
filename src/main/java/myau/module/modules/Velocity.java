@@ -79,16 +79,11 @@ public class Velocity extends Module {
     public final BooleanProperty fallCheck = new BooleanProperty("fall-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
-    private boolean shouldProcessVelocity() {
-        if (this.fallCheck.getValue() && this.wasFall) {
-            return false;
-        }
-        return !this.hurtCheck.getValue() || this.wasHurt;
-    }
-
-    private void consumeVelocityFlags() {
-        this.wasHurt = false;
-        this.wasFall = false;
+    /** @return true = 通過檢查，可處理 velocity；false = 取消／略過 */
+    private boolean velocityChecks() {
+        if (this.fallCheck.getValue() && this.wasFall) return false;
+        if (this.hurtCheck.getValue() && !this.wasHurt) return false;
+        return true;
     }
 
     private boolean isInLiquidOrWeb() {
@@ -154,48 +149,45 @@ public class Velocity extends Module {
             return;
         }
 
-        // fall-check 開啟且為落地傷害 → 跳過並消耗 flag
-        if (this.fallCheck.getValue() && this.wasFall) {
-            this.wasFall = false;
+        if (!this.velocityChecks()) {
+            if (this.wasFall) {
+                this.wasFall = false;
+            }
             return;
         }
+        this.wasHurt = false;
 
-        // hurt-check 關閉 → 永遠處理；開啟 → 只有 wasHurt 才處理
-        if (!this.hurtCheck.getValue() || this.wasHurt) {
-            this.wasHurt = false;
-
-            if (this.pendingExplosion) {
-                this.pendingExplosion = false;
-                if (this.mode.getValue() == 0) {
-                    if (this.explosionHorizontal.getValue() > 0) {
-                        event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
-                        event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+        if (this.pendingExplosion) {
+            this.pendingExplosion = false;
+            if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
+                if (this.explosionHorizontal.getValue() > 0) {
+                    event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
+                    event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+                } else {
+                    event.setX(mc.thePlayer.motionX);
+                    event.setZ(mc.thePlayer.motionZ);
+                }
+                if (this.explosionVertical.getValue() > 0) {
+                    event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                } else {
+                    event.setY(mc.thePlayer.motionY);
+                }
+            }
+        } else {
+            if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
+                boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
+                if (applyThisTime) {
+                    if (this.horizontal.getValue() > 0) {
+                        event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
+                        event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
                     } else {
                         event.setX(mc.thePlayer.motionX);
                         event.setZ(mc.thePlayer.motionZ);
                     }
-                    if (this.explosionVertical.getValue() > 0) {
-                        event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                    if (this.vertical.getValue() > 0) {
+                        event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
                     } else {
                         event.setY(mc.thePlayer.motionY);
-                    }
-                }
-            } else {
-                if (this.mode.getValue() == 0) {
-                    boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
-                    if (applyThisTime) {
-                        if (this.horizontal.getValue() > 0) {
-                            event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
-                            event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
-                        } else {
-                            event.setX(mc.thePlayer.motionX);
-                            event.setZ(mc.thePlayer.motionZ);
-                        }
-                        if (this.vertical.getValue() > 0) {
-                            event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
-                        } else {
-                            event.setY(mc.thePlayer.motionY);
-                        }
                     }
                 }
             }
@@ -255,7 +247,7 @@ public class Velocity extends Module {
                             if(this.reachCheck.getValue() && RotationUtil.distanceToEntity(target) > this.dist.getValue()){
                                 return;
                             }
-                            if (!((IAccessorEntity) mc.thePlayer).getIsInWeb()
+                            if (!((IAccessorEntity) mc.thePlayer).getIsInWeb() 
                                 && mc.thePlayer.isSprinting()
                                 && MoveUtil.isMoving()
                                 && target != mc.thePlayer
@@ -316,9 +308,9 @@ public class Velocity extends Module {
                 LongJump longJump = (LongJump) Myau.moduleManager.modules.get(LongJump.class);
 
                 // ATTACKREDUCE
-                if (this.mode.getValue() == 2
-                    && !this.pendingExplosion
-                    && this.shouldProcessVelocity()) {
+                if (this.mode.getValue() == 2 
+                    && !this.pendingExplosion 
+                    && this.velocityChecks()) {
                         this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
@@ -328,7 +320,7 @@ public class Velocity extends Module {
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
                         && !this.pendingExplosion
-                        && this.shouldProcessVelocity()
+                        && this.velocityChecks()
                         && (!longJump.isEnabled() || !longJump.canStartJump())) {
 
                     boolean applyDelayThisTime = this.randomChance.nextDouble() <= (double) this.delayChance.getValue() / 100.0;
@@ -344,7 +336,7 @@ public class Velocity extends Module {
                                 mc.thePlayer.ticksExisted
                             )
                         );
-                        }
+                    }
                         return;
                     }
                 }
@@ -362,12 +354,12 @@ public class Velocity extends Module {
                     );
                 }
             }
-        }
+        } 
         else if (event.getPacket() instanceof S27PacketExplosion) {
             S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
             if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
                 this.pendingExplosion = true;
-                if (this.mode.getValue() == 0) {
+                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式觸發
                     if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
                         event.setCancelled(true);
                     }
@@ -386,20 +378,16 @@ public class Velocity extends Module {
                     );
                 }
             }
-        }
+        } 
         else if (event.getPacket() instanceof S19PacketEntityStatus) {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
                 if (this.fallCheck.getValue() && this.fallDist > 3.0F) {
-                    // 落地傷害 → 標記 wasFall，不標記 wasHurt
                     this.fallDist = 0.0F;
                     this.wasFall = true;
-                    this.wasHurt = false;
                 } else {
-                    // 真實受傷
                     this.wasHurt = true;
-                    this.wasFall = false;
                 }
             }
         }
@@ -431,7 +419,7 @@ public class Velocity extends Module {
         this.wasFall = false;
         fallDist = 0.0F;
     }
-
+    
     @Override
     public String[] getSuffix() {
         return new String[]{mode.getModeString()};
