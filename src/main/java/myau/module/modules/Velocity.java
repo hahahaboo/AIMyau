@@ -44,7 +44,6 @@ public class Velocity extends Module {
     private boolean dig = false;
     private int reduceTicks = 0;
     private float fallDist = 0.0F;
-    private long fallAt = 0L;
     private final Random randomChance = new Random();
     private int fireballStage = 0;   // 0 = 無, 1 = 已放火球, 2 = 爆炸已確認
     private long fireballAt = 0L;
@@ -167,14 +166,12 @@ public class Velocity extends Module {
             this.pendingExplosion = false;
             this.wasHurt = false;
             this.wasFall = false;
-            this.fallAt = 0L;
             return;
         }
 
         if (!this.velocityChecks()) {
             if (this.wasFall) {
                 this.wasFall = false;
-                this.fallAt = 0L;
             }
             return;
         }
@@ -253,12 +250,6 @@ public class Velocity extends Module {
             // FBjump-check 超時保護
             if (this.fireballStage > 0 && System.currentTimeMillis() - this.fireballAt > 750L) {
                 this.resetFireball();
-            }
-
-            // fall-check 超時保護（預設 1000ms）
-            if (this.wasFall && System.currentTimeMillis() - this.fallAt > 1000L) {
-                this.wasFall = false;
-                this.fallAt = 0L;
             }
 
             if (mc.thePlayer != null) {
@@ -443,7 +434,6 @@ public class Velocity extends Module {
                 if (this.fallCheck.getValue() && this.fallDist > 3.0F) {
                     this.fallDist = 0.0F;
                     this.wasFall = true;
-                    this.fallAt = System.currentTimeMillis();
                 } else {
                     this.wasHurt = true;
                 }
@@ -457,7 +447,6 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        this.fallAt = 0L;
         fallDist = 0.0F;
         this.resetFireball();
     }
@@ -468,7 +457,6 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        this.fallAt = 0L;
         fallDist = 0.0F;
         this.resetFireball();
     }
@@ -479,7 +467,6 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        this.fallAt = 0L;
         fallDist = 0.0F;
         this.resetFireball();
     }
