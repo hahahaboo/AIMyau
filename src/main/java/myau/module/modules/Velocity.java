@@ -20,6 +20,7 @@ import myau.util.RotationUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.init.Items;
 import net.minecraft.network.Packet;
 import net.minecraft.network.play.client.*;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
@@ -32,7 +33,8 @@ public class Velocity extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
     private boolean pendingExplosion = false;
-    private boolean allowNext = true;
+    private boolean wasHurt = false;
+    private boolean wasFall = false;
     private boolean delayActive = false;
     private boolean slot = false;
     private boolean attack = false;
@@ -43,6 +45,8 @@ public class Velocity extends Module {
     private int reduceTicks = 0;
     private float fallDist = 0.0F;
     private final Random randomChance = new Random();
+    private int fireballStage = 0;   // 0 = 無, 1 = 已放火球, 2 = 爆炸已確認
+    private long fireballAt = 0L;
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
@@ -74,8 +78,28 @@ public class Velocity extends Module {
     public final BooleanProperty blockBP = new BooleanProperty("bad-packets-block", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty inventoryBP = new BooleanProperty("bad-packets-inventory", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
     public final BooleanProperty digBP = new BooleanProperty("bad-packets-dig", true, () -> this.mode.getValue() == 2 && this.badPacketsBool.getValue());
-    public final BooleanProperty fakeCheck = new BooleanProperty("fake-check", true);
+    public final BooleanProperty hurtCheck = new BooleanProperty("hurt-check", true);
+    public final BooleanProperty fallCheck = new BooleanProperty("fall-check", true);
+    public final BooleanProperty burnCheck = new BooleanProperty("burn-check", true);
+    public final BooleanProperty fbJumpCheck = new BooleanProperty("FBjump-check", true);
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
+
+    private boolean velocityChecks() {
+        if (this.fbJumpCheck.getValue() && this.fireballStage == 2) {
+            this.fireballStage = 0;
+            this.fireballAt = 0L;
+            return false;
+        }
+        if (this.fallCheck.getValue() && this.wasFall) return false;
+        if (this.hurtCheck.getValue() && !this.wasHurt) return false;
+        if (this.burnCheck.getValue()
+                && mc.thePlayer.isBurning()
+                && Math.abs(mc.thePlayer.motionX) < 0.25
+                && Math.abs(mc.thePlayer.motionZ) < 0.25) {
+            return false;
+        }
+        return true;
+    }
 
     private boolean isInLiquidOrWeb() {
         return mc.thePlayer.isInWater() || mc.thePlayer.isInLava() || ((IAccessorEntity) mc.thePlayer).getIsInWeb();
@@ -127,6 +151,11 @@ public class Velocity extends Module {
         this.dig = false;
     }
 
+    private void resetFireball() {
+        this.fireballStage = 0;
+        this.fireballAt = 0L;
+    }
+
     public Velocity() {
         super("Velocity", "Reduces knockback", Category.COMBAT, 0, false, false);
     }
@@ -135,45 +164,50 @@ public class Velocity extends Module {
     public void onKnockback(KnockbackEvent event) {
         if (!this.isEnabled() || event.isCancelled()) {
             this.pendingExplosion = false;
-            this.allowNext = true;
+            this.wasHurt = false;
+            this.wasFall = false;
             return;
         }
 
-        if (!this.allowNext || !(Boolean) this.fakeCheck.getValue()) {
-            this.allowNext = true;
+        if (!this.velocityChecks()) {
+            if (this.wasFall) {
+                this.wasFall = false;
+            }
+            return;
+        }
+        this.wasHurt = false;
 
-            if (this.pendingExplosion) {
-                this.pendingExplosion = false;
-                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
-                    if (this.explosionHorizontal.getValue() > 0) {
-                        event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
-                        event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+        if (this.pendingExplosion) {
+            this.pendingExplosion = false;
+            if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
+                if (this.explosionHorizontal.getValue() > 0) {
+                    event.setX(event.getX() * (double) this.explosionHorizontal.getValue() / 100.0);
+                    event.setZ(event.getZ() * (double) this.explosionHorizontal.getValue() / 100.0);
+                } else {
+                    event.setX(mc.thePlayer.motionX);
+                    event.setZ(mc.thePlayer.motionZ);
+                }
+                if (this.explosionVertical.getValue() > 0) {
+                    event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                } else {
+                    event.setY(mc.thePlayer.motionY);
+                }
+            }
+        } else {
+            if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
+                boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
+                if (applyThisTime) {
+                    if (this.horizontal.getValue() > 0) {
+                        event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
+                        event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
                     } else {
                         event.setX(mc.thePlayer.motionX);
                         event.setZ(mc.thePlayer.motionZ);
                     }
-                    if (this.explosionVertical.getValue() > 0) {
-                        event.setY(event.getY() * (double) this.explosionVertical.getValue() / 100.0);
+                    if (this.vertical.getValue() > 0) {
+                        event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
                     } else {
                         event.setY(mc.thePlayer.motionY);
-                    }
-                }
-            } else {
-                if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式生效
-                    boolean applyThisTime = this.randomChance.nextDouble() <= (double) this.chance.getValue() / 100.0;
-                    if (applyThisTime) {
-                        if (this.horizontal.getValue() > 0) {
-                            event.setX(event.getX() * (double) this.horizontal.getValue() / 100.0);
-                            event.setZ(event.getZ() * (double) this.horizontal.getValue() / 100.0);
-                        } else {
-                            event.setX(mc.thePlayer.motionX);
-                            event.setZ(mc.thePlayer.motionZ);
-                        }
-                        if (this.vertical.getValue() > 0) {
-                            event.setY(event.getY() * (double) this.vertical.getValue() / 100.0);
-                        } else {
-                            event.setY(mc.thePlayer.motionY);
-                        }
                     }
                 }
             }
@@ -213,6 +247,11 @@ public class Velocity extends Module {
         }
 
         if (event.getType() == EventType.PRE) {
+            // FBjump-check 超時保護
+            if (this.fireballStage > 0 && System.currentTimeMillis() - this.fireballAt > 750L) {
+                this.resetFireball();
+            }
+
             if (mc.thePlayer != null) {
                 this.fallDist = Math.max(this.fallDist, mc.thePlayer.fallDistance);
                 if (this.delayActive) {
@@ -274,6 +313,16 @@ public class Velocity extends Module {
                 }
             } else if (packet instanceof C08PacketPlayerBlockPlacement) {
                 this.block = true;
+                // FBjump-check：偵測自己放火球
+                if (this.fbJumpCheck.getValue()) {
+                    C08PacketPlayerBlockPlacement place = (C08PacketPlayerBlockPlacement) packet;
+                    if (place.getStack() != null
+                            && place.getStack().getItem() == Items.fire_charge
+                            && place.getPlacedBlockDirection() != 255) {
+                        this.fireballStage = 1;
+                        this.fireballAt = System.currentTimeMillis();
+                    }
+                }
             } else if (packet instanceof C07PacketPlayerDigging) {
                 this.block = true;
                 this.dig = true;
@@ -296,7 +345,7 @@ public class Velocity extends Module {
                 // ATTACKREDUCE
                 if (this.mode.getValue() == 2 
                     && !this.pendingExplosion 
-                    && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())) {
+                    && this.velocityChecks()) {
                         this.reduceTicks = this.calculateTicks(packet.getMotionX(), packet.getMotionZ());
                 }
 
@@ -306,7 +355,7 @@ public class Velocity extends Module {
                         && !this.canDelay()
                         && !this.isInLiquidOrWeb()
                         && !this.pendingExplosion
-                        && (!this.allowNext || !(Boolean) this.fakeCheck.getValue())
+                        && this.velocityChecks()
                         && (!longJump.isEnabled() || !longJump.canStartJump())) {
 
                     boolean applyDelayThisTime = this.randomChance.nextDouble() <= (double) this.delayChance.getValue() / 100.0;
@@ -345,6 +394,19 @@ public class Velocity extends Module {
             S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
             if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
                 this.pendingExplosion = true;
+
+                // FBjump-check：自己的火球爆炸 → 標記 stage 2，讓後續 velocity 正常通過
+                if (this.fbJumpCheck.getValue() && this.fireballStage == 1) {
+                    double dx = mc.thePlayer.posX - packet.getX();
+                    double dy = mc.thePlayer.posY - packet.getY();
+                    double dz = mc.thePlayer.posZ - packet.getZ();
+                    double distSq = dx * dx + dy * dy + dz * dz;
+                    if (distSq <= 6.0) {
+                        this.fireballStage = 2;
+                        this.fireballAt = System.currentTimeMillis();
+                    }
+                }
+
                 if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式觸發
                     if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
                         event.setCancelled(true);
@@ -369,10 +431,11 @@ public class Velocity extends Module {
             S19PacketEntityStatus packet = (S19PacketEntityStatus) event.getPacket();
             Entity entity = packet.getEntity(mc.theWorld);
             if (entity != null && entity.equals(mc.thePlayer) && packet.getOpCode() == 2) {
-                if (this.fakeCheck.getValue() && this.fallDist > 3.0F) {
+                if (this.fallCheck.getValue() && this.fallDist > 3.0F) {
                     this.fallDist = 0.0F;
+                    this.wasFall = true;
                 } else {
-                    this.allowNext = false;
+                    this.wasHurt = true;
                 }
             }
         }
@@ -382,21 +445,30 @@ public class Velocity extends Module {
     public void onLoadWorld(LoadWorldEvent event) {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
+        this.wasFall = false;
         fallDist = 0.0F;
+        this.resetFireball();
     }
 
     @Override
     public void onEnabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
+        this.wasFall = false;
         fallDist = 0.0F;
+        this.resetFireball();
     }
 
     @Override
     public void onDisabled() {
         reduceTicks = 0;
         this.resetBadPackets();
+        this.wasHurt = false;
+        this.wasFall = false;
         fallDist = 0.0F;
+        this.resetFireball();
     }
     
     @Override
