@@ -45,8 +45,7 @@ public class Velocity extends Module {
     private int reduceTicks = 0;
     private float fallDist = 0.0F;
     private final Random randomChance = new Random();
-    private int fireballStage = 0;   // 0 = 無, 1 = 已放火球, 2 = 爆炸已確認
-    private long fireballAt = 0L;
+    private long fireballTimer = 0L;
 
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"VANILLA", "DELAY", "ATTACKREDUCE"});
     public final PercentProperty chance = new PercentProperty("chance", 100, () -> this.mode.getValue() == 0);
@@ -85,9 +84,8 @@ public class Velocity extends Module {
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean velocityChecks() {
-        if (this.fbJumpCheck.getValue() && this.fireballStage == 2) {
-            this.fireballStage = 0;
-            this.fireballAt = 0L;
+        // FBjump-check：使用火球後 750ms 內不處理擊退
+        if (this.fbJumpCheck.getValue() && System.currentTimeMillis() < this.fireballTimer) {
             return false;
         }
         if (this.fallCheck.getValue() && this.wasFall) return false;
@@ -149,11 +147,6 @@ public class Velocity extends Module {
         this.block = false;
         this.inventory = false;
         this.dig = false;
-    }
-
-    private void resetFireball() {
-        this.fireballStage = 0;
-        this.fireballAt = 0L;
     }
 
     public Velocity() {
@@ -247,11 +240,6 @@ public class Velocity extends Module {
         }
 
         if (event.getType() == EventType.PRE) {
-            // FBjump-check 超時保護
-            if (this.fireballStage > 0 && System.currentTimeMillis() - this.fireballAt > 750L) {
-                this.resetFireball();
-            }
-
             if (mc.thePlayer != null) {
                 this.fallDist = Math.max(this.fallDist, mc.thePlayer.fallDistance);
                 if (this.delayActive) {
@@ -319,8 +307,7 @@ public class Velocity extends Module {
                     if (place.getStack() != null
                             && place.getStack().getItem() == Items.fire_charge
                             && place.getPlacedBlockDirection() != 255) {
-                        this.fireballStage = 1;
-                        this.fireballAt = System.currentTimeMillis();
+                        this.fireballTimer = System.currentTimeMillis() + 750L;
                     }
                 }
             } else if (packet instanceof C07PacketPlayerDigging) {
@@ -394,19 +381,6 @@ public class Velocity extends Module {
             S27PacketExplosion packet = (S27PacketExplosion) event.getPacket();
             if (packet.func_149149_c() != 0.0F || packet.func_149144_d() != 0.0F || packet.func_149147_e() != 0.0F) {
                 this.pendingExplosion = true;
-
-                // FBjump-check：自己的火球爆炸 → 標記 stage 2，讓後續 velocity 正常通過
-                if (this.fbJumpCheck.getValue() && this.fireballStage == 1) {
-                    double dx = mc.thePlayer.posX - packet.getX();
-                    double dy = mc.thePlayer.posY - packet.getY();
-                    double dz = mc.thePlayer.posZ - packet.getZ();
-                    double distSq = dx * dx + dy * dy + dz * dz;
-                    if (distSq <= 6.0) {
-                        this.fireballStage = 2;
-                        this.fireballAt = System.currentTimeMillis();
-                    }
-                }
-
                 if (this.mode.getValue() == 0) {  // 只在 VANILLA 模式觸發
                     if (this.explosionHorizontal.getValue() == 0 || this.explosionVertical.getValue() == 0) {
                         event.setCancelled(true);
@@ -447,8 +421,8 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        fallDist = 0.0F;
-        this.resetFireball();
+        this.fallDist = 0.0F;
+        this.fireballTimer = 0L;
     }
 
     @Override
@@ -457,8 +431,8 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        fallDist = 0.0F;
-        this.resetFireball();
+        this.fallDist = 0.0F;
+        this.fireballTimer = 0L;
     }
 
     @Override
@@ -467,8 +441,8 @@ public class Velocity extends Module {
         this.resetBadPackets();
         this.wasHurt = false;
         this.wasFall = false;
-        fallDist = 0.0F;
-        this.resetFireball();
+        this.fallDist = 0.0F;
+        this.fireballTimer = 0L;
     }
     
     @Override
