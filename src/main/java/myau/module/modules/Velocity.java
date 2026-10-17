@@ -296,7 +296,7 @@ public class Velocity extends Module {
                     if (place.getStack() != null
                             && place.getStack().getItem() == Items.fire_charge
                             && place.getPlacedBlockDirection() != 255
-                            && mc.thePlayer.rotationPitch >= 51.6F) {
+                            && mc.thePlayer.rotationPitch > 51.5F) {
                         this.fireballTimer = System.currentTimeMillis() + 750L;
                     }
                 }
