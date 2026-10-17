@@ -300,8 +300,8 @@ public class Velocity extends Module {
             return;
         }
         if (event.getType() == EventType.SEND) {
+            Packet<?> packet = event.getPacket();
             if (this.mode.getValue() == 2) {
-                Packet<?> packet = event.getPacket();
                 if (packet instanceof C09PacketHeldItemChange) {
                     this.slot = true;
                 } else if (packet instanceof C0APacketAnimation) {
