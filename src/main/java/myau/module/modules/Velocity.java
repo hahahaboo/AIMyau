@@ -295,7 +295,8 @@ public class Velocity extends Module {
                     C08PacketPlayerBlockPlacement place = (C08PacketPlayerBlockPlacement) packet;
                     if (place.getStack() != null
                             && place.getStack().getItem() == Items.fire_charge
-                            && place.getPlacedBlockDirection() != 255) {
+                            && place.getPlacedBlockDirection() != 255
+                            && mc.thePlayer.rotationPitch >= 51.6F) {
                         this.fireballTimer = System.currentTimeMillis() + 750L;
                     }
                 }
