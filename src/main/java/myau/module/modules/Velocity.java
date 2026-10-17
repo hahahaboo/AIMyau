@@ -299,37 +299,38 @@ public class Velocity extends Module {
         if (!this.isEnabled() || event.isCancelled()) {
             return;
         }
-
-        if (this.mode.getValue() == 2 && event.getType() == EventType.SEND) {
-            Packet<?> packet = event.getPacket();
-            if (packet instanceof C09PacketHeldItemChange) {
-                this.slot = true;
-            } else if (packet instanceof C0APacketAnimation) {
-                this.swing = true;
-            } else if (packet instanceof C02PacketUseEntity) {
-                C02PacketUseEntity useEntity = (C02PacketUseEntity) packet;
-                if (useEntity.getAction() == C02PacketUseEntity.Action.ATTACK) {
-                    this.attack = true;
+        if (event.getType() == EventType.SEND) {
+            if (this.mode.getValue() == 2) {
+                Packet<?> packet = event.getPacket();
+                if (packet instanceof C09PacketHeldItemChange) {
+                    this.slot = true;
+                } else if (packet instanceof C0APacketAnimation) {
+                    this.swing = true;
+                } else if (packet instanceof C02PacketUseEntity) {
+                    C02PacketUseEntity useEntity = (C02PacketUseEntity) packet;
+                    if (useEntity.getAction() == C02PacketUseEntity.Action.ATTACK) {
+                        this.attack = true;
+                    }
+                } else if (packet instanceof C08PacketPlayerBlockPlacement) {
+                    this.block = true;
+                } else if (packet instanceof C07PacketPlayerDigging) {
+                    this.block = true;
+                    this.dig = true;
+                } else if (packet instanceof C0DPacketCloseWindow ||
+                        packet instanceof C0EPacketClickWindow ||
+                        (packet instanceof C16PacketClientStatus &&
+                        ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
+                    this.inventory = true;
+                } else if (packet instanceof C03PacketPlayer) {
+                    this.resetBadPackets();
                 }
-            } else if (packet instanceof C08PacketPlayerBlockPlacement) {
-                this.block = true;
-            } else if (packet instanceof C07PacketPlayerDigging) {
-                this.block = true;
-                this.dig = true;
-            } else if (packet instanceof C0DPacketCloseWindow ||
-                    packet instanceof C0EPacketClickWindow ||
-                    (packet instanceof C16PacketClientStatus &&
-                    ((C16PacketClientStatus) packet).getStatus() == C16PacketClientStatus.EnumState.OPEN_INVENTORY_ACHIEVEMENT)) {
-                this.inventory = true;
-            } else if (packet instanceof C03PacketPlayer) {
-                this.resetBadPackets();
             }
             if (packet instanceof C08PacketPlayerBlockPlacement) {
                 // FBjump-check：偵測自己放火球
                 if (this.fbJumpCheck.getValue()) {
                     C08PacketPlayerBlockPlacement place = (C08PacketPlayerBlockPlacement) packet;
                     if (place.getStack() != null
-                            && place.getStack().getItem() == Items.fire_charge
+                            && place.getStack().getItem() == Items.fire_charge                                
                             && place.getPlacedBlockDirection() != 255) {
                         this.fireballStage = 1;
                         this.fireballAt = System.currentTimeMillis();
