@@ -84,18 +84,12 @@ public class Velocity extends Module {
     public final BooleanProperty debugLog = new BooleanProperty("debug-log", false);
 
     private boolean velocityChecks() {
-        // FBjump-check：使用火球後 750ms 內不處理擊退
         if (this.fbJumpCheck.getValue() && System.currentTimeMillis() < this.fireballTimer) {
             return false;
         }
         if (this.fallCheck.getValue() && this.wasFall) return false;
         if (this.hurtCheck.getValue() && !this.wasHurt) return false;
-        if (this.burnCheck.getValue()
-                && mc.thePlayer.isBurning()
-                && Math.abs(mc.thePlayer.motionX) < 0.25
-                && Math.abs(mc.thePlayer.motionZ) < 0.25) {
-            return false;
-        }
+        if (this.burnCheck.getValue() && mc.thePlayer.isBurning()) return false;
         return true;
     }
 
