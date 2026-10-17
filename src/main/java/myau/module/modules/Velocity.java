@@ -313,16 +313,6 @@ public class Velocity extends Module {
                 }
             } else if (packet instanceof C08PacketPlayerBlockPlacement) {
                 this.block = true;
-                // FBjump-check：偵測自己放火球
-                if (this.fbJumpCheck.getValue()) {
-                    C08PacketPlayerBlockPlacement place = (C08PacketPlayerBlockPlacement) packet;
-                    if (place.getStack() != null
-                            && place.getStack().getItem() == Items.fire_charge
-                            && place.getPlacedBlockDirection() != 255) {
-                        this.fireballStage = 1;
-                        this.fireballAt = System.currentTimeMillis();
-                    }
-                }
             } else if (packet instanceof C07PacketPlayerDigging) {
                 this.block = true;
                 this.dig = true;
@@ -333,6 +323,18 @@ public class Velocity extends Module {
                 this.inventory = true;
             } else if (packet instanceof C03PacketPlayer) {
                 this.resetBadPackets();
+            }
+            if (packet instanceof C08PacketPlayerBlockPlacement) {
+                // FBjump-check：偵測自己放火球
+                if (this.fbJumpCheck.getValue()) {
+                    C08PacketPlayerBlockPlacement place = (C08PacketPlayerBlockPlacement) packet;
+                    if (place.getStack() != null
+                            && place.getStack().getItem() == Items.fire_charge
+                            && place.getPlacedBlockDirection() != 255) {
+                        this.fireballStage = 1;
+                        this.fireballAt = System.currentTimeMillis();
+                    }
+                }
             }
         }
 
