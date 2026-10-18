@@ -37,13 +37,19 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayDeque;
 
 /**
- * Port of Slinky BacktrackModule to AIMyau (bt branch).
- * - TimingAccess-style server/client positions via IAccessorEntityOtherPlayerMP
- * - Packet pipeline aligned: mode3 pass-through, mode1 hold by age, sequence/offset
+ * Slinky BacktrackModule logic on AIMyau.
+ *
+ * Packet modes (Slinky PacketPipeline):
+ *   0 = pass (or queue only to preserve order behind held packets)
+ *   1 = hold while active && ageMs <= delay
+ *   3 = immediate process, never hold (S06 / S29 / target S19)
+ * Mode 2 (discard) is never used.
+ *
+ * Stopping active does NOT drop packets — queue is always drained via processPacket
+ * (same idea as pipeline poll after mode is no longer 1).
  */
 public class BackTrack extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -51,7 +57,7 @@ public class BackTrack extends Module {
     private static final long POSITION_INTERP_MS = 80L;
     private static final double POS_EPS = 1.0E-6;
 
-    // ========== Slinky-aligned properties ==========
+    // ----- Slinky-aligned properties -----
     public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 12.0F);
     public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 5.0F, 0.0F, 12.0F);
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 10.0F, 1000.0F);
@@ -63,28 +69,32 @@ public class BackTrack extends Module {
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
     public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", false);
-    public final ColorProperty indicatorColor = new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
-    public final FloatProperty indicatorLineWidth = new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorFilled = new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorRotate = new BooleanProperty("indicator-rotate", true, () -> this.renderRemotePos.getValue());
+    public final ColorProperty indicatorColor =
+            new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
+    public final FloatProperty indicatorLineWidth =
+            new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorFilled =
+            new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorRotate =
+            new BooleanProperty("indicator-rotate", true, () -> this.renderRemotePos.getValue());
 
-    // ========== Runtime ==========
-    private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
+    // ----- runtime (Slinky fields + local pipeline queue) -----
+    private final ArrayDeque<TimedPacket> inbound = new ArrayDeque<TimedPacket>();
 
     private boolean active;
     private boolean absolute;
     private boolean hasYaw;
     private boolean render;
+    private boolean disableOnHitFlag;
 
-    private int targetId = -1;
-    private int selfId = -1;
+    private int targetId;
+    private int selfId;
     private int cooldownLeft;
     private int interpolation;
-
     private int delayedSequence;
     private int releasedSequence;
     private int teleportSequence;
-    private int globalPacketSequence;
+    private int packetSequenceCounter;
 
     private long delayMs;
 
@@ -106,7 +116,7 @@ public class BackTrack extends Module {
     private long positionInterpStartMs;
 
     public BackTrack() {
-        super("BackTrack", "Uses lag to make players easier to hit. (Slinky port)", Category.COMBAT, 0, false, false);
+        super("BackTrack", "Uses lag to make players easier to hit. (Slinky logic)", Category.COMBAT, 0, false, false);
     }
 
     @Override
@@ -116,16 +126,19 @@ public class BackTrack extends Module {
 
     @Override
     public void onEnabled() {
-        this.clear();
+        // Slinky clear() only resets state — any leftover must be drained, never dropped
+        this.drainInbound();
+        this.resetState();
     }
 
     @Override
     public void onDisabled() {
-        this.releaseAll();
-        this.clear();
+        // Like pipeline drain when hold ends: always process, never clear-drop
+        this.drainInbound();
+        this.resetState();
     }
 
-    // ===================== Attack → target =====================
+    // ===================== Target (AttackEvent approximates combat target) =====================
     @EventTarget
     public void onAttack(AttackEvent event) {
         if (!this.isEnabled() || mc.isSingleplayer() || mc.thePlayer == null) {
@@ -139,7 +152,8 @@ public class BackTrack extends Module {
             return;
         }
         if (this.target != null && this.target != attacked) {
-            this.releaseAll();
+            // target swap: release held packets first (no drop)
+            this.drainInbound();
         }
         this.target = attacked;
         this.targetId = attacked.getEntityId();
@@ -147,22 +161,23 @@ public class BackTrack extends Module {
         this.lastAttackTick = mc.thePlayer.ticksExisted;
     }
 
-    // ===================== Tick (Slinky type 18) =====================
+    // ===================== Tick = Slinky event type 18 =====================
     @EventTarget
     public void onTick(TickEvent event) {
         if (event.getType() != EventType.PRE || !this.isEnabled()) {
             return;
         }
         if (mc.isSingleplayer() || mc.thePlayer == null || mc.theWorld == null) {
-            this.releaseAll();
+            this.deactivateAndDrain();
             return;
         }
         if (mc.thePlayer.ticksExisted < WARMUP_TICKS) {
-            this.releaseAll();
+            this.deactivateAndDrain();
             return;
         }
 
-        this.processDelayedPackets();
+        // ~ PacketPipeline.poll
+        this.pollInbound();
 
         if (this.cooldownLeft > 0) {
             this.cooldownLeft--;
@@ -175,6 +190,7 @@ public class BackTrack extends Module {
         float low = Math.min(this.targetDistMin.getValue(), this.targetDistMax.getValue());
         float high = Math.max(this.targetDistMin.getValue(), this.targetDistMax.getValue());
 
+        // Slinky allowed checks (+ optional AIMyau bot/team filters)
         boolean allowed = this.isInputReady()
                 && (!this.requireMousePressed.getValue() || mc.gameSettings.keyBindAttack.isKeyDown())
                 && (!this.requireWeapon.getValue() || ItemUtil.isHoldingSword())
@@ -187,10 +203,12 @@ public class BackTrack extends Module {
         if (!allowed) {
             if (this.active) {
                 this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
-                this.releaseAll();
+                // Slinky: active=false → poll no longer mode1 → packets release
+                this.deactivateAndDrain();
+            } else {
+                this.active = false;
+                this.render = false;
             }
-            this.active = false;
-            this.render = false;
             return;
         }
 
@@ -200,12 +218,13 @@ public class BackTrack extends Module {
         int oldId = this.targetId;
 
         this.delayMs = (long) this.delay.getValue().floatValue();
+        this.disableOnHitFlag = this.disableOnHit.getValue();
         this.targetId = t.getEntityId();
         this.selfId = mc.thePlayer.getEntityId();
         this.target = t;
 
         if (!this.active) {
-            // Slinky: only start when server is meaningfully farther than client pos
+            // Slinky: only start if server is farther from self than client pos by > 0.01
             if (!(0.01 < distance(self, server) - distance(self, client))) {
                 this.render = false;
             } else {
@@ -231,12 +250,12 @@ public class BackTrack extends Module {
                 this.active = false;
                 this.render = false;
                 this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
-                this.releaseAll();
+                this.drainInbound();
             }
         }
     }
 
-    // ===================== Packet (Slinky packet()) =====================
+    // ===================== Packet = Slinky event type 2 + PacketPipeline.accept =====================
     @EventTarget(Priority.LOW)
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.RECEIVE || mc.isSingleplayer()) {
@@ -245,55 +264,65 @@ public class BackTrack extends Module {
         if (mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
+
+        // poll first (age grows for queued entries)
+        this.pollInbound();
+
         if (mc.thePlayer.ticksExisted < WARMUP_TICKS) {
-            this.clearPending();
-            return;
-        }
-
-        this.processDelayedPackets();
-
-        if (!this.active) {
+            // Slinky has no clear-drop; drain any hold
+            this.deactivateAndDrain();
             return;
         }
 
         Packet<?> packet = event.getPacket();
         long now = System.currentTimeMillis();
-        int seq = ++this.globalPacketSequence;
+        int sequence = ++this.packetSequenceCounter;
 
-        // ----- mode 3: skip delay, still process (do NOT cancel) -----
-        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+        // Not active → mode 0: do not intercept (Slinky packet() returns immediately)
+        if (!this.active) {
+            // Still preserve order: if something is in queue, queue this too (mode 0 + non-empty queue)
+            if (!this.inbound.isEmpty()) {
+                event.setCancelled(true);
+                this.inbound.addLast(new TimedPacket(packet, now, sequence));
+            }
             return;
+        }
+
+        // ----- mode 3: immediate, never hold -----
+        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+            return; // do not cancel
         }
         if (packet instanceof S19PacketEntityStatus) {
             try {
                 Entity e = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
                 if (e != null && e.getEntityId() == this.targetId) {
-                    return;
+                    return; // mode 3 for target status only
                 }
             } catch (Throwable ignored) {
             }
         }
 
-        // ----- disable_on_hit / rubberband -----
+        // ----- Slinky special: may clear active, packet itself is not mode2 -----
         if (packet instanceof S12PacketEntityVelocity) {
-            if (this.disableOnHit.getValue()
+            if (this.disableOnHitFlag
                     && ((S12PacketEntityVelocity) packet).getEntityID() == this.selfId) {
                 this.active = false;
                 this.render = false;
-                this.releaseAll();
-                return;
+                // after active=false, this packet and queue behave as mode 0 → drain then let this through
+                this.drainInbound();
+                return; // do not cancel current packet
             }
         }
         if (packet instanceof S08PacketPlayerPosLook) {
             this.active = false;
             this.render = false;
-            this.releaseAll();
+            this.drainInbound();
             return;
         }
         if (packet instanceof S40PacketDisconnect) {
             this.active = false;
             this.target = null;
-            this.releaseAll();
+            this.drainInbound();
             return;
         }
         if (packet instanceof S13PacketDestroyEntities) {
@@ -301,43 +330,123 @@ public class BackTrack extends Module {
                 if (id == this.targetId) {
                     this.active = false;
                     this.target = null;
-                    this.releaseAll();
+                    this.drainInbound();
                     return;
                 }
             }
         }
 
-        // Fresh packet at channelRead HEAD ≈ age 0
+        // ----- accept with age 0 -----
+        // active && age<=delay → mode 1 (hold)
+        // Slinky also holds when mode 0 but queue non-empty; with age 0 and active always mode1
         long ageMs = 0L;
+        int mode = this.classify(packet, ageMs, sequence);
+
+        if (mode == 1 || (mode == 0 && !this.inbound.isEmpty())) {
+            event.setCancelled(true);
+            this.inbound.addLast(new TimedPacket(packet, now, sequence));
+            if (mode == 1 && sequence > this.delayedSequence) {
+                this.delayedSequence = sequence;
+                this.publish(packet, false, sequence);
+            }
+        }
+        // mode 0 + empty queue, or mode 3: leave uncancelled → vanilla process
+    }
+
+    /**
+     * Mirrors Slinky BacktrackModule.packet() dispatchMode assignment for a given age.
+     */
+    private int classify(Packet<?> packet, long ageMs, int sequence) {
+        if (!this.active) {
+            return 0;
+        }
+
+        // mode 3 cases already returned in onPacket before classify for accept;
+        // still needed when polling queued entries
+        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+            return 3;
+        }
+        if (packet instanceof S19PacketEntityStatus) {
+            try {
+                Entity e = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
+                if (e != null && e.getEntityId() == this.targetId) {
+                    return 3;
+                }
+            } catch (Throwable ignored) {
+            }
+        }
 
         if (ageMs <= this.delayMs) {
-            // mode 1: hold
-            event.setCancelled(true);
-            this.packetQueue.add(new TimedPacket(packet, now, seq));
-            if (seq > this.delayedSequence) {
-                this.delayedSequence = seq;
-                this.publish(packet, false, seq);
+            // mode 1 hold path also runs publish on newer sequence at accept time
+            return 1;
+        }
+
+        // age > delay → mode 0 + reconcile publish (Slinky else branch)
+        if (sequence > this.releasedSequence) {
+            this.publish(packet, true, sequence);
+            this.releasedSequence = sequence;
+        }
+        return 0;
+    }
+
+    /**
+     * Slinky PacketPipeline.poll: release from head while mode != 1.
+     */
+    private void pollInbound() {
+        long now = System.currentTimeMillis();
+        while (!this.inbound.isEmpty()) {
+            TimedPacket head = this.inbound.peekFirst();
+            if (head == null) {
+                break;
             }
-        } else {
-            // age > delay: process + reconcile
-            if (seq > this.releasedSequence) {
-                this.publish(packet, true, seq);
-                this.releasedSequence = seq;
+            long age = now - head.receiveAt;
+            int mode = this.classify(head.packet, age, head.sequence);
+            if (mode == 1) {
+                break; // keep holding head and everything behind
             }
+            // mode 0 or 3 → deliver
+            this.inbound.removeFirst();
+            processPacket(head.packet);
         }
     }
 
     /**
-     * Slinky publish(e, reconcile) with sequence / teleportSequence guard.
+     * Force-deliver entire queue (active ended / disable / world issues).
+     * Equivalent to poll after active=false (all mode 0).
+     * NEVER discard without process.
      */
-    private boolean publish(Packet<?> packet, boolean reconcile, int packetSequence) {
+    private void drainInbound() {
+        while (!this.inbound.isEmpty()) {
+            TimedPacket timed = this.inbound.pollFirst();
+            if (timed == null) {
+                continue;
+            }
+            // reconcile as packets leave after hold (age treated as past delay)
+            if (timed.sequence > this.releasedSequence) {
+                this.publish(timed.packet, true, timed.sequence);
+                this.releasedSequence = timed.sequence;
+            }
+            processPacket(timed.packet);
+        }
+    }
+
+    private void deactivateAndDrain() {
+        this.active = false;
+        this.render = false;
+        this.drainInbound();
+    }
+
+    /**
+     * Slinky publish(e, reconcile) with teleportSequence guard.
+     */
+    private void publish(Packet<?> packet, boolean reconcile, int packetSequence) {
         if (reconcile && this.teleportSequence > packetSequence) {
-            return false;
+            return;
         }
 
         boolean relative = packet instanceof S14PacketEntity;
         if (!relative && !(packet instanceof S18PacketEntityTeleport)) {
-            return false;
+            return;
         }
 
         S14PacketEntity move = relative ? (S14PacketEntity) packet : null;
@@ -347,14 +456,14 @@ public class BackTrack extends Module {
         if (relative) {
             Entity ent = move.getEntity(mc.theWorld);
             if (ent == null) {
-                return false;
+                return;
             }
             id = ent.getEntityId();
         } else {
             id = teleport.getEntityId();
         }
         if (id != this.targetId) {
-            return false;
+            return;
         }
 
         Vec3 value = relative
@@ -376,7 +485,7 @@ public class BackTrack extends Module {
             if (relative) {
                 this.offset = this.offset.add(value);
                 if (!move.func_149060_h()) {
-                    return true;
+                    return;
                 }
             } else {
                 this.offset = value;
@@ -388,10 +497,9 @@ public class BackTrack extends Module {
                 this.teleportSequence = packetSequence;
             }
         }
-        return true;
     }
 
-    // ===================== Render (Slinky type 6) =====================
+    // ===================== Render = Slinky type 6 =====================
     @EventTarget
     public void onRender3D(Render3DEvent event) {
         if (!this.isEnabled() || mc.isSingleplayer() || !this.render || !this.renderRemotePos.getValue()) {
@@ -419,7 +527,7 @@ public class BackTrack extends Module {
                 this.indicatorFilled.getValue());
     }
 
-    // ===================== Helpers =====================
+    // ===================== helpers =====================
 
     public static double metric(Vec3 self, Vec3 server, Vec3 delayed) {
         return distance(self, delayed) - distance(self, server);
@@ -481,46 +589,10 @@ public class BackTrack extends Module {
         return !(d < (double) (low * low)) && !(d > (double) (high * high));
     }
 
-    private void processDelayedPackets() {
-        long now = System.currentTimeMillis();
-        while (!this.packetQueue.isEmpty()) {
-            TimedPacket timed = this.packetQueue.peek();
-            if (timed == null || timed.ageMs(now) <= this.delayMs) {
-                break;
-            }
-            this.packetQueue.poll();
-            if (timed.sequence > this.releasedSequence) {
-                this.publish(timed.packet, true, timed.sequence);
-                this.releasedSequence = timed.sequence;
-            }
-            processPacket(timed.packet);
-        }
-    }
-
-    private void releaseAll() {
-        while (!this.packetQueue.isEmpty()) {
-            TimedPacket timed = this.packetQueue.poll();
-            if (timed == null) {
-                continue;
-            }
-            if (timed.sequence > this.releasedSequence) {
-                this.publish(timed.packet, true, timed.sequence);
-                this.releasedSequence = timed.sequence;
-            }
-            processPacket(timed.packet);
-        }
-    }
-
-    private void clearPending() {
-        this.packetQueue.clear();
-    }
-
-    private void clear() {
-        this.clearPending();
-        this.active = this.absolute = this.hasYaw = this.render = false;
-        this.targetId = this.selfId = -1;
-        this.cooldownLeft = this.interpolation = 0;
-        this.delayedSequence = this.releasedSequence = this.teleportSequence = this.globalPacketSequence = 0;
+    private void resetState() {
+        this.active = this.absolute = this.hasYaw = this.render = this.disableOnHitFlag = false;
+        this.targetId = this.selfId = this.cooldownLeft = this.interpolation = 0;
+        this.delayedSequence = this.releasedSequence = this.teleportSequence = this.packetSequenceCounter = 0;
         this.delayMs = 0L;
         this.offset = this.previous = this.current = this.desired = zero();
         this.delayedYaw = this.previousYaw = this.currentYaw = this.desiredYaw = 0.0F;
@@ -537,7 +609,9 @@ public class BackTrack extends Module {
         try {
             ((Packet<net.minecraft.network.play.INetHandlerPlayClient>) packet)
                     .processPacket(mc.getNetHandler());
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            // Slinky uses fireChannelRead (no swallow). Log if you have a logger.
+            t.printStackTrace();
         }
     }
 
@@ -563,14 +637,12 @@ public class BackTrack extends Module {
         RenderUtil.disableRenderState();
     }
 
-    // ----- TimingAccess-style positions -----
-
-    /** Slinky TimingAccess.position */
+    /** TimingAccess.position */
     private static Vec3 clientPos(Entity e) {
         return new Vec3(e.posX, e.posY, e.posZ);
     }
 
-    /** Slinky TimingAccess.server */
+    /** TimingAccess.server */
     private static Vec3 serverPos(Entity e) {
         if (e instanceof EntityOtherPlayerMP) {
             IAccessorEntityOtherPlayerMP a = (IAccessorEntityOtherPlayerMP) e;
@@ -619,7 +691,6 @@ public class BackTrack extends Module {
                 from.zCoord + (to.zCoord - from.zCoord) * t);
     }
 
-    // ----- public API -----
     public boolean isRenderingServerPositionFor(EntityLivingBase entity) {
         return this.active && this.render && this.renderRemotePos.getValue()
                 && this.target == entity && this.delayMs > 0L;
@@ -642,10 +713,6 @@ public class BackTrack extends Module {
             this.packet = packet;
             this.receiveAt = receiveAt;
             this.sequence = sequence;
-        }
-
-        long ageMs(long now) {
-            return now - this.receiveAt;
         }
     }
 }
