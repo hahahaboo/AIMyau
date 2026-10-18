@@ -7,6 +7,7 @@ import myau.events.AttackEvent;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.mixin.IAccessorEntityOtherPlayerMP;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
 import myau.module.Module;
@@ -17,6 +18,7 @@ import myau.util.ItemUtil;
 import myau.util.RenderUtil;
 import myau.util.TeamUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -39,9 +41,9 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Port of Slinky BacktrackModule to AIMyau.
- * Property keys/semantics mirror Slinky MetadataCatalog "Backtrack".
- * Packet age/sequence approximated with timed queue (no SemanticEvent).
+ * Port of Slinky BacktrackModule to AIMyau (bt branch).
+ * - TimingAccess-style server/client positions via IAccessorEntityOtherPlayerMP
+ * - Packet pipeline aligned: mode3 pass-through, mode1 hold by age, sequence/offset
  */
 public class BackTrack extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -50,47 +52,23 @@ public class BackTrack extends Module {
     private static final double POS_EPS = 1.0E-6;
 
     // ========== Slinky-aligned properties ==========
-    /** range("target_dist") → min/max，單位 blocks，預設 2–5，範圍 0–12 */
     public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 12.0F);
     public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 5.0F, 0.0F, 12.0F);
-
-    /** number("delay") ms，預設 100，範圍 10–1000 */
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 10.0F, 1000.0F);
-
-    /** number("max_hurt_time")：與 target.hurtTime 比（tick），預設 10，範圍 1–10 */
     public final FloatProperty maxHurtTime = new FloatProperty("max-hurt-time", 10.0F, 1.0F, 10.0F);
-
-    /** number("cooldown")：停用後冷卻 tick，預設 5，範圍 0–100 */
     public final FloatProperty cooldown = new FloatProperty("cooldown", 5.0F, 0.0F, 100.0F);
-
-    /** flag("disable_on_hit") */
     public final BooleanProperty disableOnHit = new BooleanProperty("disable-on-hit", false);
-
-    /** flag("render_remote_pos") */
-    public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", false);
-
-    public final ColorProperty indicatorColor =
-            new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
-    public final FloatProperty indicatorLineWidth =
-            new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorFilled =
-            new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorRotate =
-            new BooleanProperty("indicator-rotate", true, () -> this.renderRemotePos.getValue());
-
-    /** flag("require_mouse_pressed") */
     public final BooleanProperty requireMousePressed = new BooleanProperty("require-mouse-pressed", false);
-
-    /** flag("require_weapon") */
     public final BooleanProperty requireWeapon = new BooleanProperty("require-weapon", false);
-    
-    /** 可選：排除 bot（AIMyau TeamUtil，非 Slinky 原版） */
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
-
-    /** 可選：排除隊友 */
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
+    public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", false);
+    public final ColorProperty indicatorColor = new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
+    public final FloatProperty indicatorLineWidth = new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorFilled = new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorRotate = new BooleanProperty("indicator-rotate", true, () -> this.renderRemotePos.getValue());
 
-    // ========== Runtime (Slinky fields) ==========
+    // ========== Runtime ==========
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
 
     private boolean active;
@@ -103,8 +81,12 @@ public class BackTrack extends Module {
     private int cooldownLeft;
     private int interpolation;
 
+    private int delayedSequence;
+    private int releasedSequence;
+    private int teleportSequence;
+    private int globalPacketSequence;
+
     private long delayMs;
-    private long lastQueuedReleaseAt;
 
     private Vec3 offset = zero();
     private Vec3 previous = zero();
@@ -143,7 +125,7 @@ public class BackTrack extends Module {
         this.clear();
     }
 
-    // ===================== Attack → target（近似 GameHooks.target） =====================
+    // ===================== Attack → target =====================
     @EventTarget
     public void onAttack(AttackEvent event) {
         if (!this.isEnabled() || mc.isSingleplayer() || mc.thePlayer == null) {
@@ -153,13 +135,7 @@ public class BackTrack extends Module {
             return;
         }
         EntityPlayer attacked = (EntityPlayer) event.getTarget();
-        if (TeamUtil.isFriend(attacked)) {
-            return;
-        }
-        if (this.ignoreBots.getValue() && TeamUtil.isBot(attacked)) {
-            return;
-        }
-        if (this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(attacked)) {
+        if (!this.isValidCombatTarget(attacked)) {
             return;
         }
         if (this.target != null && this.target != attacked) {
@@ -171,7 +147,7 @@ public class BackTrack extends Module {
         this.lastAttackTick = mc.thePlayer.ticksExisted;
     }
 
-    // ===================== Tick（Slinky type 18） =====================
+    // ===================== Tick (Slinky type 18) =====================
     @EventTarget
     public void onTick(TickEvent event) {
         if (event.getType() != EventType.PRE || !this.isEnabled()) {
@@ -188,7 +164,6 @@ public class BackTrack extends Module {
 
         this.processDelayedPackets();
 
-        // cooldown tick（Slinky: if cooldown <= 0 || --cooldown == 0）
         if (this.cooldownLeft > 0) {
             this.cooldownLeft--;
             if (this.cooldownLeft > 0) {
@@ -205,20 +180,23 @@ public class BackTrack extends Module {
                 && (!this.requireWeapon.getValue() || ItemUtil.isHoldingSword())
                 && (mc.thePlayer.ticksExisted - this.lastAttackTick <= 20)
                 && t != null
+                && this.isValidCombatTarget(t)
                 && !((float) t.hurtTime > this.maxHurtTime.getValue())
                 && this.inDistanceSq(t, low, high);
 
         if (!allowed) {
             if (this.active) {
                 this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
+                this.releaseAll();
             }
             this.active = false;
             this.render = false;
             return;
         }
 
-        Vec3 self = pos(mc.thePlayer);
-        Vec3 server = pos(t);
+        Vec3 self = clientPos(mc.thePlayer);
+        Vec3 server = serverPos(t);
+        Vec3 client = clientPos(t);
         int oldId = this.targetId;
 
         this.delayMs = (long) this.delay.getValue().floatValue();
@@ -227,33 +205,23 @@ public class BackTrack extends Module {
         this.target = t;
 
         if (!this.active) {
-            // Slinky: 僅當 server 比 client 位置「更遠」一點才啟動
-            // 0.01 < dist(self, server) - dist(self, clientPos)
-            double clientAdvantage = distance(self, server) - distance(self, pos(t));
-            // clientPos ≈ entity 當前渲染位置；此處與 server 相同時不會啟動
-            // 改用：若與自己的距離在 range 內且剛攻擊過，允許啟動；
-            // 更貼 Slinky：比較「尚未 delay 的位置」——首次用 server 作為 baseline
-            if (!(0.01 < clientAdvantage)) {
-                // 首次沒有 delayed，用「是否在距離內且最近攻擊」啟動
-                this.active = true;
-                this.offset = zero();
-                this.absolute = false;
-                this.hasYaw = false;
-                this.previous = this.current = this.desired = server;
-                this.previousYaw = this.currentYaw = this.desiredYaw = t.rotationYaw;
-                this.render = this.renderRemotePos.getValue();
+            // Slinky: only start when server is meaningfully farther than client pos
+            if (!(0.01 < distance(self, server) - distance(self, client))) {
+                this.render = false;
             } else {
                 this.active = true;
                 this.offset = zero();
                 this.absolute = false;
                 this.hasYaw = false;
-                this.previous = this.current = this.desired = server;
+                this.previous = this.current = this.desired = client;
                 this.previousYaw = this.currentYaw = this.desiredYaw = t.rotationYaw;
                 this.render = this.renderRemotePos.getValue();
+                this.delayedSequence = 0;
+                this.releasedSequence = 0;
+                this.teleportSequence = 0;
             }
         } else {
             Vec3 candidate = this.absolute ? this.offset : this.offset.add(server);
-            // Slinky: if (!(-0.05 > metric(...)) && oldId == targetId) update; else deactivate
             if (!(-0.05 > metric(self, server, candidate)) && oldId == this.targetId) {
                 this.updatePosition(candidate, this.hasYaw ? this.delayedYaw : t.rotationYaw);
             } else {
@@ -268,7 +236,7 @@ public class BackTrack extends Module {
         }
     }
 
-    // ===================== Packet（Slinky type 2 / packet()） =====================
+    // ===================== Packet (Slinky packet()) =====================
     @EventTarget(Priority.LOW)
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.RECEIVE || mc.isSingleplayer()) {
@@ -282,32 +250,31 @@ public class BackTrack extends Module {
             return;
         }
 
-        Packet<?> packet = event.getPacket();
         this.processDelayedPackets();
 
         if (!this.active) {
             return;
         }
 
-        // Slinky: S19 for target → dispatchMode 3（丟棄不處理）
+        Packet<?> packet = event.getPacket();
+        long now = System.currentTimeMillis();
+        int seq = ++this.globalPacketSequence;
+
+        // ----- mode 3: skip delay, still process (do NOT cancel) -----
+        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+            return;
+        }
         if (packet instanceof S19PacketEntityStatus) {
             try {
                 Entity e = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
                 if (e != null && e.getEntityId() == this.targetId) {
-                    event.setCancelled(true);
                     return;
                 }
             } catch (Throwable ignored) {
             }
         }
 
-        // Slinky: S06 / S29 → dispatchMode 3
-        if (packet instanceof S06PacketUpdateHealth || packet instanceof S29PacketSoundEffect) {
-            event.setCancelled(true);
-            return;
-        }
-
-        // Slinky: disable_on_hit + self velocity
+        // ----- disable_on_hit / rubberband -----
         if (packet instanceof S12PacketEntityVelocity) {
             if (this.disableOnHit.getValue()
                     && ((S12PacketEntityVelocity) packet).getEntityID() == this.selfId) {
@@ -317,22 +284,18 @@ public class BackTrack extends Module {
                 return;
             }
         }
-
-        // Slinky: S08 → active = false
         if (packet instanceof S08PacketPlayerPosLook) {
             this.active = false;
             this.render = false;
             this.releaseAll();
             return;
         }
-
         if (packet instanceof S40PacketDisconnect) {
             this.active = false;
-            this.releaseAll();
             this.target = null;
+            this.releaseAll();
             return;
         }
-
         if (packet instanceof S13PacketDestroyEntities) {
             for (int id : ((S13PacketDestroyEntities) packet).getEntityIDs()) {
                 if (id == this.targetId) {
@@ -344,29 +307,39 @@ public class BackTrack extends Module {
             }
         }
 
-        // 目標移動封包：更新 offset，並 delay（近似 packetAge <= delay → hold）
-        boolean isMove = packet instanceof S14PacketEntity || packet instanceof S18PacketEntityTeleport;
-        if (isMove) {
-            if (this.publish(packet, false)) {
-                this.queuePacket(packet);
-                event.setCancelled(true);
-                return;
-            }
-        }
+        // Fresh packet at channelRead HEAD ≈ age 0
+        long ageMs = 0L;
 
-        // 其餘封包：若佇列非空，一併 delay 以保持順序
-        if (!this.packetQueue.isEmpty()) {
-            this.queuePacket(packet);
+        if (ageMs <= this.delayMs) {
+            // mode 1: hold
             event.setCancelled(true);
+            this.packetQueue.add(new TimedPacket(packet, now, seq));
+            if (seq > this.delayedSequence) {
+                this.delayedSequence = seq;
+                this.publish(packet, false, seq);
+            }
+        } else {
+            // age > delay: process + reconcile
+            if (seq > this.releasedSequence) {
+                this.publish(packet, true, seq);
+                this.releasedSequence = seq;
+            }
         }
     }
 
     /**
-     * Slinky publish(e, reconcile)
-     * @return true if packet belonged to target (should be delayed)
+     * Slinky publish(e, reconcile) with sequence / teleportSequence guard.
      */
-    private boolean publish(Packet<?> packet, boolean reconcile) {
+    private boolean publish(Packet<?> packet, boolean reconcile, int packetSequence) {
+        if (reconcile && this.teleportSequence > packetSequence) {
+            return false;
+        }
+
         boolean relative = packet instanceof S14PacketEntity;
+        if (!relative && !(packet instanceof S18PacketEntityTeleport)) {
+            return false;
+        }
+
         S14PacketEntity move = relative ? (S14PacketEntity) packet : null;
         S18PacketEntityTeleport teleport = relative ? null : (S18PacketEntityTeleport) packet;
 
@@ -403,20 +376,22 @@ public class BackTrack extends Module {
             if (relative) {
                 this.offset = this.offset.add(value);
                 if (!move.func_149060_h()) {
-                    return true; // 無旋轉，仍 delay
+                    return true;
                 }
             } else {
                 this.offset = value;
                 this.absolute = true;
             }
-            // yaw: Slinky (byte) * 360 * 0.00390625 = / 256 * 360
             this.delayedYaw = (float) (relative ? move.func_149066_f() : teleport.getYaw()) * 360.0F * 0.00390625F;
             this.hasYaw = true;
+            if (!relative) {
+                this.teleportSequence = packetSequence;
+            }
         }
         return true;
     }
 
-    // ===================== Render（Slinky type 6） =====================
+    // ===================== Render (Slinky type 6) =====================
     @EventTarget
     public void onRender3D(Render3DEvent event) {
         if (!this.isEnabled() || mc.isSingleplayer() || !this.render || !this.renderRemotePos.getValue()) {
@@ -440,15 +415,12 @@ public class BackTrack extends Module {
 
         double progress = Math.min(1.0, (double) (now - this.positionInterpStartMs) / POSITION_INTERP_MS);
         Vec3 drawPos = lerp(this.positionInterpFrom, this.positionInterpTo, progress);
-        float yaw = this.indicatorRotate.getValue() ? this.currentYaw : this.target.rotationYaw;
-        // yaw 目前僅預留；框用位置即可（Slinky RemoteBoxRenderer 會用 yaw）
         this.drawBox(drawPos, this.indicatorColor.getValue(), this.indicatorLineWidth.getValue(),
                 this.indicatorFilled.getValue());
     }
 
-    // ===================== Slinky helpers =====================
+    // ===================== Helpers =====================
 
-    /** metric = dist(self, delayed) - dist(self, server) */
     public static double metric(Vec3 self, Vec3 server, Vec3 delayed) {
         return distance(self, delayed) - distance(self, server);
     }
@@ -466,13 +438,28 @@ public class BackTrack extends Module {
             this.current = position;
         } else {
             double fraction = 1.0 / (double) this.interpolation;
-            this.current = this.current.add(
-                    scale(position.subtract(this.current), fraction));
+            this.current = this.current.add(scale(position.subtract(this.current), fraction));
             yaw = (float) ((double) MathHelper.wrapAngleTo180_float(this.desiredYaw - this.currentYaw) * fraction)
                     + this.currentYaw;
             this.interpolation--;
         }
         this.currentYaw = yaw;
+    }
+
+    private boolean isValidCombatTarget(EntityPlayer p) {
+        if (p == null || p.isDead) {
+            return false;
+        }
+        if (TeamUtil.isFriend(p)) {
+            return false;
+        }
+        if (this.ignoreBots.getValue() && TeamUtil.isBot(p)) {
+            return false;
+        }
+        if (this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(p)) {
+            return false;
+        }
+        return true;
     }
 
     private EntityPlayer resolveTarget() {
@@ -494,31 +481,19 @@ public class BackTrack extends Module {
         return !(d < (double) (low * low)) && !(d > (double) (high * high));
     }
 
-    private void queuePacket(Packet<?> packet) {
-        long releaseAt = System.currentTimeMillis() + this.delayMs;
-        if (this.lastQueuedReleaseAt > 0L && releaseAt <= this.lastQueuedReleaseAt) {
-            releaseAt = this.lastQueuedReleaseAt + 1L;
-        }
-        this.packetQueue.add(new TimedPacket(packet, releaseAt));
-        this.lastQueuedReleaseAt = releaseAt;
-    }
-
     private void processDelayedPackets() {
         long now = System.currentTimeMillis();
         while (!this.packetQueue.isEmpty()) {
             TimedPacket timed = this.packetQueue.peek();
-            if (timed == null || now < timed.releaseAt) {
+            if (timed == null || timed.ageMs(now) <= this.delayMs) {
                 break;
             }
             this.packetQueue.poll();
-            // reconcile offset when releasing move packets（近似 Slinky publish reconcile）
-            if (timed.packet instanceof S14PacketEntity || timed.packet instanceof S18PacketEntityTeleport) {
-                this.publish(timed.packet, true);
+            if (timed.sequence > this.releasedSequence) {
+                this.publish(timed.packet, true, timed.sequence);
+                this.releasedSequence = timed.sequence;
             }
             processPacket(timed.packet);
-        }
-        if (this.packetQueue.isEmpty()) {
-            this.lastQueuedReleaseAt = 0L;
         }
     }
 
@@ -528,17 +503,16 @@ public class BackTrack extends Module {
             if (timed == null) {
                 continue;
             }
-            if (timed.packet instanceof S14PacketEntity || timed.packet instanceof S18PacketEntityTeleport) {
-                this.publish(timed.packet, true);
+            if (timed.sequence > this.releasedSequence) {
+                this.publish(timed.packet, true, timed.sequence);
+                this.releasedSequence = timed.sequence;
             }
             processPacket(timed.packet);
         }
-        this.lastQueuedReleaseAt = 0L;
     }
 
     private void clearPending() {
         this.packetQueue.clear();
-        this.lastQueuedReleaseAt = 0L;
     }
 
     private void clear() {
@@ -546,6 +520,7 @@ public class BackTrack extends Module {
         this.active = this.absolute = this.hasYaw = this.render = false;
         this.targetId = this.selfId = -1;
         this.cooldownLeft = this.interpolation = 0;
+        this.delayedSequence = this.releasedSequence = this.teleportSequence = this.globalPacketSequence = 0;
         this.delayMs = 0L;
         this.offset = this.previous = this.current = this.desired = zero();
         this.delayedYaw = this.previousYaw = this.currentYaw = this.desiredYaw = 0.0F;
@@ -588,9 +563,20 @@ public class BackTrack extends Module {
         RenderUtil.disableRenderState();
     }
 
-    // ----- math -----
-    private static Vec3 pos(Entity e) {
+    // ----- TimingAccess-style positions -----
+
+    /** Slinky TimingAccess.position */
+    private static Vec3 clientPos(Entity e) {
         return new Vec3(e.posX, e.posY, e.posZ);
+    }
+
+    /** Slinky TimingAccess.server */
+    private static Vec3 serverPos(Entity e) {
+        if (e instanceof EntityOtherPlayerMP) {
+            IAccessorEntityOtherPlayerMP a = (IAccessorEntityOtherPlayerMP) e;
+            return new Vec3(a.getOtherPlayerMPX(), a.getOtherPlayerMPY(), a.getOtherPlayerMPZ());
+        }
+        return clientPos(e);
     }
 
     private static double distance(Vec3 a, Vec3 b) {
@@ -621,15 +607,19 @@ public class BackTrack extends Module {
     }
 
     private static Vec3 lerp(Vec3 from, Vec3 to, double t) {
-        if (t <= 0.0) return from;
-        if (t >= 1.0) return to;
+        if (t <= 0.0) {
+            return from;
+        }
+        if (t >= 1.0) {
+            return to;
+        }
         return new Vec3(
                 from.xCoord + (to.xCoord - from.xCoord) * t,
                 from.yCoord + (to.yCoord - from.yCoord) * t,
                 from.zCoord + (to.zCoord - from.zCoord) * t);
     }
 
-    // ----- public API for other modules -----
+    // ----- public API -----
     public boolean isRenderingServerPositionFor(EntityLivingBase entity) {
         return this.active && this.render && this.renderRemotePos.getValue()
                 && this.target == entity && this.delayMs > 0L;
@@ -645,11 +635,17 @@ public class BackTrack extends Module {
 
     private static final class TimedPacket {
         final Packet<?> packet;
-        final long releaseAt;
+        final long receiveAt;
+        final int sequence;
 
-        TimedPacket(Packet<?> packet, long releaseAt) {
+        TimedPacket(Packet<?> packet, long receiveAt, int sequence) {
             this.packet = packet;
-            this.releaseAt = releaseAt;
+            this.receiveAt = receiveAt;
+            this.sequence = sequence;
+        }
+
+        long ageMs(long now) {
+            return now - this.receiveAt;
         }
     }
 }
