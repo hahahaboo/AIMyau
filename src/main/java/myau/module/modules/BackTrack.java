@@ -63,7 +63,8 @@ public class BackTrack extends Module {
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 10.0F, 1000.0F);
     public final FloatProperty maxHurtTime = new FloatProperty("max-hurt-time", 10.0F, 1.0F, 10.0F);
     public final FloatProperty cooldown = new FloatProperty("cooldown", 5.0F, 0.0F, 100.0F);
-    public final BooleanProperty disableOnHit = new BooleanProperty("disable-on-hit", false);
+    /** 自己受傷（hurtTime > 0）時立刻放光，類似 main 舊版 flush-on-damage */
+    public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", false);
     public final BooleanProperty requireMousePressed = new BooleanProperty("require-mouse-pressed", false);
     public final BooleanProperty requireWeapon = new BooleanProperty("require-weapon", false);
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
@@ -85,7 +86,6 @@ public class BackTrack extends Module {
     private boolean absolute;
     private boolean hasYaw;
     private boolean render;
-    private boolean disableOnHitFlag;
 
     private int targetId;
     private int selfId;
@@ -179,6 +179,15 @@ public class BackTrack extends Module {
         // ~ PacketPipeline.poll
         this.pollInbound();
 
+        // 可選：自己受傷時立刻放光（main 舊版 flush-on-damage）
+        if (this.flushOnDamage.getValue()
+                && this.active
+                && mc.thePlayer.hurtTime > 0) {
+            this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
+            this.deactivateAndDrain();
+            return;
+        }
+
         if (this.cooldownLeft > 0) {
             this.cooldownLeft--;
             if (this.cooldownLeft > 0) {
@@ -218,7 +227,6 @@ public class BackTrack extends Module {
         int oldId = this.targetId;
 
         this.delayMs = (long) this.delay.getValue().floatValue();
-        this.disableOnHitFlag = this.disableOnHit.getValue();
         this.targetId = t.getEntityId();
         this.selfId = mc.thePlayer.getEntityId();
         this.target = t;
@@ -302,15 +310,13 @@ public class BackTrack extends Module {
             }
         }
 
-        // ----- Slinky special: may clear active, packet itself is not mode2 -----
+        // 自己的 S12：一律 flush（對齊 main 舊版 shouldFlush），當前包不 cancel
         if (packet instanceof S12PacketEntityVelocity) {
-            if (this.disableOnHitFlag
-                    && ((S12PacketEntityVelocity) packet).getEntityID() == this.selfId) {
+            if (((S12PacketEntityVelocity) packet).getEntityID() == this.selfId) {
                 this.active = false;
                 this.render = false;
-                // after active=false, this packet and queue behave as mode 0 → drain then let this through
                 this.drainInbound();
-                return; // do not cancel current packet
+                return;
             }
         }
         if (packet instanceof S08PacketPlayerPosLook) {
@@ -590,7 +596,7 @@ public class BackTrack extends Module {
     }
 
     private void resetState() {
-        this.active = this.absolute = this.hasYaw = this.render = this.disableOnHitFlag = false;
+        this.active = this.absolute = this.hasYaw = this.render = false;
         this.targetId = this.selfId = this.cooldownLeft = this.interpolation = 0;
         this.delayedSequence = this.releasedSequence = this.teleportSequence = this.packetSequenceCounter = 0;
         this.delayMs = 0L;
