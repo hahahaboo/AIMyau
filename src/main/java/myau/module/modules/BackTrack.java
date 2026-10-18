@@ -83,6 +83,12 @@ public class BackTrack extends Module {
 
     /** flag("require_weapon") */
     public final BooleanProperty requireWeapon = new BooleanProperty("require-weapon", false);
+    
+    /** 可選：排除 bot（AIMyau TeamUtil，非 Slinky 原版） */
+    public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
+
+    /** 可選：排除隊友 */
+    public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
 
     // ========== Runtime (Slinky fields) ==========
     private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
@@ -147,7 +153,13 @@ public class BackTrack extends Module {
             return;
         }
         EntityPlayer attacked = (EntityPlayer) event.getTarget();
-        if (TeamUtil.isFriend(attacked) || TeamUtil.isBot(attacked) || TeamUtil.isSameTeam(attacked)) {
+        if (TeamUtil.isFriend(attacked)) {
+            return;
+        }
+        if (this.ignoreBots.getValue() && TeamUtil.isBot(attacked)) {
+            return;
+        }
+        if (this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(attacked)) {
             return;
         }
         if (this.target != null && this.target != attacked) {
