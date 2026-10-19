@@ -14,6 +14,7 @@ import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.ColorProperty;
 import myau.property.properties.FloatProperty;
+import myau.property.properties.IntProperty;
 import myau.util.ItemUtil;
 import myau.util.RenderUtil;
 import myau.util.TeamUtil;
@@ -61,8 +62,10 @@ public class BackTrack extends Module {
     public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 12.0F);
     public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 5.0F, 0.0F, 12.0F);
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 10.0F, 1000.0F);
-    public final FloatProperty maxHurtTime = new FloatProperty("max-hurt-time", 10.0F, 1.0F, 10.0F);
-    public final FloatProperty cooldown = new FloatProperty("cooldown", 5.0F, 0.0F, 100.0F);
+    /** 目標 hurtTime 上限（單位：tick，與 Entity.hurtTime 相同） */
+    public final IntProperty maxHurtTime = new IntProperty("max-hurt-time", 10, 1, 10);
+    /** 停用後冷卻（單位：ms），0 = 無冷卻 */
+    public final IntProperty cooldown = new IntProperty("cooldown", 250, 0, 2000);
     /** 自己受傷（hurtTime > 0）時立刻放光，類似 main 舊版 flush-on-damage */
     public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", false);
     public final BooleanProperty requireMousePressed = new BooleanProperty("require-mouse-pressed", false);
@@ -89,7 +92,8 @@ public class BackTrack extends Module {
 
     private int targetId;
     private int selfId;
-    private int cooldownLeft;
+    /** 冷卻結束的 wall-clock 時間；0 = 未在冷卻 */
+    private long cooldownUntilMs;
     private int interpolation;
     private int delayedSequence;
     private int releasedSequence;
@@ -183,16 +187,17 @@ public class BackTrack extends Module {
         if (this.flushOnDamage.getValue()
                 && this.active
                 && mc.thePlayer.hurtTime > 0) {
-            this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
+            int cd = this.cooldown.getValue();
+            this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
             this.deactivateAndDrain();
             return;
         }
 
-        if (this.cooldownLeft > 0) {
-            this.cooldownLeft--;
-            if (this.cooldownLeft > 0) {
+        if (this.cooldownUntilMs > 0L) {
+            if (System.currentTimeMillis() < this.cooldownUntilMs) {
                 return;
             }
+            this.cooldownUntilMs = 0L;
         }
 
         EntityPlayer t = this.resolveTarget();
@@ -206,12 +211,13 @@ public class BackTrack extends Module {
                 && (mc.thePlayer.ticksExisted - this.lastAttackTick <= 20)
                 && t != null
                 && this.isValidCombatTarget(t)
-                && !((float) t.hurtTime > this.maxHurtTime.getValue())
+                && !(t.hurtTime > this.maxHurtTime.getValue())
                 && this.inDistanceSq(t, low, high);
 
         if (!allowed) {
             if (this.active) {
-                this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
+                int cd = this.cooldown.getValue();
+                this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
                 // Slinky: active=false → poll no longer mode1 → packets release
                 this.deactivateAndDrain();
             } else {
@@ -257,7 +263,8 @@ public class BackTrack extends Module {
                 this.hasYaw = false;
                 this.active = false;
                 this.render = false;
-                this.cooldownLeft = (int) this.cooldown.getValue().floatValue();
+                int cd = this.cooldown.getValue();
+                this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
                 this.drainInbound();
             }
         }
@@ -597,7 +604,8 @@ public class BackTrack extends Module {
 
     private void resetState() {
         this.active = this.absolute = this.hasYaw = this.render = false;
-        this.targetId = this.selfId = this.cooldownLeft = this.interpolation = 0;
+        this.targetId = this.selfId = this.interpolation = 0;
+        this.cooldownUntilMs = 0L;
         this.delayedSequence = this.releasedSequence = this.teleportSequence = this.packetSequenceCounter = 0;
         this.delayMs = 0L;
         this.offset = this.previous = this.current = this.desired = zero();
