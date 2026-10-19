@@ -59,7 +59,7 @@ public class BackTrack extends Module {
     private static final double POS_EPS = 1.0E-6;
 
     // ----- Slinky-aligned properties -----
-    public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 6.0F);
+    public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 3.0F);
     public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 6.0F, 0.0F, 12.0F);
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 0.0F, 1000.0F);
     public final IntProperty maxHurtTime = new IntProperty("max-hurt-time", 10, 1, 10);
@@ -89,7 +89,6 @@ public class BackTrack extends Module {
 
     private int targetId;
     private int selfId;
-    /** 冷卻結束的 wall-clock 時間；0 = 未在冷卻 */
     private long cooldownUntilMs;
     private int interpolation;
     private int delayedSequence;
