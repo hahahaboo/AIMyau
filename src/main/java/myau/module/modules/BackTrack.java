@@ -59,20 +59,17 @@ public class BackTrack extends Module {
     private static final double POS_EPS = 1.0E-6;
 
     // ----- Slinky-aligned properties -----
-    public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 12.0F);
-    public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 5.0F, 0.0F, 12.0F);
-    public final FloatProperty delay = new FloatProperty("delay", 100.0F, 10.0F, 1000.0F);
-    /** 目標 hurtTime 上限（單位：tick，與 Entity.hurtTime 相同） */
+    public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 6.0F);
+    public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 6.0F, 0.0F, 12.0F);
+    public final FloatProperty delay = new FloatProperty("delay", 100.0F, 0.0F, 1000.0F);
     public final IntProperty maxHurtTime = new IntProperty("max-hurt-time", 10, 1, 10);
-    /** 停用後冷卻（單位：ms），0 = 無冷卻 */
     public final IntProperty cooldown = new IntProperty("cooldown", 250, 0, 2000);
-    /** 自己受傷（hurtTime > 0）時立刻放光，類似 main 舊版 flush-on-damage */
     public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", false);
     public final BooleanProperty requireMousePressed = new BooleanProperty("require-mouse-pressed", false);
     public final BooleanProperty requireWeapon = new BooleanProperty("require-weapon", false);
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
-    public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", false);
+    public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", true);
     public final ColorProperty indicatorColor =
             new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
     public final FloatProperty indicatorLineWidth =
