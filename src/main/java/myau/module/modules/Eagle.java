@@ -54,22 +54,21 @@ public class Eagle extends Module {
         }
     }
 
+    private boolean isDiagonal(float yaw) {
+        float absYaw = Math.abs(yaw % 90.0F);
+        return absYaw > 20.0F && absYaw < 70.0F;
+    }
+
     private boolean shouldCancelForDoubleFix() {
         if (!this.doubleFix.getValue()) return false;
         if (!mc.thePlayer.onGround) return false;
         if (!mc.gameSettings.keyBindForward.isKeyDown()) return false;
         if (mc.gameSettings.keyBindLeft.isKeyDown() || mc.gameSettings.keyBindRight.isKeyDown()) return false;
+        if (!this.isDiagonal(mc.thePlayer.rotationYaw)) return false;
 
         MovingObjectPosition hit = mc.objectMouseOver;
         if (hit == null || hit.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return false;
         if (hit.sideHit == EnumFacing.UP || hit.sideHit == EnumFacing.DOWN) return false;
-
-        // 檢查是否接近 45 度（斜向）
-        float yaw = mc.thePlayer.rotationYaw;
-        float folded = Math.abs(yaw % 90.0F);
-        if (folded > 45.0F) folded = 90.0F - folded;
-        // 只在明顯斜向時才攔截（可依需求調整 20~35 範圍）
-        if (folded < 20.0F) return false;
 
         Vec3 self = new Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ);
         Vec3 point = hit.hitVec;
@@ -77,7 +76,6 @@ public class Eagle extends Module {
         double dz = Math.abs(point.zCoord - self.zCoord);
         double dy = point.yCoord - self.yCoord;
 
-        // 大致對應原始 margin 檢查
         if (dx > 0.8 || dz > 0.8) return false;
         if (dy < -0.1 || dy > 0.0) return false;
 
@@ -86,12 +84,11 @@ public class Eagle extends Module {
         boolean inside = block.getX() < self.xCoord && self.xCoord < block.getX() + unit
                 && block.getZ() < self.zCoord && self.zCoord < block.getZ() + unit;
 
-        double margin = inside ? 0.2 : 0.3; // 可微調
+        double margin = inside ? 0.2 : 0.3;
         double upper = unit - margin;
         double rx = Math.abs(point.xCoord % unit);
         double rz = Math.abs(point.zCoord % unit);
 
-        // 當點擊位置仍在邊緣 margin 內時取消放置（延遲到位置正確）
         return (rx < margin || rx > upper) || (rz < margin || rz > upper);
     }
 
