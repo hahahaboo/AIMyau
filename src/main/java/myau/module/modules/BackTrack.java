@@ -63,21 +63,17 @@ public class BackTrack extends Module {
     public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 6.0F, 0.0F, 12.0F);
     public final FloatProperty delay = new FloatProperty("delay", 100.0F, 0.0F, 1000.0F);
     public final IntProperty maxHurtTime = new IntProperty("max-hurt-time", 10, 1, 10);
-    public final IntProperty cooldown = new IntProperty("cooldown", 250, 0, 2000);
+    public final IntProperty cooldown = new IntProperty("cooldown", 0, 0, 2000);
     public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", false);
-    public final BooleanProperty requireMousePressed = new BooleanProperty("require-mouse-pressed", false);
-    public final BooleanProperty requireWeapon = new BooleanProperty("require-weapon", false);
+    public final BooleanProperty requirePress = new BooleanProperty("require-press", false);
+    public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", false);
+    public final BooleanProperty allowTools = new BooleanProperty("allow-tools", true, this.weaponsOnly::getValue);
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
     public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", true);
-    public final ColorProperty indicatorColor =
-            new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
-    public final FloatProperty indicatorLineWidth =
-            new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorFilled =
-            new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
-    public final BooleanProperty indicatorRotate =
-            new BooleanProperty("indicator-rotate", true, () -> this.renderRemotePos.getValue());
+    public final ColorProperty indicatorColor = new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
+    public final FloatProperty indicatorLineWidth = new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorFilled = new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
 
     // ----- runtime (Slinky fields + local pipeline queue) -----
     private final ArrayDeque<TimedPacket> inbound = new ArrayDeque<TimedPacket>();
@@ -202,8 +198,8 @@ public class BackTrack extends Module {
 
         // Slinky allowed checks (+ optional AIMyau bot/team filters)
         boolean allowed = this.isInputReady()
-                && (!this.requireMousePressed.getValue() || mc.gameSettings.keyBindAttack.isKeyDown())
-                && (!this.requireWeapon.getValue() || ItemUtil.isHoldingSword())
+                && (!this.requirePress.getValue() || mc.gameSettings.keyBindAttack.isKeyDown())
+                && (!this.weaponsOnly.getValue() || ItemUtil.hasRawUnbreakingEnchant() || this.allowTools.getValue() && ItemUtil.isHoldingTool())
                 && (mc.thePlayer.ticksExisted - this.lastAttackTick <= 20)
                 && t != null
                 && this.isValidCombatTarget(t)
