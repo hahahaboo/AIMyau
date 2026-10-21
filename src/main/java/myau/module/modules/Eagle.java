@@ -161,6 +161,9 @@ public class Eagle extends Module {
 
     @Override
     public String[] getSuffix() {
+        if (this.doubleFix.getValue() && this.shouldCancelForDoubleFix()) {
+            return new String[]{"true"};
+        }
         return Objects.equals(this.minDelay.getValue(), this.maxDelay.getValue())
                 ? new String[]{this.minDelay.getValue().toString()}
                 : new String[]{String.format("%d-%d", this.minDelay.getValue(), this.maxDelay.getValue())};
