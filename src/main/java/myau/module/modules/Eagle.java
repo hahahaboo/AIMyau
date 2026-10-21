@@ -62,8 +62,7 @@ public class Eagle extends Module {
     private boolean shouldCancelForDoubleFix() {
         if (!this.doubleFix.getValue()) return false;
         if (!mc.thePlayer.onGround) return false;
-        if (!mc.gameSettings.keyBindForward.isKeyDown()) return false;
-        if (mc.gameSettings.keyBindLeft.isKeyDown() || mc.gameSettings.keyBindRight.isKeyDown()) return false;
+        if (mc.gameSettings.keyBindForward.isKeyDown() || mc.gameSettings.keyBindLeft.isKeyDown() || mc.gameSettings.keyBindRight.isKeyDown()) return false;
         if (!this.isDiagonal(mc.thePlayer.rotationYaw)) return false;
 
         MovingObjectPosition hit = mc.objectMouseOver;
@@ -76,8 +75,8 @@ public class Eagle extends Module {
         double dz = Math.abs(point.zCoord - self.zCoord);
         double dy = point.yCoord - self.yCoord;
 
-        //if (dx > 0.8 || dz > 0.8) return false;
-        //if (dy < -0.1 || dy > 0.0) return false;
+        if (dx > 0.8 || dz > 0.8) return false;
+        if (dy < -0.1 || dy > 0.0) return false;
 
         BlockPos block = hit.getBlockPos().offset(hit.sideHit);
         double unit = 1.0;
