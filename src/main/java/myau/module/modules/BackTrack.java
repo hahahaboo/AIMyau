@@ -7,6 +7,7 @@ import myau.events.AttackEvent;
 import myau.events.PacketEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.mixin.IAccessorEntityOtherPlayerMP;
 import myau.mixin.IAccessorRenderManager;
 import myau.module.Category;
 import myau.module.Module;
@@ -16,202 +17,252 @@ import myau.property.properties.FloatProperty;
 import myau.property.properties.IntProperty;
 import myau.util.ItemUtil;
 import myau.util.RenderUtil;
-import myau.util.RotationUtil;
 import myau.util.TeamUtil;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityOtherPlayerMP;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.network.Packet;
+import net.minecraft.network.play.server.S06PacketUpdateHealth;
 import net.minecraft.network.play.server.S08PacketPlayerPosLook;
 import net.minecraft.network.play.server.S12PacketEntityVelocity;
 import net.minecraft.network.play.server.S13PacketDestroyEntities;
 import net.minecraft.network.play.server.S14PacketEntity;
 import net.minecraft.network.play.server.S18PacketEntityTeleport;
+import net.minecraft.network.play.server.S19PacketEntityStatus;
+import net.minecraft.network.play.server.S29PacketSoundEffect;
 import net.minecraft.network.play.server.S40PacketDisconnect;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
-import net.minecraft.world.WorldSettings.GameType;
 
-import java.util.Queue;
-import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayDeque;
 
+/**
+ * Slinky BacktrackModule logic on AIMyau.
+ *
+ * Packet modes (Slinky PacketPipeline):
+ *   0 = pass (or queue only to preserve order behind held packets)
+ *   1 = hold while active && ageMs <= delay
+ *   3 = immediate process, never hold (S06 / S29 / target S19)
+ * Mode 2 (discard) is never used.
+ *
+ * Stopping active does NOT drop packets — queue is always drained via processPacket
+ * (same idea as pipeline poll after mode is no longer 1).
+ */
 public class BackTrack extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
-
+    private static final int WARMUP_TICKS = 20;
     private static final long POSITION_INTERP_MS = 80L;
     private static final double POS_EPS = 1.0E-6;
-    private static final double MOVEMENT_DISTANCE_EPS = 0.001;
-    private static final int WARMUP_TICKS = 20;
 
-    public final FloatProperty minDelay = new FloatProperty("min-delay", 100.0F, 0.0F, 1000.0F);
-    public final FloatProperty maxDelay = new FloatProperty("max-delay", 200.0F, 0.0F, 1000.0F);
-    public final FloatProperty minDistance = new FloatProperty("distance-min", 0.0F, 0.0F, 3.0F);
-    public final FloatProperty maxDistance = new FloatProperty("distance-max", 4.0F, 1.0F, 6.0F);
-    public final FloatProperty cooldown = new FloatProperty("cooldown", 0.0F, 0.0F, 2000.0F);
-    public final FloatProperty maxHurtTime = new FloatProperty("max-hurt-time", 500.0F, 0.0F, 500.0F);
-    public final BooleanProperty disableAdventure = new BooleanProperty("disable-adventure", true);
-    public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", true);
+    // ----- Slinky-aligned properties -----
+    public final FloatProperty targetDistMin = new FloatProperty("target-dist-min", 2.0F, 0.0F, 3.0F);
+    public final FloatProperty targetDistMax = new FloatProperty("target-dist-max", 6.0F, 0.0F, 12.0F);
+    public final FloatProperty delay = new FloatProperty("delay", 100.0F, 0.0F, 1000.0F);
+    public final IntProperty maxHurtTime = new IntProperty("max-hurt-time", 10, 1, 10);
+    public final IntProperty cooldown = new IntProperty("cooldown", 0, 0, 2000);
+    public final BooleanProperty flushOnDamage = new BooleanProperty("flush-on-damage", false);
+    public final BooleanProperty requirePress = new BooleanProperty("require-press", false);
+    public final BooleanProperty weaponsOnly = new BooleanProperty("weapons-only", false);
+    public final BooleanProperty allowTools = new BooleanProperty("allow-tools", true, this.weaponsOnly::getValue);
     public final BooleanProperty ignoreBots = new BooleanProperty("ignore-bots", true);
     public final BooleanProperty ignoreTeammates = new BooleanProperty("ignore-teammates", true);
-    public final BooleanProperty weaponOnly = new BooleanProperty("weapon-only", false);
-    public final BooleanProperty showServerPosition = new BooleanProperty("show-server-position", true);
-    public final ColorProperty positionColor =
-            new ColorProperty("position-color", 0xFFFFFF, () -> this.showServerPosition.getValue());
-    public final IntProperty positionAlpha =
-            new IntProperty("position-alpha", 255, 0, 255, () -> this.showServerPosition.getValue());
+    public final BooleanProperty renderRemotePos = new BooleanProperty("render-remote-pos", true);
+    public final ColorProperty indicatorColor = new ColorProperty("indicator-color", 0xFFFFFF, () -> this.renderRemotePos.getValue());
+    public final FloatProperty indicatorLineWidth = new FloatProperty("indicator-line-width", 1.0F, 1.0F, 4.0F, () -> this.renderRemotePos.getValue());
+    public final BooleanProperty indicatorFilled = new BooleanProperty("indicator-filled", true, () -> this.renderRemotePos.getValue());
 
-    private final Queue<TimedPacket> packetQueue = new ConcurrentLinkedQueue<TimedPacket>();
-    private Vec3 targetPos = null;
-    private Vec3 lastTargetSnapshot = null;
-    private EntityPlayer target = null;
-    private int lastDelay = 0;
-    private int currentDelay = 0;
-    private long lastDeactivationTime = 0L;
-    private long lastQueuedReleaseAt = 0L;
-    private boolean delayingPackets = false;
-    private boolean wasActive = false;
-    private Vec3 positionInterpFrom = null;
-    private Vec3 positionInterpTo = null;
-    private long positionInterpStartMs = 0L;
+    // ----- runtime (Slinky fields + local pipeline queue) -----
+    private final ArrayDeque<TimedPacket> inbound = new ArrayDeque<TimedPacket>();
+
+    private boolean active;
+    private boolean absolute;
+    private boolean hasYaw;
+    private boolean render;
+
+    private int targetId;
+    private int selfId;
+    private long cooldownUntilMs;
+    private int interpolation;
+    private int delayedSequence;
+    private int releasedSequence;
+    private int teleportSequence;
+    private int packetSequenceCounter;
+
+    private long delayMs;
+
+    private Vec3 offset = zero();
+    private Vec3 previous = zero();
+    private Vec3 current = zero();
+    private Vec3 desired = zero();
+
+    private float delayedYaw;
+    private float previousYaw;
+    private float currentYaw;
+    private float desiredYaw;
+
+    private EntityPlayer target;
+    private int lastAttackTick = -999;
+
+    private Vec3 positionInterpFrom;
+    private Vec3 positionInterpTo;
+    private long positionInterpStartMs;
 
     public BackTrack() {
-        super("BackTrack", "Delay entity position packets to hit past opponents", Category.COMBAT, 0, false, false);
+        super("BackTrack", "Uses lag to make players easier to hit. (Slinky logic)", Category.COMBAT, 0, false, false);
     }
 
     @Override
     public String[] getSuffix() {
-        if (this.currentDelay > 0) {
-            this.lastDelay = this.currentDelay;
-        }
-        return this.lastDelay > 0 ? new String[]{this.lastDelay + "ms"} : null;
+        return new String[]{(int) this.delay.getValue().floatValue() + "ms"};
     }
 
     @Override
     public void onEnabled() {
-        this.clearPendingPackets();
-        this.targetPos = null;
-        this.lastTargetSnapshot = null;
-        this.target = null;
-        this.lastDelay = 0;
-        this.currentDelay = 0;
-        this.lastDeactivationTime = 0L;
-        this.delayingPackets = false;
-        this.wasActive = false;
-        this.clearPositionInterp();
+        // Slinky clear() only resets state — any leftover must be drained, never dropped
+        this.drainInbound();
+        this.resetState();
     }
 
     @Override
     public void onDisabled() {
-        if (mc.isSingleplayer()) {
-            this.resetWithoutProcessingPackets();
-        } else {
-            this.releaseAll();
-        }
-        this.target = null;
-        this.targetPos = null;
-        this.lastTargetSnapshot = null;
-        this.lastDelay = 0;
-        this.currentDelay = 0;
-        this.clearPositionInterp();
+        // Like pipeline drain when hold ends: always process, never clear-drop
+        this.drainInbound();
+        this.resetState();
     }
 
-    private double minDistanceValue() {
-        return Math.min(this.minDistance.getValue(), this.maxDistance.getValue());
-    }
-
-    @EventTarget
-    public void onTick(TickEvent event) {
-        if (event.getType() != EventType.PRE || !this.isEnabled()) {
-            return;
-        }
-        if (mc.isSingleplayer()) {
-            this.resetWithoutProcessingPackets();
-            return;
-        }
-        if (mc.thePlayer == null || mc.theWorld == null) {
-            this.releaseAll();
-            return;
-        }
-        if (this.weaponOnly.getValue() && !ItemUtil.isHoldingSword()) {
-            this.releaseAll();
-            return;
-        }
-        if (this.disableAdventure.getValue() && isAdventure()) {
-            this.releaseAll();
-            return;
-        }
-        if (this.flushOnDamage.getValue() && mc.thePlayer.hurtTime > 0) {
-            this.releaseAll();
-            return;
-        }
-        if (this.targetPos != null && this.target != null) {
-            double distance = RotationUtil.distanceToBoxAt(this.target, this.targetPos);
-            if ((distance > this.maxDistance.getValue() || distance < this.minDistanceValue())
-                    && this.wasActive) {
-                this.releaseAll();
-                this.lastDeactivationTime = System.currentTimeMillis();
-                this.wasActive = false;
-            }
-        }
-        this.processDelayedPackets();
-        if (this.isPacketQueueEmpty() && this.target != null) {
-            this.targetPos = this.target.getPositionVector();
-        }
-        this.wasActive = this.currentDelay > 0 && !this.isPacketQueueEmpty();
-    }
-
-    private static boolean isAdventure() {
-        GameType gameType = mc.playerController.getCurrentGameType();
-        return gameType != null && gameType.isAdventure();
-    }
-
+    // ===================== Target (AttackEvent approximates combat target) =====================
     @EventTarget
     public void onAttack(AttackEvent event) {
         if (!this.isEnabled() || mc.isSingleplayer() || mc.thePlayer == null) {
-            return;
-        }
-        if (this.weaponOnly.getValue() && !ItemUtil.isHoldingSword()) {
-            return;
-        }
-        if (this.disableAdventure.getValue() && isAdventure()) {
-            return;
-        }
-        if (this.cooldown.getValue() > 0.0F && this.lastDeactivationTime > 0L
-                && System.currentTimeMillis() - this.lastDeactivationTime
-                < this.cooldown.getValue()) {
             return;
         }
         if (!(event.getTarget() instanceof EntityPlayer)) {
             return;
         }
         EntityPlayer attacked = (EntityPlayer) event.getTarget();
-        if (this.ignoreBots.getValue() && TeamUtil.isBot(attacked)
-                || TeamUtil.isFriend(attacked)
-                || this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(attacked)) {
+        if (!this.isValidCombatTarget(attacked)) {
             return;
         }
-        double distance = mc.thePlayer.getDistanceToEntity(attacked);
-        if (distance > this.maxDistance.getValue() || distance < this.minDistanceValue()) {
-            return;
-        }
-        if (this.maxHurtTime.getValue() < 500.0F
-                && attacked.hurtTime * 50 > this.maxHurtTime.getValue()) {
-            return;
-        }
-        if (this.target == null || attacked != this.target) {
-            this.releaseAll();
-            this.targetPos = attacked.getPositionVector();
+        if (this.target != null && this.target != attacked) {
+            // target swap: release held packets first (no drop)
+            this.drainInbound();
         }
         this.target = attacked;
-        float min = Math.min(this.minDelay.getValue(), this.maxDelay.getValue());
-        float max = Math.max(this.minDelay.getValue(), this.maxDelay.getValue());
-        int range = Math.max(1, (int) (max - min));
-        this.currentDelay = (int) min + new Random().nextInt(range + 1);
+        this.targetId = attacked.getEntityId();
+        this.selfId = mc.thePlayer.getEntityId();
+        this.lastAttackTick = mc.thePlayer.ticksExisted;
     }
 
+    // ===================== Tick = Slinky event type 18 =====================
+    @EventTarget
+    public void onTick(TickEvent event) {
+        if (event.getType() != EventType.PRE || !this.isEnabled()) {
+            return;
+        }
+        if (mc.isSingleplayer() || mc.thePlayer == null || mc.theWorld == null) {
+            this.deactivateAndDrain();
+            return;
+        }
+        if (mc.thePlayer.ticksExisted < WARMUP_TICKS) {
+            this.deactivateAndDrain();
+            return;
+        }
+
+        // ~ PacketPipeline.poll
+        this.pollInbound();
+
+        // 可選：自己受傷時立刻放光（main 舊版 flush-on-damage）
+        if (this.flushOnDamage.getValue()
+                && this.active
+                && mc.thePlayer.hurtTime > 0) {
+            int cd = this.cooldown.getValue();
+            this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
+            this.deactivateAndDrain();
+            return;
+        }
+
+        if (this.cooldownUntilMs > 0L) {
+            if (System.currentTimeMillis() < this.cooldownUntilMs) {
+                return;
+            }
+            this.cooldownUntilMs = 0L;
+        }
+
+        EntityPlayer t = this.resolveTarget();
+        float low = Math.min(this.targetDistMin.getValue(), this.targetDistMax.getValue());
+        float high = Math.max(this.targetDistMin.getValue(), this.targetDistMax.getValue());
+
+        // Slinky allowed checks (+ optional AIMyau bot/team filters)
+        boolean allowed = this.isInputReady()
+                && (!this.requirePress.getValue() || mc.gameSettings.keyBindAttack.isKeyDown())
+                && (!this.weaponsOnly.getValue() || ItemUtil.hasRawUnbreakingEnchant() || this.allowTools.getValue() && ItemUtil.isHoldingTool())
+                && (mc.thePlayer.ticksExisted - this.lastAttackTick <= 20)
+                && t != null
+                && this.isValidCombatTarget(t)
+                && !(t.hurtTime > this.maxHurtTime.getValue())
+                && this.inDistanceSq(t, low, high);
+
+        if (!allowed) {
+            if (this.active) {
+                int cd = this.cooldown.getValue();
+                this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
+                // Slinky: active=false → poll no longer mode1 → packets release
+                this.deactivateAndDrain();
+            } else {
+                this.active = false;
+                this.render = false;
+            }
+            return;
+        }
+
+        Vec3 self = clientPos(mc.thePlayer);
+        Vec3 server = serverPos(t);
+        Vec3 client = clientPos(t);
+        int oldId = this.targetId;
+
+        this.delayMs = (long) this.delay.getValue().floatValue();
+        this.targetId = t.getEntityId();
+        this.selfId = mc.thePlayer.getEntityId();
+        this.target = t;
+
+        if (!this.active) {
+            // Slinky: only start if server is farther from self than client pos by > 0.01
+            if (!(0.01 < distance(self, server) - distance(self, client))) {
+                this.render = false;
+            } else {
+                this.active = true;
+                this.offset = zero();
+                this.absolute = false;
+                this.hasYaw = false;
+                this.previous = this.current = this.desired = client;
+                this.previousYaw = this.currentYaw = this.desiredYaw = t.rotationYaw;
+                this.render = this.renderRemotePos.getValue();
+                this.delayedSequence = 0;
+                this.releasedSequence = 0;
+                this.teleportSequence = 0;
+            }
+        } else {
+            Vec3 candidate = this.absolute ? this.offset : this.offset.add(server);
+            if (!(-0.05 > metric(self, server, candidate)) && oldId == this.targetId) {
+                this.updatePosition(candidate, this.hasYaw ? this.delayedYaw : t.rotationYaw);
+            } else {
+                this.offset = zero();
+                this.absolute = false;
+                this.hasYaw = false;
+                this.active = false;
+                this.render = false;
+                int cd = this.cooldown.getValue();
+                this.cooldownUntilMs = cd <= 0 ? 0L : System.currentTimeMillis() + (long) cd;
+                this.drainInbound();
+            }
+        }
+    }
+
+    // ===================== Packet = Slinky event type 2 + PacketPipeline.accept =====================
     @EventTarget(Priority.LOW)
     public void onPacket(PacketEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.RECEIVE || mc.isSingleplayer()) {
@@ -220,173 +271,340 @@ public class BackTrack extends Module {
         if (mc.thePlayer == null || mc.theWorld == null) {
             return;
         }
+
+        // poll first (age grows for queued entries)
+        this.pollInbound();
+
         if (mc.thePlayer.ticksExisted < WARMUP_TICKS) {
-            this.clearPendingPackets();
-            this.delayingPackets = false;
+            // Slinky has no clear-drop; drain any hold
+            this.deactivateAndDrain();
             return;
         }
-        Packet<?> packet = event.getPacket();
-        this.processDelayedPackets();
 
-        if (this.weaponOnly.getValue() && !ItemUtil.isHoldingSword()
-                || this.disableAdventure.getValue() && isAdventure()
-                || this.flushOnDamage.getValue() && mc.thePlayer.hurtTime > 0
-                || this.target == null) {
-            this.releaseAll();
+        Packet<?> packet = event.getPacket();
+        long now = System.currentTimeMillis();
+        int sequence = ++this.packetSequenceCounter;
+
+        // Not active → mode 0: do not intercept (Slinky packet() returns immediately)
+        if (!this.active) {
+            // Still preserve order: if something is in queue, queue this too (mode 0 + non-empty queue)
+            if (!this.inbound.isEmpty()) {
+                event.setCancelled(true);
+                this.inbound.addLast(new TimedPacket(packet, now, sequence));
+            }
+            return;
+        }
+
+        // ----- mode 3: immediate, never hold -----
+        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+            return; // do not cancel
+        }
+        if (packet instanceof S19PacketEntityStatus) {
+            try {
+                Entity e = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
+                if (e != null && e.getEntityId() == this.targetId) {
+                    return; // mode 3 for target status only
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // 自己的 S12：一律 flush（對齊 main 舊版 shouldFlush），當前包不 cancel
+        if (packet instanceof S12PacketEntityVelocity) {
+            if (((S12PacketEntityVelocity) packet).getEntityID() == this.selfId) {
+                this.active = false;
+                this.render = false;
+                this.drainInbound();
+                return;
+            }
+        }
+        if (packet instanceof S08PacketPlayerPosLook) {
+            this.active = false;
+            this.render = false;
+            this.drainInbound();
             return;
         }
         if (packet instanceof S40PacketDisconnect) {
-            this.releaseAll();
+            this.active = false;
             this.target = null;
-            this.targetPos = null;
+            this.drainInbound();
             return;
         }
         if (packet instanceof S13PacketDestroyEntities) {
             for (int id : ((S13PacketDestroyEntities) packet).getEntityIDs()) {
-                if (this.target != null && id == this.target.getEntityId()) {
+                if (id == this.targetId) {
+                    this.active = false;
                     this.target = null;
-                    this.targetPos = null;
-                    this.releaseAll();
+                    this.drainInbound();
                     return;
                 }
             }
         }
-        if (this.currentDelay <= 0) {
-            return;
+
+        // ----- accept with age 0 -----
+        // active && age<=delay → mode 1 (hold)
+        // Slinky also holds when mode 0 but queue non-empty; with age 0 and active always mode1
+        long ageMs = 0L;
+        int mode = this.classify(packet, ageMs, sequence);
+
+        if (mode == 1 || (mode == 0 && !this.inbound.isEmpty())) {
+            event.setCancelled(true);
+            this.inbound.addLast(new TimedPacket(packet, now, sequence));
+            if (mode == 1 && sequence > this.delayedSequence) {
+                this.delayedSequence = sequence;
+                this.publish(packet, false, sequence);
+            }
+        }
+        // mode 0 + empty queue, or mode 3: leave uncancelled → vanilla process
+    }
+
+    /**
+     * Mirrors Slinky BacktrackModule.packet() dispatchMode assignment for a given age.
+     */
+    private int classify(Packet<?> packet, long ageMs, int sequence) {
+        if (!this.active) {
+            return 0;
         }
 
-        Vec3 nextTargetSnapshot = this.readTargetPosition(packet);
-        if (nextTargetSnapshot != null) {
-            this.delayingPackets = this.isMovingAway(this.lastTargetSnapshot, nextTargetSnapshot);
-            this.targetPos = nextTargetSnapshot;
-            this.lastTargetSnapshot = nextTargetSnapshot;
+        // mode 3 cases already returned in onPacket before classify for accept;
+        // still needed when polling queued entries
+        if (packet instanceof S29PacketSoundEffect || packet instanceof S06PacketUpdateHealth) {
+            return 3;
         }
-        if (this.shouldFlushForPacket(packet)) {
-            this.flushPendingPackets();
-            return;
+        if (packet instanceof S19PacketEntityStatus) {
+            try {
+                Entity e = ((S19PacketEntityStatus) packet).getEntity(mc.theWorld);
+                if (e != null && e.getEntityId() == this.targetId) {
+                    return 3;
+                }
+            } catch (Throwable ignored) {
+            }
         }
-        if (this.delayingPackets) {
-            this.queuePacket(packet);
-            event.setCancelled(true);
-            return;
+
+        if (ageMs <= this.delayMs) {
+            // mode 1 hold path also runs publish on newer sequence at accept time
+            return 1;
         }
-        if (!this.isPacketQueueEmpty()) {
-            this.flushPendingPackets();
+
+        // age > delay → mode 0 + reconcile publish (Slinky else branch)
+        if (sequence > this.releasedSequence) {
+            this.publish(packet, true, sequence);
+            this.releasedSequence = sequence;
+        }
+        return 0;
+    }
+
+    /**
+     * Slinky PacketPipeline.poll: release from head while mode != 1.
+     */
+    private void pollInbound() {
+        long now = System.currentTimeMillis();
+        while (!this.inbound.isEmpty()) {
+            TimedPacket head = this.inbound.peekFirst();
+            if (head == null) {
+                break;
+            }
+            long age = now - head.receiveAt;
+            int mode = this.classify(head.packet, age, head.sequence);
+            if (mode == 1) {
+                break; // keep holding head and everything behind
+            }
+            // mode 0 or 3 → deliver
+            this.inbound.removeFirst();
+            processPacket(head.packet);
         }
     }
 
-    private Vec3 readTargetPosition(Packet<?> packet) {
-        if (packet instanceof S14PacketEntity) {
-            S14PacketEntity movePacket = (S14PacketEntity) packet;
-            if (movePacket.getEntity(mc.theWorld) != this.target) {
-                return null;
+    /**
+     * Force-deliver entire queue (active ended / disable / world issues).
+     * Equivalent to poll after active=false (all mode 0).
+     * NEVER discard without process.
+     */
+    private void drainInbound() {
+        while (!this.inbound.isEmpty()) {
+            TimedPacket timed = this.inbound.pollFirst();
+            if (timed == null) {
+                continue;
             }
-            Vec3 position = this.targetPos != null ? this.targetPos : this.target.getPositionVector();
-            return position.addVector(
-                    movePacket.func_149062_c() / 32.0,
-                    movePacket.func_149061_d() / 32.0,
-                    movePacket.func_149064_e() / 32.0);
+            // reconcile as packets leave after hold (age treated as past delay)
+            if (timed.sequence > this.releasedSequence) {
+                this.publish(timed.packet, true, timed.sequence);
+                this.releasedSequence = timed.sequence;
+            }
+            processPacket(timed.packet);
         }
-        if (packet instanceof S18PacketEntityTeleport) {
-            S18PacketEntityTeleport teleportPacket = (S18PacketEntityTeleport) packet;
-            if (teleportPacket.getEntityId() != this.target.getEntityId()) {
-                return null;
+    }
+
+    private void deactivateAndDrain() {
+        this.active = false;
+        this.render = false;
+        this.drainInbound();
+    }
+
+    /**
+     * Slinky publish(e, reconcile) with teleportSequence guard.
+     */
+    private void publish(Packet<?> packet, boolean reconcile, int packetSequence) {
+        if (reconcile && this.teleportSequence > packetSequence) {
+            return;
+        }
+
+        boolean relative = packet instanceof S14PacketEntity;
+        if (!relative && !(packet instanceof S18PacketEntityTeleport)) {
+            return;
+        }
+
+        S14PacketEntity move = relative ? (S14PacketEntity) packet : null;
+        S18PacketEntityTeleport teleport = relative ? null : (S18PacketEntityTeleport) packet;
+
+        int id;
+        if (relative) {
+            Entity ent = move.getEntity(mc.theWorld);
+            if (ent == null) {
+                return;
             }
-            return new Vec3(teleportPacket.getX() / 32.0, teleportPacket.getY() / 32.0,
-                    teleportPacket.getZ() / 32.0);
+            id = ent.getEntityId();
+        } else {
+            id = teleport.getEntityId();
+        }
+        if (id != this.targetId) {
+            return;
+        }
+
+        Vec3 value = relative
+                ? new Vec3(
+                move.func_149062_c() / 32.0,
+                move.func_149061_d() / 32.0,
+                move.func_149064_e() / 32.0)
+                : new Vec3(
+                teleport.getX() / 32.0,
+                teleport.getY() / 32.0,
+                teleport.getZ() / 32.0);
+
+        if (reconcile) {
+            this.offset = this.offset.subtract(value);
+            if (!relative) {
+                this.absolute = false;
+            }
+        } else {
+            if (relative) {
+                this.offset = this.offset.add(value);
+                if (!move.func_149060_h()) {
+                    return;
+                }
+            } else {
+                this.offset = value;
+                this.absolute = true;
+            }
+            this.delayedYaw = (float) (relative ? move.func_149066_f() : teleport.getYaw()) * 360.0F * 0.00390625F;
+            this.hasYaw = true;
+            if (!relative) {
+                this.teleportSequence = packetSequence;
+            }
+        }
+    }
+
+    // ===================== Render = Slinky type 6 =====================
+    @EventTarget
+    public void onRender3D(Render3DEvent event) {
+        if (!this.isEnabled() || mc.isSingleplayer() || !this.render || !this.renderRemotePos.getValue()) {
+            return;
+        }
+        if (!this.active || this.target == null || this.target.isDead) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (this.positionInterpTo == null) {
+            this.positionInterpFrom = this.current;
+            this.positionInterpTo = this.current;
+            this.positionInterpStartMs = now;
+        } else if (positionChanged(this.current, this.positionInterpTo)) {
+            double p = Math.min(1.0, (double) (now - this.positionInterpStartMs) / POSITION_INTERP_MS);
+            this.positionInterpFrom = lerp(this.positionInterpFrom, this.positionInterpTo, p);
+            this.positionInterpTo = this.current;
+            this.positionInterpStartMs = now;
+        }
+
+        double progress = Math.min(1.0, (double) (now - this.positionInterpStartMs) / POSITION_INTERP_MS);
+        Vec3 drawPos = lerp(this.positionInterpFrom, this.positionInterpTo, progress);
+        this.drawBox(drawPos, this.indicatorColor.getValue(), this.indicatorLineWidth.getValue(),
+                this.indicatorFilled.getValue());
+    }
+
+    // ===================== helpers =====================
+
+    public static double metric(Vec3 self, Vec3 server, Vec3 delayed) {
+        return distance(self, delayed) - distance(self, server);
+    }
+
+    private void updatePosition(Vec3 position, float yaw) {
+        if (!sameBits(this.desired, position) || yaw != this.desiredYaw) {
+            this.interpolation = 3;
+        }
+        this.desired = position;
+        this.previous = this.current;
+        this.previousYaw = this.currentYaw;
+        this.desiredYaw = yaw;
+
+        if (this.interpolation < 1) {
+            this.current = position;
+        } else {
+            double fraction = 1.0 / (double) this.interpolation;
+            this.current = this.current.add(scale(position.subtract(this.current), fraction));
+            yaw = (float) ((double) MathHelper.wrapAngleTo180_float(this.desiredYaw - this.currentYaw) * fraction)
+                    + this.currentYaw;
+            this.interpolation--;
+        }
+        this.currentYaw = yaw;
+    }
+
+    private boolean isValidCombatTarget(EntityPlayer p) {
+        if (p == null || p.isDead) {
+            return false;
+        }
+        if (TeamUtil.isFriend(p)) {
+            return false;
+        }
+        if (this.ignoreBots.getValue() && TeamUtil.isBot(p)) {
+            return false;
+        }
+        if (this.ignoreTeammates.getValue() && TeamUtil.isSameTeam(p)) {
+            return false;
+        }
+        return true;
+    }
+
+    private EntityPlayer resolveTarget() {
+        if (this.target != null && !this.target.isDead && mc.theWorld != null) {
+            Entity e = mc.theWorld.getEntityByID(this.targetId);
+            if (e instanceof EntityPlayer && e == this.target) {
+                return this.target;
+            }
         }
         return null;
     }
 
-    private boolean shouldFlushForPacket(Packet<?> packet) {
-        if (packet instanceof S08PacketPlayerPosLook) {
-            return true;
-        }
-        return packet instanceof S12PacketEntityVelocity && mc.thePlayer != null
-                && ((S12PacketEntityVelocity) packet).getEntityID() == mc.thePlayer.getEntityId();
+    private boolean isInputReady() {
+        return mc.thePlayer != null && mc.theWorld != null && !mc.isGamePaused();
     }
 
-    private boolean isMovingAway(Vec3 previousSnapshot, Vec3 newSnapshot) {
-        if (previousSnapshot == null || newSnapshot == null || this.target == null) {
-            return false;
-        }
-        double previousDistance = RotationUtil.distanceToBoxAt(this.target, previousSnapshot);
-        double newDistance = RotationUtil.distanceToBoxAt(this.target, newSnapshot);
-        return newDistance > previousDistance + MOVEMENT_DISTANCE_EPS;
+    private boolean inDistanceSq(EntityPlayer t, float low, float high) {
+        double d = mc.thePlayer.getDistanceSqToEntity(t);
+        return !(d < (double) (low * low)) && !(d > (double) (high * high));
     }
 
-    private void processDelayedPackets() {
-        synchronized (this.packetQueue) {
-            long now = System.currentTimeMillis();
-            while (!this.packetQueue.isEmpty()) {
-                TimedPacket timed = this.packetQueue.peek();
-                if (timed == null || now < timed.releaseAt) {
-                    break;
-                }
-                this.packetQueue.poll();
-                processPacket(timed.packet);
-            }
-            if (this.packetQueue.isEmpty()) {
-                this.lastQueuedReleaseAt = 0L;
-            }
-        }
-    }
-
-    private void queuePacket(Packet<?> packet) {
-        synchronized (this.packetQueue) {
-            long releaseAt = System.currentTimeMillis() + this.currentDelay;
-            if (this.lastQueuedReleaseAt > 0L && releaseAt <= this.lastQueuedReleaseAt) {
-                releaseAt = this.lastQueuedReleaseAt + 1L;
-            }
-            this.packetQueue.add(new TimedPacket(packet, releaseAt));
-            this.lastQueuedReleaseAt = releaseAt;
-        }
-    }
-
-    private void releaseAll() {
-        this.flushPendingPackets();
-        this.currentDelay = 0;
-        this.lastTargetSnapshot = null;
-        this.delayingPackets = false;
-        this.clearPositionInterp();
-    }
-
-    private void flushPendingPackets() {
-        synchronized (this.packetQueue) {
-            while (!this.packetQueue.isEmpty()) {
-                TimedPacket timed = this.packetQueue.poll();
-                if (timed != null) {
-                    processPacket(timed.packet);
-                }
-            }
-            this.lastQueuedReleaseAt = 0L;
-        }
-    }
-
-    private void clearPendingPackets() {
-        synchronized (this.packetQueue) {
-            this.packetQueue.clear();
-            this.lastQueuedReleaseAt = 0L;
-        }
-    }
-
-    private boolean isPacketQueueEmpty() {
-        synchronized (this.packetQueue) {
-            return this.packetQueue.isEmpty();
-        }
-    }
-
-    private void resetWithoutProcessingPackets() {
-        this.clearPendingPackets();
+    private void resetState() {
+        this.active = this.absolute = this.hasYaw = this.render = false;
+        this.targetId = this.selfId = this.interpolation = 0;
+        this.cooldownUntilMs = 0L;
+        this.delayedSequence = this.releasedSequence = this.teleportSequence = this.packetSequenceCounter = 0;
+        this.delayMs = 0L;
+        this.offset = this.previous = this.current = this.desired = zero();
+        this.delayedYaw = this.previousYaw = this.currentYaw = this.desiredYaw = 0.0F;
         this.target = null;
-        this.targetPos = null;
-        this.lastTargetSnapshot = null;
-        this.lastDelay = 0;
-        this.currentDelay = 0;
-        this.lastDeactivationTime = 0L;
-        this.delayingPackets = false;
-        this.wasActive = false;
-        this.clearPositionInterp();
+        this.positionInterpFrom = this.positionInterpTo = null;
+        this.positionInterpStartMs = 0L;
     }
 
     @SuppressWarnings("unchecked")
@@ -397,110 +615,110 @@ public class BackTrack extends Module {
         try {
             ((Packet<net.minecraft.network.play.INetHandlerPlayClient>) packet)
                     .processPacket(mc.getNetHandler());
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            // Slinky uses fireChannelRead (no swallow). Log if you have a logger.
+            t.printStackTrace();
         }
     }
 
-    @EventTarget
-    public void onRender3D(Render3DEvent event) {
-        if (!this.isEnabled() || mc.isSingleplayer() || !this.showServerPosition.getValue()) {
-            return;
-        }
-        if (this.target == null || this.targetPos == null || this.target.isDead
-                || this.currentDelay <= 0) {
-            return;
-        }
-        long nowMs = System.currentTimeMillis();
-        if (this.positionInterpTo == null) {
-            this.positionInterpFrom = this.targetPos;
-            this.positionInterpTo = this.targetPos;
-            this.positionInterpStartMs = nowMs;
-        } else if (positionChanged(this.targetPos, this.positionInterpTo)) {
-            double elapsedProgress =
-                    Math.min(1.0, (double) (nowMs - this.positionInterpStartMs) / POSITION_INTERP_MS);
-            this.positionInterpFrom =
-                    lerpVec3(this.positionInterpFrom, this.positionInterpTo, elapsedProgress);
-            this.positionInterpTo = this.targetPos;
-            this.positionInterpStartMs = nowMs;
-        }
-        double progress =
-                Math.min(1.0, (double) (nowMs - this.positionInterpStartMs) / POSITION_INTERP_MS);
-        drawPlayerBoundingBox(lerpVec3(this.positionInterpFrom, this.positionInterpTo, progress),
-                this.positionColor.getValue(), this.positionAlpha.getValue());
-    }
-
-    private static void drawPlayerBoundingBox(Vec3 position, int color, int alpha) {
-        if (mc.thePlayer == null) {
-            return;
-        }
+    private void drawBox(Vec3 position, int color, float lineWidth, boolean filled) {
         IAccessorRenderManager rm = (IAccessorRenderManager) mc.getRenderManager();
         double x = position.xCoord - rm.getRenderPosX();
         double y = position.yCoord - rm.getRenderPosY();
         double z = position.zCoord - rm.getRenderPosZ();
-        AxisAlignedBB playerBox = mc.thePlayer.getEntityBoundingBox().expand(0.1, 0.1, 0.1);
+        float w = 0.6F;
+        float h = 1.8F;
         AxisAlignedBB box = new AxisAlignedBB(
-                playerBox.minX - mc.thePlayer.posX + x,
-                playerBox.minY - mc.thePlayer.posY + y,
-                playerBox.minZ - mc.thePlayer.posZ + z,
-                playerBox.maxX - mc.thePlayer.posX + x,
-                playerBox.maxY - mc.thePlayer.posY + y,
-                playerBox.maxZ - mc.thePlayer.posZ + z);
-        int red = color >> 16 & 255;
-        int green = color >> 8 & 255;
-        int blue = color & 255;
-
+                x - w / 2.0, y, z - w / 2.0,
+                x + w / 2.0, y + h, z + w / 2.0);
+        int r = color >> 16 & 255;
+        int g = color >> 8 & 255;
+        int b = color & 255;
         RenderUtil.enableRenderState();
-        RenderUtil.drawBoundingBox(box, red, green, blue, alpha, 2.0F);
+        if (filled) {
+            RenderUtil.drawFilledBox(box, r, g, b);
+        }
+        RenderUtil.drawBoundingBox(box, r, g, b, 255, lineWidth);
         GlStateManager.resetColor();
         RenderUtil.disableRenderState();
     }
 
-    private void clearPositionInterp() {
-        this.positionInterpFrom = null;
-        this.positionInterpTo = null;
-        this.positionInterpStartMs = 0L;
+    /** TimingAccess.position */
+    private static Vec3 clientPos(Entity e) {
+        return new Vec3(e.posX, e.posY, e.posZ);
     }
 
-    private static boolean positionChanged(Vec3 first, Vec3 second) {
-        return Math.abs(first.xCoord - second.xCoord) > POS_EPS
-                || Math.abs(first.yCoord - second.yCoord) > POS_EPS
-                || Math.abs(first.zCoord - second.zCoord) > POS_EPS;
+    /** TimingAccess.server */
+    private static Vec3 serverPos(Entity e) {
+        if (e instanceof EntityOtherPlayerMP) {
+            IAccessorEntityOtherPlayerMP a = (IAccessorEntityOtherPlayerMP) e;
+            return new Vec3(a.getOtherPlayerMPX(), a.getOtherPlayerMPY(), a.getOtherPlayerMPZ());
+        }
+        return clientPos(e);
     }
 
-    private static Vec3 lerpVec3(Vec3 from, Vec3 to, double progress) {
-        if (progress <= 0.0) {
+    private static double distance(Vec3 a, Vec3 b) {
+        double dx = a.xCoord - b.xCoord;
+        double dy = a.yCoord - b.yCoord;
+        double dz = a.zCoord - b.zCoord;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
+    private static Vec3 scale(Vec3 v, double s) {
+        return new Vec3(v.xCoord * s, v.yCoord * s, v.zCoord * s);
+    }
+
+    private static Vec3 zero() {
+        return new Vec3(0.0, 0.0, 0.0);
+    }
+
+    private static boolean sameBits(Vec3 a, Vec3 b) {
+        return Double.doubleToRawLongBits(a.xCoord) == Double.doubleToRawLongBits(b.xCoord)
+                && Double.doubleToRawLongBits(a.yCoord) == Double.doubleToRawLongBits(b.yCoord)
+                && Double.doubleToRawLongBits(a.zCoord) == Double.doubleToRawLongBits(b.zCoord);
+    }
+
+    private static boolean positionChanged(Vec3 a, Vec3 b) {
+        return Math.abs(a.xCoord - b.xCoord) > POS_EPS
+                || Math.abs(a.yCoord - b.yCoord) > POS_EPS
+                || Math.abs(a.zCoord - b.zCoord) > POS_EPS;
+    }
+
+    private static Vec3 lerp(Vec3 from, Vec3 to, double t) {
+        if (t <= 0.0) {
             return from;
         }
-        if (progress >= 1.0) {
+        if (t >= 1.0) {
             return to;
         }
-        return new Vec3(from.xCoord + (to.xCoord - from.xCoord) * progress,
-                from.yCoord + (to.yCoord - from.yCoord) * progress,
-                from.zCoord + (to.zCoord - from.zCoord) * progress);
+        return new Vec3(
+                from.xCoord + (to.xCoord - from.xCoord) * t,
+                from.yCoord + (to.yCoord - from.yCoord) * t,
+                from.zCoord + (to.zCoord - from.zCoord) * t);
     }
 
     public boolean isRenderingServerPositionFor(EntityLivingBase entity) {
-        return !mc.isSingleplayer() && this.showServerPosition.getValue() && this.target == entity
-                && this.targetPos != null && !this.target.isDead && this.currentDelay > 0;
+        return this.active && this.render && this.renderRemotePos.getValue()
+                && this.target == entity && this.delayMs > 0L;
     }
 
     public Vec3 getBacktrackPosition() {
-        return this.target != null && this.targetPos != null && !this.target.isDead
-                && this.currentDelay > 0 ? this.targetPos : null;
+        return this.active && this.delayMs > 0L ? this.current : null;
     }
 
     public EntityPlayer getBacktrackTarget() {
-        return this.target != null && !this.target.isDead && this.currentDelay > 0
-                ? this.target : null;
+        return this.active && this.delayMs > 0L ? this.target : null;
     }
 
     private static final class TimedPacket {
-        private final Packet<?> packet;
-        private final long releaseAt;
+        final Packet<?> packet;
+        final long receiveAt;
+        final int sequence;
 
-        private TimedPacket(Packet<?> packet, long releaseAt) {
+        TimedPacket(Packet<?> packet, long receiveAt, int sequence) {
             this.packet = packet;
-            this.releaseAt = releaseAt;
+            this.receiveAt = receiveAt;
+            this.sequence = sequence;
         }
     }
 }
