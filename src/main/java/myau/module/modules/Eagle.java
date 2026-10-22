@@ -5,6 +5,7 @@ import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.MoveInputEvent;
 import myau.events.TickEvent;
+import myau.events.RightClickMouseEvent;
 import myau.module.Module;
 import myau.module.Category;
 import myau.util.ItemUtil;
@@ -13,6 +14,10 @@ import myau.util.PlayerUtil;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.MovingObjectPosition;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.BlockPos;
+import net.minecraft.util.Vec3;
 import org.apache.commons.lang3.RandomUtils;
 import org.lwjgl.input.Keyboard;
 
@@ -23,6 +28,7 @@ public class Eagle extends Module {
     private int sneakDelay = 0;
     public final IntProperty minDelay = new IntProperty("min-delay", 2, 0, 10);
     public final IntProperty maxDelay = new IntProperty("max-delay", 3, 0, 10);
+    public final BooleanProperty doubleFix = new BooleanProperty("double-fix", true);
     public final BooleanProperty directionCheck = new BooleanProperty("direction-check", true);
     public final BooleanProperty jumpCheck = new BooleanProperty("jump-check", true);
     public final BooleanProperty pitchCheck = new BooleanProperty("pitch-check", true);
@@ -46,6 +52,43 @@ public class Eagle extends Module {
         } else {
             return (!this.blocksOnly.getValue() || ItemUtil.isHoldingBlock()) && mc.thePlayer.onGround;
         }
+    }
+
+    private boolean isDiagonal(float yaw) {
+        float absYaw = Math.abs(yaw % 90.0F);
+        return absYaw > 20.0F && absYaw < 70.0F;
+    }
+
+    private boolean shouldCancelForDoubleFix() {
+        if (!this.doubleFix.getValue()) return false;
+        if (!mc.thePlayer.onGround) return false;
+        if (mc.gameSettings.keyBindForward.isKeyDown() || mc.gameSettings.keyBindLeft.isKeyDown() || mc.gameSettings.keyBindRight.isKeyDown()) return false;
+        if (!this.isDiagonal(mc.thePlayer.rotationYaw)) return false;
+
+        MovingObjectPosition hit = mc.objectMouseOver;
+        if (hit == null || hit.typeOfHit != MovingObjectPosition.MovingObjectType.BLOCK) return false;
+        if (hit.sideHit == EnumFacing.UP || hit.sideHit == EnumFacing.DOWN) return false;
+
+        Vec3 self = new Vec3(mc.thePlayer.posX, mc.thePlayer.posY, mc.thePlayer.posZ);
+        Vec3 point = hit.hitVec;
+        double dx = Math.abs(point.xCoord - self.xCoord);
+        double dz = Math.abs(point.zCoord - self.zCoord);
+        double dy = point.yCoord - self.yCoord;
+
+        if (dx > 1.0 || dz > 1.0) return false;
+        if (dy < -1.0 || dy > 0.2) return false;
+
+        BlockPos block = hit.getBlockPos().offset(hit.sideHit);
+        double unit = 1.0;
+        boolean inside = block.getX() < self.xCoord && self.xCoord < block.getX() + unit
+                && block.getZ() < self.zCoord && self.zCoord < block.getZ() + unit;
+
+        double margin = inside ? 0.15 : 0.1;
+        double upper = unit - margin;
+        double rx = Math.abs(point.xCoord % unit);
+        double rz = Math.abs(point.zCoord % unit);
+
+        return (rx >= margin && rx <= upper) || (rz >= margin && rz <= upper);
     }
 
     public Eagle() {
@@ -81,6 +124,17 @@ public class Eagle extends Module {
                     mc.thePlayer.movementInput.moveForward *= 0.3F;
                 }
             }
+        }
+    }
+
+    @EventTarget(Priority.LOWEST)
+    public void onRightClick(RightClickMouseEvent event) {
+        if (!this.isEnabled() || mc.currentScreen != null) return;
+        if (!this.doubleFix.getValue()) return;
+
+        // 只有當 Eagle 正在強制 sneak 時才攔截
+        if (mc.thePlayer.movementInput.sneak && this.shouldSneak() && this.shouldCancelForDoubleFix()) {
+            event.setCancelled(true);
         }
     }
 
