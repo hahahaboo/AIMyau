@@ -75,8 +75,8 @@ public class Eagle extends Module {
         double dz = Math.abs(point.zCoord - self.zCoord);
         double dy = point.yCoord - self.yCoord;
 
-        //if (dx > 0.8 || dz > 0.8) return false;
-        //if (dy < -0.1 || dy > 0.0) return false;
+        if (dx > 1.0 || dz > 1.0) return false;
+        if (dy < -0.5 || dy > 0.2) return false;
 
         BlockPos block = hit.getBlockPos().offset(hit.sideHit);
         double unit = 1.0;
