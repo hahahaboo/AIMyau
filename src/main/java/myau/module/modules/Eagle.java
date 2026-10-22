@@ -83,7 +83,7 @@ public class Eagle extends Module {
         boolean inside = block.getX() < self.xCoord && self.xCoord < block.getX() + unit
                 && block.getZ() < self.zCoord && self.zCoord < block.getZ() + unit;
 
-        double margin = inside ? 0.2 : 0.1;
+        double margin = inside ? 0.15 : 0.1;
         double upper = unit - margin;
         double rx = Math.abs(point.xCoord % unit);
         double rz = Math.abs(point.zCoord % unit);
