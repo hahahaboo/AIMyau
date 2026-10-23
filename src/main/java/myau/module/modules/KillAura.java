@@ -115,6 +115,11 @@ public class KillAura extends Module {
             } else if (this.attackDelayMS > 0L) {
                 return false;
             } else {
+                if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
+                    // hold 中：可選擇只 fake swing 不送攻擊
+                    // 若 HitSelect.fakeSwing 已處理就直接 return
+                    return false;
+                }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
@@ -424,6 +429,10 @@ public class KillAura extends Module {
 
     public EntityLivingBase getTarget() {
         return this.target != null ? this.target.getEntity() : null;
+    }
+
+    public void forceNextAttacks(int count) {
+        this.attackDelayMS = 0L;
     }
 
     public boolean isAttackAllowed() {
