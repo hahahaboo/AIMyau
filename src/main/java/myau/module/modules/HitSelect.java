@@ -40,7 +40,6 @@ public class HitSelect extends Module {
     public final BooleanProperty fakeSwing = new BooleanProperty("fake-swing", true);
     public final BooleanProperty forceFirstHit = new BooleanProperty("force-first-hit", false);
     public final BooleanProperty onlyCriticalHits = new BooleanProperty("only-critical-hits", false);
-    public final BooleanProperty onlyWhileJumping = new BooleanProperty("only-while-jumping", false);
     public final BooleanProperty resetComboOnSwap = new BooleanProperty("reset-combo-on-swap", true);
     public final BooleanProperty resetOnDamage = new BooleanProperty("reset-on-damage", true);
     public final BooleanProperty manual = new BooleanProperty("manual", true);
@@ -93,9 +92,6 @@ public class HitSelect extends Module {
             return false;
         }
         if (onlyInCombo.getValue() > 0 && combo < onlyInCombo.getValue()) {
-            return false;
-        }
-        if (onlyWhileJumping.getValue() && !GameSettings.isKeyDown(mc.gameSettings.keyBindJump)) {
             return false;
         }
         if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 170L) {
