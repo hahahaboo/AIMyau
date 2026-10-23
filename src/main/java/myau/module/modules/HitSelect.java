@@ -308,12 +308,9 @@ public class HitSelect extends Module {
 
     @Override
     public String[] getSuffix() {
-        if (pause.getValue() <= 0 && waitFirstHit.getValue() <= 0) {
-            return new String[]{"off"};
+        if (pause.getValue() <= 0) {
+            return new String[]{"OFF"};
         }
-        if (waitFirstHit.getValue() > 0 && !onlyCriticalHits.getValue()) {
-            return new String[]{pause.getValue() + "/" + waitFirstHit.getValue()};
-        }
-        return new String[]{String.valueOf(pause.getValue())};
+        return new String[]{pause.getValue() + " ms"};
     }
 }
