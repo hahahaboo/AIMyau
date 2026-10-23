@@ -34,11 +34,11 @@ public class HitSelect extends Module {
     private static final double WAIT_RESET_DISTANCE = 4.0;
     // ===== Settings =====
     public final IntProperty pause = new IntProperty("pause", 200, 0, 500);
+    public final IntProperty waitFirstHit = new IntProperty("wait-first-hit", 100, 0, 500, () -> !this.onlyCriticalHits.getValue());
     public final IntProperty onlyInCombo = new IntProperty("only-in-combo", 0, 0, 10);
-    public final IntProperty waitFirstHit = new IntProperty("wait-first-hit", 0, 0, 500, () -> !this.onlyCriticalHits.getValue());
-    public final BooleanProperty disableOnLowHealth = new BooleanProperty("disable-on-low-health", false);
+    public final BooleanProperty disableOnLowHealth = new BooleanProperty("disable-on-low-health", true);
     public final BooleanProperty fakeSwing = new BooleanProperty("fake-swing", true);
-    public final BooleanProperty forceFirstHit = new BooleanProperty("force-first-hit", false);
+    public final BooleanProperty forceFirstHit = new BooleanProperty("force-first-hit", true);
     public final BooleanProperty onlyCriticalHits = new BooleanProperty("only-critical-hits", false);
     public final BooleanProperty resetComboOnSwap = new BooleanProperty("reset-combo-on-swap", true);
     public final BooleanProperty resetOnDamage = new BooleanProperty("reset-on-damage", true);
@@ -311,6 +311,6 @@ public class HitSelect extends Module {
         if (pause.getValue() <= 0) {
             return new String[]{"OFF"};
         }
-        return new String[]{pause.getValue() + " ms"};
+        return new String[]{pause.getValue() + "ms"};
     }
 }
