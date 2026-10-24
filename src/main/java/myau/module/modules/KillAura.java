@@ -120,10 +120,6 @@ public class KillAura extends Module {
                     return false;
                 }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
-                if (this.forceAttackRemaining > 0) {
-                    this.forceAttackRemaining--;
-                    this.attackDelayMS = 0L;
-                }
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
                         && RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, this.attackRange.getValue()) == null) {
@@ -135,6 +131,10 @@ public class KillAura extends Module {
                     PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
                     if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
                         PlayerUtil.attackEntity(this.target.getEntity());
+                    }
+                    if (this.forceAttackRemaining > 0) {
+                        this.forceAttackRemaining--;
+                        this.attackDelayMS = 0L;
                     }
                     this.hitRegistered = true;
                     return true;
@@ -435,6 +435,8 @@ public class KillAura extends Module {
     }
 
     public void forceNextAttacks(int count) {
+        count--;
+        this.attackDelayMS = 0L;
         this.forceAttackRemaining = Math.max(0, count);
     }
 
