@@ -95,7 +95,7 @@ public class HitSelect extends Module {
         if (onlyInCombo.getValue() > 0 && combo < onlyInCombo.getValue()) {
             return false;
         }
-        if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 250L) {
+        if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 500L) {
             return false;
         }
 
