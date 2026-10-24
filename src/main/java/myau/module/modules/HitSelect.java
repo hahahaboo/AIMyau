@@ -12,6 +12,7 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.IntProperty;
+import myau.util.PlayerUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.entity.Entity;
@@ -102,7 +103,7 @@ public class HitSelect extends Module {
         if (!onlyCriticalHits.getValue() && waitFirstHit.getValue() > 0) {
             if (updateWaitFirstHit(entity)) {
                 if (fakeSwing.getValue()) {
-                    mc.thePlayer.swingItem();
+                    PlayerUtil.clientSwingOnly();
                 }
                 return true;
             }
@@ -120,7 +121,7 @@ public class HitSelect extends Module {
         }
 
         if (shouldHold && fakeSwing.getValue()) {
-            mc.thePlayer.swingItem();
+            PlayerUtil.clientSwingOnly();
         }
         return shouldHold;
     }
