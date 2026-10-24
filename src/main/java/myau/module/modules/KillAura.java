@@ -64,6 +64,7 @@ public class KillAura extends Module {
     private boolean fakeBlockState = false;
     private boolean blinkReset = false;
     private long attackDelayMS = 0L;
+    private int forceAttackRemaining = 0;
     private int blockTick = 0;
     private int lastTickProcessed;
     private int watchdogStage;
@@ -115,6 +116,9 @@ public class KillAura extends Module {
             } else if (this.attackDelayMS > 0L) {
                 return false;
             } else {
+                if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
+                    return false;
+                }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
@@ -127,6 +131,10 @@ public class KillAura extends Module {
                     PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.ATTACK));
                     if (mc.playerController.getCurrentGameType() != GameType.SPECTATOR) {
                         PlayerUtil.attackEntity(this.target.getEntity());
+                    }
+                    if (this.forceAttackRemaining > 0) {
+                        this.forceAttackRemaining--;
+                        this.attackDelayMS = 0L;
                     }
                     this.hitRegistered = true;
                     return true;
@@ -424,6 +432,12 @@ public class KillAura extends Module {
 
     public EntityLivingBase getTarget() {
         return this.target != null ? this.target.getEntity() : null;
+    }
+
+    public void forceNextAttacks(int count) {
+        count--;
+        this.attackDelayMS = 0L;
+        this.forceAttackRemaining = Math.max(0, count);
     }
 
     public boolean isAttackAllowed() {

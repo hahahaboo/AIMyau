@@ -1,6 +1,7 @@
 package myau.util;
 
 import myau.Myau;
+import myau.mixin.IAccessorEntityLivingBase;
 import myau.module.modules.KeepSprint;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockAir;
@@ -47,6 +48,20 @@ public class PlayerUtil {
 
     public static boolean isUsingItem() {
         return mc.currentScreen == null && KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode());
+    }
+
+    public static void clientSwingOnly() {
+        if (mc.thePlayer == null) {
+            return;
+        }
+        IAccessorEntityLivingBase living = (IAccessorEntityLivingBase) mc.thePlayer;
+        int end = living.invokeGetArmSwingAnimationEnd();
+        if (!living.getIsSwingInProgress()
+                || living.getSwingProgressInt() >= end / 2
+                || living.getSwingProgressInt() < 0) {
+            living.setSwingProgressInt(-1);
+            living.setIsSwingInProgress(true);
+        }
     }
 
     public static boolean canFly(float fallThreshold) {
