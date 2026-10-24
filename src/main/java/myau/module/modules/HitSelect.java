@@ -94,7 +94,7 @@ public class HitSelect extends Module {
         if (onlyInCombo.getValue() > 0 && combo < onlyInCombo.getValue()) {
             return false;
         }
-        if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 170L) {
+        if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 250L) {
             return false;
         }
 
@@ -288,10 +288,9 @@ public class HitSelect extends Module {
 
         if (resetOnDamage.getValue()) {
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+            damagedAt = System.currentTimeMillis();
             if (ka != null && ka.isEnabled() && ka.getTarget() != null) {
                 ka.forceNextAttacks(2);
-            } else {
-                damagedAt = System.currentTimeMillis();
             }
         }
     }
