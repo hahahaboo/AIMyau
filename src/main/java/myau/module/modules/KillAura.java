@@ -64,6 +64,7 @@ public class KillAura extends Module {
     private boolean fakeBlockState = false;
     private boolean blinkReset = false;
     private long attackDelayMS = 0L;
+    private int forceAttackRemaining = 0;
     private int blockTick = 0;
     private int lastTickProcessed;
     private int watchdogStage;
@@ -116,11 +117,13 @@ public class KillAura extends Module {
                 return false;
             } else {
                 if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
-                    // hold 中：可選擇只 fake swing 不送攻擊
-                    // 若 HitSelect.fakeSwing 已處理就直接 return
                     return false;
                 }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
+                if (this.forceAttackRemaining > 0) {
+                    this.forceAttackRemaining--;
+                    this.attackDelayMS = 0L;
+                }
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
                         && RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, this.attackRange.getValue()) == null) {
@@ -432,7 +435,7 @@ public class KillAura extends Module {
     }
 
     public void forceNextAttacks(int count) {
-        this.attackDelayMS = 0L;
+        this.forceAttackRemaining = Math.max(0, count);
     }
 
     public boolean isAttackAllowed() {
