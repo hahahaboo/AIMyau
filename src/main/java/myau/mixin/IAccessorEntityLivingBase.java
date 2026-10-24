@@ -27,4 +27,19 @@ public interface IAccessorEntityLivingBase {
 
     @Accessor("isJumping")
     boolean isJumping();
+
+    @Accessor("isSwingInProgress")
+    boolean getIsSwingInProgress();
+
+    @Accessor("isSwingInProgress")
+    void setIsSwingInProgress(boolean value);
+
+    @Accessor
+    int getSwingProgressInt();
+
+    @Accessor
+    void setSwingProgressInt(int value);
+
+    @Invoker("getArmSwingAnimationEnd")
+    int invokeGetArmSwingAnimationEnd();
 }
