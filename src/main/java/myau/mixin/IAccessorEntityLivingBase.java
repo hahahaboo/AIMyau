@@ -7,6 +7,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.gen.Invoker;
 
 import java.util.Map;
 
@@ -27,4 +28,19 @@ public interface IAccessorEntityLivingBase {
 
     @Accessor("isJumping")
     boolean isJumping();
+
+    @Accessor("isSwingInProgress")
+    boolean getIsSwingInProgress();
+
+    @Accessor("isSwingInProgress")
+    void setIsSwingInProgress(boolean value);
+
+    @Accessor
+    int getSwingProgressInt();
+
+    @Accessor
+    void setSwingProgressInt(int value);
+
+    @Invoker("getArmSwingAnimationEnd")
+    int invokeGetArmSwingAnimationEnd();
 }
