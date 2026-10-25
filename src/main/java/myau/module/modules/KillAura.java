@@ -117,7 +117,7 @@ public class KillAura extends Module {
         if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
             // LAG mode (value == 5) 允許在擋的時候攻擊（靠 stopBlock + blink 處理）
             // 其他 mode 除了 VANILLA (1) 之外，擋著就不能攻擊
-            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1 && this.autoBlock.getValue() != 5) {
+            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1) {
                 return false;
             } else if (this.attackDelayMS > 0L) {
                 return false;
