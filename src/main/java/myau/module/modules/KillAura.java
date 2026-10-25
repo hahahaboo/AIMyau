@@ -355,7 +355,7 @@ public class KillAura extends Module {
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
-                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE"}
+                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "Lag"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
         this.smartUnblock = new BooleanProperty("smart-unblock", false);
