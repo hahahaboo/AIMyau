@@ -66,12 +66,19 @@ public class KillAura extends Module {
     private int forceAttackRemaining = 0;
     private int blockTick = 0;
     private int lastTickProcessed;
+    private int lagStartTick = -1;
+    private boolean lagging = false;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
     public final BooleanProperty smartUnblock;
     public final IntProperty unblockTicks;
+    public final IntProperty lagMaxHoldTicks;
+    public final IntProperty lagDuration;
+    public final PercentProperty lagChance;
+    public final BooleanProperty lagReblock;
+    public final BooleanProperty lagFlushOnAttack;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -108,7 +115,9 @@ public class KillAura extends Module {
 
     private boolean performAttack(float yaw, float pitch) {
         if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1) {
+            // LAG mode (value == 5) 允許在擋的時候攻擊（靠 stopBlock + blink 處理）
+            // 其他 mode 除了 VANILLA (1) 之外，擋著就不能攻擊
+            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1 && this.autoBlock.getValue() != 5) {
                 return false;
             } else if (this.attackDelayMS > 0L) {
                 return false;
@@ -116,6 +125,14 @@ public class KillAura extends Module {
                 if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
                     return false;
                 }
+
+                // LAG mode: 攻擊時可選擇立刻釋放 lag
+                if (this.autoBlock.getValue() == 5 && this.lagging && this.lagFlushOnAttack.getValue()) {
+                    Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                    this.lagging = false;
+                    this.lagStartTick = -1;
+                }
+
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
@@ -343,6 +360,11 @@ public class KillAura extends Module {
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
         this.smartUnblock = new BooleanProperty("smart-unblock", false);
         this.unblockTicks = new IntProperty("unblock-ticks", 10, 0, 10, this.smartUnblock::getValue);
+        this.lagMaxHoldTicks = new IntProperty("lag-max-hold-ticks", 3, 1, 10, () -> this.autoBlock.getValue() == 5);
+        this.lagDuration = new IntProperty("lag-duration", 2, 1, 10, () -> this.autoBlock.getValue() == 5);
+        this.lagChance = new PercentProperty("lag-chance", 100, () -> this.autoBlock.getValue() == 5);
+        this.lagReblock = new BooleanProperty("lag-reblock", true, () -> this.autoBlock.getValue() == 5);
+        this.lagFlushOnAttack = new BooleanProperty("lag-flush-on-attack", true, () -> this.autoBlock.getValue() == 5);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -400,7 +422,8 @@ public class KillAura extends Module {
     public boolean shouldAutoBlock() {
         if (this.isPlayerBlocking() && this.isBlocking) {
             return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (this.autoBlock.getValue() == 2  // INTERACT
-                    || this.autoBlock.getValue() == 3); // LEGIT
+                    || this.autoBlock.getValue() == 3 // LEGIT
+                    || this.autoBlock.getValue() == 5); // LAG
         } else {
             return false;
         }
@@ -435,6 +458,8 @@ public class KillAura extends Module {
                 Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
                 this.isBlocking = false;
                 this.fakeBlockState = false;
+                this.lagging = false;
+                this.lagStartTick = -1;
                 this.blockTick = 0;
             }
             if (attack) {
@@ -547,6 +572,76 @@ public class KillAura extends Module {
                                     && !Myau.playerStateManager.digging
                                     && !Myau.playerStateManager.placing) {
                                 swap = true;
+                            }
+                            break;
+                        case 5: // LAG
+                            if (this.hasValidTarget()) {
+                                if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
+                                    if (this.lagging) {
+                                        // 已在 lag 中
+                                        int lagTicks = this.lagDuration.getValue();
+                                        boolean lagExpired = lagTicks > 0 && this.lagStartTick >= 0 
+                                                && (mc.thePlayer.ticksExisted - this.lagStartTick) >= lagTicks;
+                
+                                        if (lagExpired) {
+                                            Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                            this.lagging = false;
+                                            this.lagStartTick = -1;
+                                            if (this.lagReblock.getValue()) {
+                                                // 重新擋
+                                                if (!this.isPlayerBlocking()) {
+                                                    swap = true;
+                                                }
+                                                this.blockTick = 0;
+                                            }
+                                        }
+                                        // lag 期間保持假動畫
+                                        this.isBlocking = true;
+                                        this.fakeBlockState = true;
+                                    } else {
+                                        // 正常擋階段
+                                        switch (this.blockTick) {
+                                            case 0:
+                                                if (!this.isPlayerBlocking()) {
+                                                    swap = true;
+                                                }
+                                                this.blockTick = 1;
+                                                break;
+                                            case 1:
+                                                // 擋滿 max hold ticks 後進入 lag
+                                                if (this.isPlayerBlocking() && this.blockTick >= this.lagMaxHoldTicks.getValue()) {
+                                                    // 機率進入 lag
+                                                    if (this.lagChance.getValue() >= 100 || RandomUtil.nextFloat(0, 100) < this.lagChance.getValue()) {
+                                                        this.stopBlock();
+                                                        Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+                                                        this.lagging = true;
+                                                        this.lagStartTick = mc.thePlayer.ticksExisted;
+                                                        this.blockTick = 0;
+                                                    } else {
+                                                        // 沒進 lag，就單純 unblock 一下再擋（類似 LEGIT）
+                                                        this.stopBlock();
+                                                        attack = false;
+                                                        this.blockTick = 0;
+                                                    }
+                                                } else {
+                                                    this.blockTick++;
+                                                }
+                                                break;
+                                            default:
+                                                this.blockTick = 0;
+                                        }
+                                        this.isBlocking = true;
+                                        this.fakeBlockState = true;
+                                    }
+                                }
+                            } else {
+                                // 沒目標 → 全部清掉
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.lagging = false;
+                                this.lagStartTick = -1;
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                this.blockTick = 0;
                             }
                             break;
                     }
@@ -784,6 +879,8 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        this.lagging = false;
+        this.lagStartTick = -1;
         if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
             Myau.rotationManager.startSnapback(this.angleStep.getValue());
         }
@@ -792,7 +889,8 @@ public class KillAura extends Module {
     @Override
     public void verifyValue(String value) {
         boolean badCps = this.autoBlock.getValue() == 2  // INTERACT
-                || this.autoBlock.getValue() == 3;       // LEGIT
+                || this.autoBlock.getValue() == 3        // LEGIT
+                || this.autoBlock.getValue() == 5;       // LAG
         if (!this.autoBlock.getName().equals(value)) {
             if (this.swingRange.getName().equals(value)) {
                 if (this.swingRange.getValue() < this.attackRange.getValue()) {
