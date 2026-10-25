@@ -92,14 +92,9 @@ public class HitSelect extends Module {
                 && mc.thePlayer.getHealth() <= 4.0f) {
             return false;
         }
-        if (onlyInCombo.getValue() > 0 && combo < onlyInCombo.getValue()) {
-            return false;
-        }
         if (damagedAt != 0L && Math.abs(System.currentTimeMillis() - damagedAt) < 500L) {
             return false;
         }
-
-        // wait-first-hit：僅 only-critical-hits 關閉時
         if (!onlyCriticalHits.getValue() && waitFirstHit.getValue() > 0) {
             if (updateWaitFirstHit(entity)) {
                 if (fakeSwing.getValue()) {
@@ -108,7 +103,10 @@ public class HitSelect extends Module {
                 return true;
             }
         }
-
+        if (onlyInCombo.getValue() > 0 && combo < onlyInCombo.getValue()) {
+            return false;
+        }
+        
         boolean shouldHold = shouldHold((EntityLivingBase) entity);
 
         if (shouldHold && forceFirstHit.getValue()) {
