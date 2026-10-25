@@ -66,12 +66,29 @@ public class KillAura extends Module {
     private int forceAttackRemaining = 0;
     private int blockTick = 0;
     private int lastTickProcessed;
+    private boolean lagging = false;
+    private boolean awaitingAttack = false;
+    private boolean releaseLatch = false;
+    private boolean blockingWire = false;
+    private boolean useDispatched = false;
+    private boolean poseOwned = false;
+    private int lagTickCounter = 0;
+    private int blockStartTick = -1;
+    private int lagStartTick = -1;
+    private int awaitStartTick = -1;
+    private int attackProposedTick = -1;
+    private static final int ATTACK_WINDOW_TICKS = 2;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
     public final BooleanProperty autoBlockRequirePress;
     public final BooleanProperty smartUnblock;
     public final IntProperty unblockTicks;
+    public final BooleanProperty slinkyRequireRightMouse;
+    public final FloatProperty slinkyLagChance;
+    public final IntProperty slinkyLagDuration;
+    public final IntProperty slinkyMaxHold;
+    public final BooleanProperty slinkyFakeAnim;
     public final FloatProperty autoBlockMinCPS;
     public final FloatProperty autoBlockMaxCPS;
     public final FloatProperty autoBlockRange;
@@ -108,7 +125,8 @@ public class KillAura extends Module {
 
     private boolean performAttack(float yaw, float pitch) {
         if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
-            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1) {
+            // SLINKY_LAG (5) 允許在擋的時候攻擊（由 stopBlockWire + blink 處理）
+            if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1 && this.autoBlock.getValue() != 5) {
                 return false;
             } else if (this.attackDelayMS > 0L) {
                 return false;
@@ -116,6 +134,18 @@ public class KillAura extends Module {
                 if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
                     return false;
                 }
+
+                // Slinky Lag：攻擊提出時立刻 flush lag（對應 Tenacity onAttackProposed）
+                if (this.autoBlock.getValue() == 5 && this.lagging) {
+                    this.releaseLag();
+                    this.attackProposedTick = this.lagTickCounter;
+                }
+
+                // releaseLatch：同一個 client tick 不能同時 release + attack（防 Grim）
+                if (this.releaseLatch) {
+                    return false;
+                }
+
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
@@ -157,6 +187,82 @@ public class KillAura extends Module {
         PacketUtil.sendPacket(new C07PacketPlayerDigging(C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
         mc.thePlayer.stopUsingItem();
         this.blockingState = false;
+    }
+
+    // ==================== Slinky Lag helpers（對應 Tenacity 成功版）====================
+
+    private void startBlockWire() {
+        if (this.blockingWire || !ItemUtil.isHoldingSword()) return;
+        ItemStack held = mc.thePlayer.getHeldItem();
+        if (held == null) return;
+
+        PacketUtil.sendPacket(new C08PacketPlayerBlockPlacement(held));
+        mc.thePlayer.setItemInUse(held, held.getMaxItemUseDuration());
+        this.blockingState = true;
+        this.blockingWire = true;
+        this.useDispatched = true;
+        this.poseOwned = true;
+        this.blockStartTick = this.lagTickCounter;
+    }
+
+    private void stopBlockWire() {
+        if (!this.useDispatched) {
+            this.blockingWire = false;
+            this.blockStartTick = -1;
+            return;
+        }
+        if (this.poseOwned) {
+            mc.thePlayer.stopUsingItem();
+            this.poseOwned = false;
+        }
+        PacketUtil.sendPacket(new C07PacketPlayerDigging(
+                C07PacketPlayerDigging.Action.RELEASE_USE_ITEM, BlockPos.ORIGIN, EnumFacing.DOWN));
+        this.blockingState = false;
+        this.blockingWire = false;
+        this.useDispatched = false;
+        this.blockStartTick = -1;
+        if (!this.lagging) {
+            this.releaseLatch = true; // 這個 tick 禁止攻擊
+        }
+    }
+
+    private void startLag() {
+        if (this.lagging) return;
+        Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+        this.lagging = true;
+        this.lagStartTick = this.lagTickCounter;
+    }
+
+    private void releaseLag() {
+        if (!this.lagging) return;
+        Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+        this.lagging = false;
+        this.lagStartTick = -1;
+    }
+
+    private boolean shouldStartLag() {
+        float chance = this.slinkyLagChance.getValue();
+        return chance >= 100.0F || (chance > 0.0F && RandomUtil.nextFloat(0.0F, 100.0F) < chance);
+    }
+
+    private void clearSlinkyState() {
+        this.releaseLag();
+        if (this.useDispatched) {
+            this.stopBlockWire();
+        } else {
+            this.blockingWire = false;
+            this.useDispatched = false;
+            this.blockStartTick = -1;
+            if (this.poseOwned && mc.thePlayer != null) {
+                mc.thePlayer.stopUsingItem();
+                this.poseOwned = false;
+            }
+        }
+        this.awaitingAttack = false;
+        this.releaseLatch = false;
+        this.attackProposedTick = -1;
+        this.isBlocking = false;
+        this.fakeBlockState = false;
     }
 
     private boolean shouldSmartUnblock() {
@@ -338,11 +444,16 @@ public class KillAura extends Module {
         this.mode = new ModeProperty("mode", 0, new String[]{"SINGLE", "SWITCH"});
         this.sort = new ModeProperty("sort", 0, new String[]{"DISTANCE", "HEALTH", "HURT_TIME", "FOV"});
         this.autoBlock = new ModeProperty(
-                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE"}
+                "auto-block", 1, new String[]{"NONE", "VANILLA", "INTERACT", "LEGIT", "FAKE", "SLINKY-LAG"}
         );
         this.autoBlockRequirePress = new BooleanProperty("auto-block-require-press", false);
         this.smartUnblock = new BooleanProperty("smart-unblock", false);
         this.unblockTicks = new IntProperty("unblock-ticks", 10, 0, 10, this.smartUnblock::getValue);
+        this.slinkyRequireRightMouse = new BooleanProperty("slinky-require-right-mouse", false, () -> this.autoBlock.getValue() == 5);
+        this.slinkyLagChance = new FloatProperty("slinky-lag-chance", 100.0F, 0.0F, 100.0F, () -> this.autoBlock.getValue() == 5);
+        this.slinkyLagDuration = new IntProperty("slinky-lag-duration", 2, 1, 10, () -> this.autoBlock.getValue() == 5);
+        this.slinkyMaxHold = new IntProperty("slinky-max-hold", 5, 0, 20, () -> this.autoBlock.getValue() == 5);
+        this.slinkyFakeAnim = new BooleanProperty("slinky-fake-anim", true, () -> this.autoBlock.getValue() == 5);
         this.autoBlockMinCPS = new FloatProperty("auto-block-min-aps", 8.0F, 1.0F, 20.0F);
         this.autoBlockMaxCPS = new FloatProperty("auto-block-max-aps", 10.0F, 1.0F, 20.0F);
         this.autoBlockRange = new FloatProperty("auto-block-range", 6.0F, 1.0F, 8.0F);
@@ -399,8 +510,11 @@ public class KillAura extends Module {
 
     public boolean shouldAutoBlock() {
         if (this.isPlayerBlocking() && this.isBlocking) {
-            return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (this.autoBlock.getValue() == 2  // INTERACT
-                    || this.autoBlock.getValue() == 3); // LEGIT
+            return !mc.thePlayer.isInWater() && !mc.thePlayer.isInLava() && (
+                    this.autoBlock.getValue() == 2 || // INTERACT
+                    this.autoBlock.getValue() == 3 || // LEGIT
+                    this.autoBlock.getValue() == 5    // SLINKY_LAG
+            );
         } else {
             return false;
         }
@@ -411,9 +525,13 @@ public class KillAura extends Module {
     }
 
     public boolean isPlayerBlocking() {
+        // Slinky Lag 期間 server 仍看到 block（release 還沒落地）
+        if (this.autoBlock.getValue() == 5) {
+            return (this.blockingWire || this.lagging || this.releaseLatch || mc.thePlayer.isUsingItem() || this.blockingState)
+                    && ItemUtil.isHoldingSword();
+        }
         return (mc.thePlayer.isUsingItem() || this.blockingState) && ItemUtil.isHoldingSword();
     }
-    
 
     @EventTarget(Priority.LOW)
     public void onUpdate(UpdateEvent event) {
@@ -436,6 +554,7 @@ public class KillAura extends Module {
                 this.isBlocking = false;
                 this.fakeBlockState = false;
                 this.blockTick = 0;
+                this.clearSlinkyState();
             }
             if (attack) {
                 boolean swap = false;
@@ -549,6 +668,86 @@ public class KillAura extends Module {
                                 swap = true;
                             }
                             break;
+                        case 5: // SLINKY_LAG
+                            this.lagTickCounter++;
+                            boolean rightDown = KeyBindUtil.isKeyDown(mc.gameSettings.keyBindUseItem.getKeyCode());
+                            boolean conditionsMet = this.hasValidTarget()
+                                    && (!this.slinkyRequireRightMouse.getValue() || rightDown);
+
+                            // lag 被外部清掉時同步狀態
+                            if (this.lagging && !Myau.blinkManager.isBlinking()) {
+                                this.releaseLag();
+                            }
+
+                            int lagTicks = this.slinkyLagDuration.getValue();
+                            if (this.lagging) {
+                                boolean expired = lagTicks > 0 && this.lagStartTick >= 0
+                                        && (this.lagTickCounter - this.lagStartTick) >= lagTicks;
+                                if (expired || !conditionsMet) {
+                                    this.releaseLag();
+                                    if (expired && conditionsMet) {
+                                        this.awaitingAttack = true;
+                                        this.awaitStartTick = this.lagTickCounter;
+                                        this.attackProposedTick = -1;
+                                    }
+                                }
+                            }
+
+                            if (!conditionsMet) {
+                                this.awaitingAttack = false;
+                                this.stopBlockWire();
+                                this.isBlocking = false;
+                                this.fakeBlockState = false;
+                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                break;
+                            }
+
+                            this.isBlocking = true;
+
+                            // awaitingAttack 超時 → 自動 re-arm
+                            if (this.awaitingAttack && this.attackProposedTick < 0
+                                    && (this.lagTickCounter - this.awaitStartTick) >= ATTACK_WINDOW_TICKS
+                                    && !Myau.playerStateManager.digging && !Myau.playerStateManager.placing
+                                    && !mc.thePlayer.isUsingItem()) {
+                                this.startBlockWire();
+                                this.awaitingAttack = false;
+                            }
+
+                            // 正常開始擋
+                            if (!this.blockingWire && !this.lagging && !this.awaitingAttack
+                                    && !Myau.playerStateManager.digging && !Myau.playerStateManager.placing
+                                    && !mc.thePlayer.isUsingItem()) {
+                                this.startBlockWire();
+                            }
+
+                            // 擋滿 max hold → 進入 lag 或直接 await
+                            if (this.blockingWire) {
+                                int holdTicks = this.slinkyMaxHold.getValue();
+                                if (holdTicks > 0 && this.blockStartTick >= 0
+                                        && (this.lagTickCounter - this.blockStartTick) >= holdTicks) {
+                                    boolean lagged = !Myau.playerStateManager.digging
+                                            && !Myau.playerStateManager.placing
+                                            && this.shouldStartLag();
+                                    if (lagged) {
+                                        this.startLag(); // 先開 blink，release 會進 burst
+                                    }
+                                    this.stopBlockWire();
+                                    if (!lagged) {
+                                        // 沒進 lag，release 已送出 → 這個 tick 不能攻擊
+                                        this.awaitingAttack = true;
+                                        this.awaitStartTick = this.lagTickCounter;
+                                        this.attackProposedTick = -1;
+                                    }
+                                }
+                            }
+
+                            // 假動畫
+                            if (this.slinkyFakeAnim.getValue()) {
+                                this.fakeBlockState = this.blockingWire || this.lagging;
+                            } else {
+                                this.fakeBlockState = false;
+                            }
+                            break;
                     }
                 }
                 boolean attacked = false;
@@ -572,6 +771,11 @@ public class KillAura extends Module {
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
                     }
+                }
+                // Slinky Lag：攻擊落地後 re-arm
+                if (this.autoBlock.getValue() == 5 && attacked && !this.blockingWire && !this.lagging && this.awaitingAttack) {
+                    this.awaitingAttack = false;
+                    this.startBlockWire();
                 }
                 if (swap) {
                     if (attacked) {
@@ -669,6 +873,7 @@ public class KillAura extends Module {
     @EventTarget(Priority.LOWEST)
     public void onPacket(PacketEvent event) {
         if (this.isEnabled() && !event.isCancelled() && mc.thePlayer != null && mc.theWorld != null) {
+            // 原本邏輯
             if (event.getPacket() instanceof C07PacketPlayerDigging) {
                 C07PacketPlayerDigging packet = (C07PacketPlayerDigging) event.getPacket();
                 if (packet.getStatus() == C07PacketPlayerDigging.Action.RELEASE_USE_ITEM) {
@@ -681,9 +886,22 @@ public class KillAura extends Module {
                     mc.thePlayer.stopUsingItem();
                 }
             }
+
+            // ========== Slinky Lag 專用 ==========
+            if (this.autoBlock.getValue() == 5) {
+                // 攻擊封包時立刻 flush lag
+                if (this.lagging
+                        && event.getPacket() instanceof C02PacketUseEntity
+                        && ((C02PacketUseEntity) event.getPacket()).getAction() == Action.ATTACK) {
+                    this.releaseLag();
+                }
+                // releaseLatch 在 C03（移動封包）時清除（tick 邊界）
+                if (this.releaseLatch && event.getPacket() instanceof C03PacketPlayer) {
+                    this.releaseLatch = false;
+                }
+            }
         }
     }
-          
 
     @EventTarget
     public void onMove(MoveInputEvent event) {
@@ -776,6 +994,8 @@ public class KillAura extends Module {
         this.hitRegistered = false;
         this.attackDelayMS = 0L;
         this.blockTick = 0;
+        this.clearSlinkyState();
+        this.lagTickCounter = 0;
     }
 
     @Override
@@ -784,6 +1004,7 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        this.clearSlinkyState();
         if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
             Myau.rotationManager.startSnapback(this.angleStep.getValue());
         }
@@ -792,7 +1013,8 @@ public class KillAura extends Module {
     @Override
     public void verifyValue(String value) {
         boolean badCps = this.autoBlock.getValue() == 2  // INTERACT
-                || this.autoBlock.getValue() == 3;       // LEGIT
+                || this.autoBlock.getValue() == 3        // LEGIT
+                || this.autoBlock.getValue() == 5;       // SLINKY-LAG
         if (!this.autoBlock.getName().equals(value)) {
             if (this.swingRange.getName().equals(value)) {
                 if (this.swingRange.getValue() < this.attackRange.getValue()) {
