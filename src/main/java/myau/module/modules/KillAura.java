@@ -3,6 +3,7 @@ package myau.module.modules;
 import com.google.common.base.CaseFormat;
 import myau.Myau;
 import myau.enums.BlinkModules;
+import myau.enums.DelayModules;
 import myau.event.EventManager;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
@@ -76,6 +77,9 @@ public class KillAura extends Module {
     private boolean lagActed = false;
     private boolean lagNoAttack = false;
     private boolean lagTimeout = false;
+    private boolean lagExitPending = false;
+    private boolean lagFinishExit = false;
+    private long lagInboundSince = 0L;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
@@ -351,12 +355,47 @@ public class KillAura extends Module {
         return 10;
     }
 
+    private boolean lagNoAttackPlaceOrDig() {
+        return !Myau.playerStateManager.attacking
+                && !Myau.playerStateManager.placing
+                && !Myau.playerStateManager.digging;
+    }
+
+    private void lagReleaseInbound() {
+        Myau.delayManager.setDelayState(false, DelayModules.AUTO_BLOCK);
+        this.lagInboundSince = 0L;
+    }
+
+    private void lagStartInbound() {
+        this.lagInboundSince = System.currentTimeMillis();
+        Myau.delayManager.setDelayState(true, DelayModules.AUTO_BLOCK);
+    }
+
+    /** 對齊 lagNewExit */
+    private void lagExit() {
+        if (!this.lagActive || this.lagExitPending) {
+            return;
+        }
+        if (this.lagStage == 10 || this.lagStage == 11) {
+            this.lagExitPending = true;
+            return;
+        }
+        this.lagStop();
+    }
+
     private void lagStop() {
-        if (!this.lagActive) return;
         this.lagActive = false;
         this.lagHolding = false;
         this.lagStage = 0;
+        this.lagExitPending = false;
+        this.lagFinishExit = false;
+        this.lagAttackTick = false;
+        this.lagHit = false;
+        this.lagActed = false;
+        this.lagNoAttack = false;
+        this.lagTimeout = false;
         Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+        this.lagReleaseInbound();
         if (this.isPlayerBlocking()) {
             this.stopBlock();
         }
@@ -368,10 +407,15 @@ public class KillAura extends Module {
     private void lagStep() {
         if (this.lagStage == 0) {
             if (this.isPlayerBlocking()) {
-                this.stopBlock();
-                this.fakeBlockState = true;
+                if (this.lagNoAttackPlaceOrDig()) {
+                    this.stopBlock();
+                    this.fakeBlockState = true;
+                    this.lagStage = 3;
+                }
+                // 本 tick 已有 attack/place/dig → 留在 0，下 tick 再試
+            } else {
+                this.lagStage = 3;
             }
-            this.lagStage = 3;
             return;
         }
         switch (this.lagApsMode()) {
@@ -406,6 +450,11 @@ public class KillAura extends Module {
      */
     private boolean lagPre(boolean canAttack) {
         long now = System.currentTimeMillis();
+        if (this.lagFinishExit) {
+            this.lagFinishExit = false;
+            this.lagStop();
+            return false;
+        }
         if (!this.lagActive) {
             this.lagActive = true;
             this.lagStage = this.isPlayerBlocking() ? 0 : 1;
@@ -441,6 +490,17 @@ public class KillAura extends Module {
      * POST：對應 lagNewPost —— block 放在 movement 之後，再 flush。
      */
     private void lagPost(float yaw, float pitch) {
+        // 離開：等 movement 後 flush，下 tick PRE 再 stop
+        if (this.lagExitPending) {
+            this.lagExitPending = false;
+            Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+            this.lagHolding = false;
+            this.lagReleaseInbound();
+            this.lagStage = 0;
+            this.lagFinishExit = true;
+            return;
+        }
+
         if (this.lagStage == 7) {
             if (this.lagHit && this.target != null) {
                 MovingObjectPosition mop = RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, 8.0);
@@ -456,18 +516,21 @@ public class KillAura extends Module {
                     PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.INTERACT));
                 }
             }
-            // C08 在 C03 之後送出
             this.sendUseItem();
             this.fakeBlockState = true;
             this.isBlocking = true;
             this.lagStage = 10;
+            this.lagStartInbound();   // ← 新增 inbound hold
         } else if (this.lagStage == 11) {
-            // flush held packets，再重新 hold
             Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
             this.lagFlushedAt = System.currentTimeMillis();
             this.lagHolding = true;
             Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
             this.lagStage = 0;
+            this.lagReleaseInbound(); // ← flush 週期結束放 inbound
+        } else if (this.lagInboundSince > 0L
+                && System.currentTimeMillis() - this.lagInboundSince >= 329L) {
+            this.lagReleaseInbound();
         }
     }
 
@@ -578,13 +641,14 @@ public class KillAura extends Module {
             boolean attack = this.target != null && this.canAttack();
             boolean block = attack && this.canAutoBlock();
             if (!block) {
-                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                if (this.autoBlock.getValue() == 5) {
+                    this.lagExit();
+                } else {
+                    Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                }
                 this.isBlocking = false;
                 this.fakeBlockState = false;
                 this.blockTick = 0;
-                if (this.autoBlock.getValue() == 5) {
-                    this.lagStop();
-                }
             }
             if (attack) {
                 boolean swap = false;
@@ -707,8 +771,7 @@ public class KillAura extends Module {
                                 // 本 tick 不在 PRE 送 block；block 改在 POST（lagPost）
                                 swap = false;
                             } else {
-                                this.lagStop();
-                                Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
+                                this.lagExit();
                                 this.isBlocking = false;
                                 this.fakeBlockState = false;
                             }
@@ -736,15 +799,14 @@ public class KillAura extends Module {
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
                     }
-                    if (attacked && this.autoBlock.getValue() == 5 && this.lagAttackTick) {
-                        this.lagActed = true;
-                        this.lagHit = true;
-                        if (this.lagStage != 5 && this.lagStage != 6) {
+                    if (this.autoBlock.getValue() == 5 && this.lagAttackTick) {
+                        if (attacked) {
+                            this.lagActed = true;
+                            this.lagHit = true;
+                        }
+                        if (this.lagStage != 5 && this.lagStage != 6 && (this.lagActed || this.lagTimeout)) {
                             this.lagStage = 7;
                         }
-                    } else if (this.autoBlock.getValue() == 5 && this.lagAttackTick && this.lagTimeout
-                            && this.lagStage != 5 && this.lagStage != 6) {
-                        this.lagStage = 7;
                     }
                 }
                 if (swap) {
@@ -953,6 +1015,9 @@ public class KillAura extends Module {
         this.lagHolding = false;
         this.lagStage = 0;
         this.blockTick = 0;
+        this.lagExitPending = false;
+        this.lagFinishExit = false;
+        this.lagInboundSince = 0L;
     }
 
     @Override
