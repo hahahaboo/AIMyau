@@ -30,12 +30,14 @@ public class BlinkManager {
     public boolean offerPacket(Packet<?> packet) {
         if (this.blinkModule == BlinkModules.NONE || packet instanceof C00PacketKeepAlive || packet instanceof C01PacketChatMessage) {
             return false;
-        } else if (this.blinkedPackets.isEmpty() && packet instanceof C0FPacketConfirmTransaction) {
-            return false;
-        } else {
-            this.blinkedPackets.offer(packet);
-            return true;
         }
+        // 一般 blink：空佇列可放行 C0F
+        // AUTO_BLOCK（LAG_NEW）：與原版 lagNewHolding 相同，C0F 也 hold
+        if (this.blinkedPackets.isEmpty() && packet instanceof C0FPacketConfirmTransaction && this.blinkModule != BlinkModules.AUTO_BLOCK) {
+            return false;
+        }
+        this.blinkedPackets.offer(packet);
+        return true;
     }
 
     public boolean setBlinkState(boolean state, BlinkModules module) {
