@@ -31,22 +31,40 @@ public class DelayManager {
     public boolean shouldDelay(Packet<INetHandlerPlayClient> packet) {
         if (this.delayModule == DelayModules.NONE) {
             return false;
-        } else if (packet instanceof S00PacketKeepAlive) {
+        }
+        if (packet instanceof S00PacketKeepAlive) {
             return false;
-        } else if (!(packet instanceof S01PacketJoinGame) && !(packet instanceof S07PacketRespawn)) {
-            if (packet instanceof S19PacketEntityStatus) {
-                S19PacketEntityStatus s19 = (S19PacketEntityStatus) packet;
-                Entity entity = s19.getEntity(mc.theWorld);
-                if (entity != null && (!entity.equals(mc.thePlayer) || s19.getOpCode() != 2)) {
-                    return false;
-                }
-            }
-            this.delayedPacket.offer(packet);
-            return true;
-        } else {
+        }
+        // Join / Respawn：一律立刻放
+        if (packet instanceof S01PacketJoinGame || packet instanceof S07PacketRespawn) {
             this.setDelayState(false, this.delayModule);
             return false;
         }
+        if (packet instanceof net.minecraft.network.play.server.S08PacketPlayerPosLook) {
+            this.setDelayState(false, this.delayModule);
+            return false;
+        }
+        // LAG inbound（對齊 lagNewReceive）
+        if (this.delayModule == DelayModules.AUTO_BLOCK) {
+            // 從第一個 S32 開始 hold；之後整段 inbound 都 queue
+            if (!this.delayedPacket.isEmpty()
+                    || packet instanceof net.minecraft.network.play.server.S32PacketConfirmTransaction) {
+                this.delayedPacket.offer(packet);
+                return true;
+            }
+            return false;
+        }
+
+        // 其他 module：維持原邏輯
+        if (packet instanceof S19PacketEntityStatus) {
+            S19PacketEntityStatus s19 = (S19PacketEntityStatus) packet;
+            Entity entity = s19.getEntity(mc.theWorld);
+            if (entity != null && (!entity.equals(mc.thePlayer) || s19.getOpCode() != 2)) {
+                return false;
+            }
+        }
+        this.delayedPacket.offer(packet);
+        return true;
     }
 
     public boolean setDelayState(boolean state, DelayModules delayModule) {
