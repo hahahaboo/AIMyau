@@ -502,10 +502,6 @@ public class KillAura extends Module {
         }
 
         if (this.lagStage == 7) {
-            // 原版：lagNewHolding 仍為 true 時送 INTERACT / C08 → 進 held，不當下直出
-            this.lagHolding = true;
-            Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
-
             if (this.lagHit && this.target != null) {
                 MovingObjectPosition mop = RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, 8.0);
                 if (mop != null) {
