@@ -487,10 +487,10 @@ public class KillAura extends Module {
     }
 
     /**
-     * POST：對應 lagNewPost —— block 放在 movement 之後，再 flush。
+     * POST：對應 lagNewPost —— block 進 hold，stage 11 再 flush。
      */
     private void lagPost(float yaw, float pitch) {
-        // 離開：等 movement 後 flush，下 tick PRE 再 stop
+        // 離開：等 movement 後 flush，下 tick PRE 再 stop（對齊 lagNewExitPending）
         if (this.lagExitPending) {
             this.lagExitPending = false;
             Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
@@ -502,6 +502,10 @@ public class KillAura extends Module {
         }
 
         if (this.lagStage == 7) {
+            // 原版：lagNewHolding 仍為 true 時送 INTERACT / C08 → 進 held，不當下直出
+            this.lagHolding = true;
+            Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
+
             if (this.lagHit && this.target != null) {
                 MovingObjectPosition mop = RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, 8.0);
                 if (mop != null) {
@@ -516,20 +520,24 @@ public class KillAura extends Module {
                     PacketUtil.sendPacket(new C02PacketUseEntity(this.target.getEntity(), Action.INTERACT));
                 }
             }
+            // C08 進 blink queue（對齊 setBlocking → PacketUtils.send → held）
             this.sendUseItem();
             this.fakeBlockState = true;
             this.isBlocking = true;
             this.lagStage = 10;
-            this.lagStartInbound();   // ← 新增 inbound hold
+            // 原版：開始 inbound hold（C08 已進 held，尚未出網）
+            this.lagStartInbound();
         } else if (this.lagStage == 11) {
+            // 原版：release(false) → lagNewHolding=true → stage=0 → lagNewReleaseInbound()
             Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
             this.lagFlushedAt = System.currentTimeMillis();
             this.lagHolding = true;
             Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
             this.lagStage = 0;
-            this.lagReleaseInbound(); // ← flush 週期結束放 inbound
+            this.lagReleaseInbound();
         } else if (this.lagInboundSince > 0L
                 && System.currentTimeMillis() - this.lagInboundSince >= 329L) {
+            // 原版 inbound 安全閥（lagNewInboundSince）
             this.lagReleaseInbound();
         }
     }
