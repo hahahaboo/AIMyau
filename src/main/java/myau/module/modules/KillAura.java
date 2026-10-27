@@ -80,6 +80,7 @@ public class KillAura extends Module {
     private boolean lagExitPending = false;
     private boolean lagFinishExit = false;
     private long lagInboundSince = 0L;
+    private boolean lagSwungThisTick = false;
     public final ModeProperty mode;
     public final ModeProperty sort;
     public final ModeProperty autoBlock;
@@ -132,6 +133,7 @@ public class KillAura extends Module {
                 }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
+                this.lagSwungThisTick = true;
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
                         && RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, this.attackRange.getValue()) == null) {
                     return false;
@@ -464,6 +466,7 @@ public class KillAura extends Module {
         this.lagActed = false;
         this.lagHit = false;
         this.lagAttackTick = false;
+        this.lagSwungThisTick = false;
 
         if (this.lagStage == 0 || this.lagStage == 3 || this.lagStage == 5) {
             this.lagHolding = true;
@@ -805,14 +808,19 @@ public class KillAura extends Module {
                     if (attack) {
                         attacked = this.performAttack(event.getNewYaw(), event.getNewPitch());
                     }
-                    if (this.autoBlock.getValue() == 5 && this.lagAttackTick) {
-                        if (attacked) {
-                            this.lagActed = true;
-                            this.lagHit = true;
-                        }
-                        if (this.lagStage != 5 && this.lagStage != 6 && (this.lagActed || this.lagTimeout)) {
-                            this.lagStage = 7;
-                        }
+                }
+                // 對齊 lagNewAfterAttack：不限距離；swing 也算 acted
+                if (this.autoBlock.getValue() == 5 && this.lagAttackTick) {
+                    if (attacked) {
+                        this.lagActed = true;
+                        this.lagHit = true;
+                    } else if (this.lagSwungThisTick) {
+                        this.lagActed = true;
+                        // lagHit 維持 false（對齊 sentSwing && !sentAttack）
+                    }
+                    if (this.lagStage != 5 && this.lagStage != 6
+                            && (this.lagActed || this.lagTimeout)) {
+                        this.lagStage = 7;
                     }
                 }
                 if (swap) {
