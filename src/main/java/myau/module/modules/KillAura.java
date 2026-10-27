@@ -395,10 +395,10 @@ public class KillAura extends Module {
         this.lagNoAttack = false;
         this.lagTimeout = false;
         Myau.blinkManager.setBlinkState(false, BlinkModules.AUTO_BLOCK);
-        this.lagReleaseInbound();
-        if (this.isPlayerBlocking()) {
+        if (this.isPlayerBlocking() || this.blockingState) {
             this.stopBlock();
         }
+        this.lagReleaseInbound();
         this.isBlocking = false;
         this.fakeBlockState = false;
         this.blockingState = false;
@@ -502,6 +502,8 @@ public class KillAura extends Module {
         }
 
         if (this.lagStage == 7) {
+            this.lagHolding = true;
+            Myau.blinkManager.setBlinkState(true, BlinkModules.AUTO_BLOCK);
             if (this.lagHit && this.target != null) {
                 MovingObjectPosition mop = RotationUtil.rayTrace(this.target.getBox(), yaw, pitch, 8.0);
                 if (mop != null) {
