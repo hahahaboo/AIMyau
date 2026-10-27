@@ -452,11 +452,6 @@ public class KillAura extends Module {
      */
     private boolean lagPre(boolean canAttack) {
         long now = System.currentTimeMillis();
-        if (this.lagFinishExit) {
-            this.lagFinishExit = false;
-            this.lagStop();
-            return false;
-        }
         if (!this.lagActive) {
             this.lagActive = true;
             this.lagStage = this.isPlayerBlocking() ? 0 : 1;
@@ -641,6 +636,16 @@ public class KillAura extends Module {
             }
         }
         if (this.isEnabled() && event.getType() == EventType.PRE) {
+            // 對齊原版：lagNewFinishExit 在 findTarget / lagNewPre 之前
+            if (this.lagFinishExit) {
+                this.lagFinishExit = false;
+                this.lagStop();
+            }
+            // 對齊：lagNewActive && !lagNew() → lagNewExit
+            // lagNew() ≡ autoBlock == LAG(5)
+            if (this.lagActive && this.autoBlock.getValue() != 5) {
+                this.lagExit();
+            }
             if (this.attackDelayMS > 0L) {
                 this.attackDelayMS -= 50L;
             }
