@@ -28,11 +28,12 @@ public class BlinkManager {
     public Deque<Packet<?>> blinkedPackets = new ConcurrentLinkedDeque<>();
 
     public boolean offerPacket(Packet<?> packet) {
-        if (this.blinkModule == BlinkModules.NONE || packet instanceof C00PacketKeepAlive || packet instanceof C01PacketChatMessage) {
+        if (this.blinkModule == BlinkModules.NONE) {
             return false;
         }
-        // 一般 blink：空佇列可放行 C0F
-        // AUTO_BLOCK（LAG_NEW）：與原版 lagNewHolding 相同，C0F 也 hold
+        if (this.blinkModule != BlinkModules.AUTO_BLOCK && (packet instanceof C00PacketKeepAlive || packet instanceof C01PacketChatMessage)) {
+            return false;
+        }
         if (this.blinkedPackets.isEmpty() && packet instanceof C0FPacketConfirmTransaction && this.blinkModule != BlinkModules.AUTO_BLOCK) {
             return false;
         }
