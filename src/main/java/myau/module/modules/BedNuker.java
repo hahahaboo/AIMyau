@@ -299,11 +299,36 @@ public class BedNuker extends Module {
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-        Vec3 end = new Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
-        MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-        return mop != null
-                && mop.typeOfHit == MovingObjectType.BLOCK
-                && mop.getBlockPos().equals(pos);
+
+        // 對目標方塊多個點做 raycast，任一點能直擊該方塊即視為可見
+        double[][] offsets = {
+                {0.5, 0.5, 0.5},
+                {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
+                {0.5, 0.1, 0.5}, {0.5, 0.9, 0.5},
+                {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
+        };
+        for (double[] o : offsets) {
+            Vec3 end = new Vec3(pos.getX() + o[0], pos.getY() + o[1], pos.getZ() + o[2]);
+            MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
+            if (mop != null
+                    && mop.typeOfHit == MovingObjectType.BLOCK
+                    && mop.getBlockPos().equals(pos)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 床（含另一半）任一點可見即 true */
+    private boolean canRaycastToBed(BlockPos bedPos) {
+        IBlockState state = mc.theWorld.getBlockState(bedPos);
+        if (!(state.getBlock() instanceof BlockBed)) {
+            return this.canRaycastTo(bedPos);
+        }
+        EnumPartType partType = state.getValue(BlockBed.PART);
+        EnumFacing facing = state.getValue(BlockBed.FACING);
+        BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
+        return this.canRaycastTo(bedPos) || this.canRaycastTo(other);
     }
 
     private BlockPos findNearestBed() {
@@ -349,6 +374,10 @@ public class BedNuker extends Module {
                     }
                     return blockPos;
                 } else {
+                    // 床已露出（轉頭可挖）→ 一定優先挖床，不要先挖外層
+                    if (this.canRaycastToBed(blockPos)) {
+                        return blockPos;
+                    }
                     BlockPos outer = this.findOuterBlockByRaycast(blockPos);
                     if (outer != null) {
                         Block block = mc.theWorld.getBlockState(outer).getBlock();
@@ -356,9 +385,6 @@ public class BedNuker extends Module {
                             continue;
                         }
                         return outer;
-                    }
-                    if (this.canRaycastTo(blockPos)) {
-                        return blockPos;
                     }
                 }
             }
