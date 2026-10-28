@@ -50,6 +50,10 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -262,36 +266,147 @@ public class BedNuker extends Module {
         EnumPartType partType = state.getValue(BlockBed.PART);
         EnumFacing facing = state.getValue(BlockBed.FACING);
         BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
-        ArrayList<BlockPos> candidates = new ArrayList<>();
-        for (BlockPos target : Arrays.asList(bedPos, other)) {
+        List<BlockPos> bedParts = Arrays.asList(bedPos, other);
+
+        HashMap<BlockPos, Integer> scores = new HashMap<>();
+
+        // A. 床相鄰且可 raycast → 路徑長度至少 1
+        for (BlockPos part : bedParts) {
+            for (EnumFacing side : EnumFacing.values()) {
+                BlockPos adj = part.offset(side);
+                if (bedParts.contains(adj)) {
+                    continue;
+                }
+                Block b = mc.theWorld.getBlockState(adj).getBlock();
+                if (b instanceof BlockBed || BlockUtil.isReplaceable(b)) {
+                    continue;
+                }
+                if (!PlayerUtil.canReach(adj, this.range.getValue().doubleValue())) {
+                    continue;
+                }
+                if (!this.canRaycastTo(adj)) {
+                    continue;
+                }
+                int len = this.estimatePathLength(adj, bedParts, eyeX, eyeY, eyeZ);
+                scores.merge(adj, len, Math::min);
+            }
+        }
+
+        // B. 朝床中心 raycast 的第一格
+        for (BlockPos part : bedParts) {
             Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-            Vec3 end = new Vec3(target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5);
+            Vec3 end = new Vec3(part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5);
             MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-            if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK) {
-                BlockPos hit = mop.getBlockPos();
-                if (!(mc.theWorld.getBlockState(hit).getBlock() instanceof BlockBed)
-                        && PlayerUtil.canReach(hit, this.range.getValue().doubleValue())) {
-                    if (!candidates.contains(hit)) {
-                        candidates.add(hit);
+            if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK) {
+                continue;
+            }
+            BlockPos hit = mop.getBlockPos();
+            if (mc.theWorld.getBlockState(hit).getBlock() instanceof BlockBed) {
+                continue;
+            }
+            if (!PlayerUtil.canReach(hit, this.range.getValue().doubleValue())) {
+                continue;
+            }
+            int len = this.estimatePathLength(hit, bedParts, eyeX, eyeY, eyeZ);
+            scores.merge(hit, len, Math::min);
+        }
+
+        if (scores.isEmpty()) {
+            return null;
+        }
+
+        return scores.entrySet().stream()
+                .min((e1, e2) -> {
+                    int c = Integer.compare(e1.getValue(), e2.getValue());
+                    if (c != 0) {
+                        return c;
                     }
+                    return Double.compare(
+                            e1.getKey().distanceSqToCenter(eyeX, eyeY, eyeZ),
+                            e2.getKey().distanceSqToCenter(eyeX, eyeY, eyeZ)
+                    );
+                })
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private int estimatePathLength(BlockPos firstHit, List<BlockPos> bedParts,
+                                   double eyeX, double eyeY, double eyeZ) {
+        int best = Integer.MAX_VALUE;
+        Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
+        for (BlockPos part : bedParts) {
+            double[][] offsets = {
+                    {0.5, 0.5, 0.5},
+                    {0.2, 0.5, 0.5}, {0.8, 0.5, 0.5},
+                    {0.5, 0.2, 0.5}, {0.5, 0.8, 0.5},
+                    {0.5, 0.5, 0.2}, {0.5, 0.5, 0.8}
+            };
+            for (double[] o : offsets) {
+                Vec3 end = new Vec3(part.getX() + o[0], part.getY() + o[1], part.getZ() + o[2]);
+                int count = this.countSolidOnRay(start, end, firstHit);
+                if (count > 0 && count < best) {
+                    best = count;
                 }
             }
         }
-        if (candidates.isEmpty()) {
-            return null;
-        }
-        candidates.sort(
-                (a, b) -> {
-                    int o = Float.compare(this.calcBlockStrength(b), this.calcBlockStrength(a));
-                    return o != 0
-                            ? o
-                            : Double.compare(
-                            a.distanceSqToCenter(eyeX, eyeY, eyeZ),
-                            b.distanceSqToCenter(eyeX, eyeY, eyeZ)
-                    );
+        if (best == Integer.MAX_VALUE) {
+            for (BlockPos part : bedParts) {
+                for (EnumFacing side : EnumFacing.values()) {
+                    if (part.offset(side).equals(firstHit)) {
+                        return 1;
+                    }
                 }
-        );
-        return candidates.get(0);
+            }
+            return 99;
+        }
+        return Math.max(1, best);
+    }
+
+    private int countSolidOnRay(Vec3 start, Vec3 end, BlockPos firstHit) {
+        double dx = end.xCoord - start.xCoord;
+        double dy = end.yCoord - start.yCoord;
+        double dz = end.zCoord - start.zCoord;
+        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (dist < 1.0E-4) {
+            return 0;
+        }
+
+        int steps = MathHelper.ceiling_double_int(dist * 8.0);
+        HashSet<BlockPos> seen = new HashSet<>();
+        int count = 0;
+        boolean seenFirst = false;
+
+        for (int i = 1; i <= steps; i++) {
+            double t = (double) i / (double) steps;
+            BlockPos p = new BlockPos(
+                    MathHelper.floor_double(start.xCoord + dx * t),
+                    MathHelper.floor_double(start.yCoord + dy * t),
+                    MathHelper.floor_double(start.zCoord + dz * t)
+            );
+            if (!seen.add(p)) {
+                continue;
+            }
+
+            Block block = mc.theWorld.getBlockState(p).getBlock();
+            if (block instanceof BlockBed) {
+                break;
+            }
+            if (BlockUtil.isReplaceable(block)) {
+                continue;
+            }
+            if (p.equals(firstHit)) {
+                seenFirst = true;
+                count++;
+            } else if (seenFirst || count > 0) {
+                count++;
+            } else {
+                return -1;
+            }
+        }
+        if (!seenFirst) {
+            return -1;
+        }
+        return count;
     }
 
     private boolean canRaycastTo(BlockPos pos) {
@@ -300,7 +415,6 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
 
-        // 對目標方塊多個點做 raycast，任一點能直擊該方塊即視為可見
         double[][] offsets = {
                 {0.5, 0.5, 0.5},
                 {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
@@ -362,6 +476,7 @@ public class BedNuker extends Module {
             );
             for (BlockPos blockPos : targets) {
                 if (this.throughWall.getValue()) {
+                    // ===== 原版 through-wall=true：不改 =====
                     if (this.surroundings.getValue()) {
                         BlockPos pos = this.validateBedPlacement(blockPos);
                         if (pos != null) {
@@ -374,7 +489,7 @@ public class BedNuker extends Module {
                     }
                     return blockPos;
                 } else {
-                    // 床已露出（轉頭可挖）→ 一定優先挖床，不要先挖外層
+                    // ===== 僅 through-wall=false =====
                     if (this.canRaycastToBed(blockPos)) {
                         return blockPos;
                     }
