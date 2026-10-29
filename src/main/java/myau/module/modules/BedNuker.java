@@ -50,8 +50,8 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.PriorityQueue;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -268,9 +268,12 @@ public class BedNuker extends Module {
         BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
         List<BlockPos> bedParts = Arrays.asList(bedPos, other);
 
-        HashMap<BlockPos, Integer> scores = new HashMap<>();
+        double reach = this.range.getValue().doubleValue();
+        int searchR = MathHelper.ceiling_double_int(reach) + 2;
 
-        // A. 床相鄰且可 raycast → 路徑長度至少 1
+        HashMap<BlockPos, Float> costToBed = new HashMap<>();
+        PriorityQueue<float[]> pq = new PriorityQueue<>(Comparator.comparingDouble(a -> a[0]));
+
         for (BlockPos part : bedParts) {
             for (EnumFacing side : EnumFacing.values()) {
                 BlockPos adj = part.offset(side);
@@ -281,132 +284,94 @@ public class BedNuker extends Module {
                 if (b instanceof BlockBed || BlockUtil.isReplaceable(b)) {
                     continue;
                 }
-                if (!PlayerUtil.canReach(adj, this.range.getValue().doubleValue())) {
+                if (!this.isInSearchBox(adj, bedParts, searchR)) {
                     continue;
                 }
-                if (!this.canRaycastTo(adj)) {
+                float c = this.digCost(adj);
+                if (c >= Float.MAX_VALUE / 4.0F) {
                     continue;
                 }
-                int len = this.estimatePathLength(adj, bedParts, eyeX, eyeY, eyeZ);
-                scores.merge(adj, len, Math::min);
-            }
-        }
-
-        // B. 朝床中心 raycast 的第一格
-        for (BlockPos part : bedParts) {
-            Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-            Vec3 end = new Vec3(part.getX() + 0.5, part.getY() + 0.5, part.getZ() + 0.5);
-            MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-            if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK) {
-                continue;
-            }
-            BlockPos hit = mop.getBlockPos();
-            if (mc.theWorld.getBlockState(hit).getBlock() instanceof BlockBed) {
-                continue;
-            }
-            if (!PlayerUtil.canReach(hit, this.range.getValue().doubleValue())) {
-                continue;
-            }
-            int len = this.estimatePathLength(hit, bedParts, eyeX, eyeY, eyeZ);
-            scores.merge(hit, len, Math::min);
-        }
-
-        if (scores.isEmpty()) {
-            return null;
-        }
-
-        return scores.entrySet().stream()
-                .min((e1, e2) -> {
-                    int c = Integer.compare(e1.getValue(), e2.getValue());
-                    if (c != 0) {
-                        return c;
-                    }
-                    return Double.compare(
-                            e1.getKey().distanceSqToCenter(eyeX, eyeY, eyeZ),
-                            e2.getKey().distanceSqToCenter(eyeX, eyeY, eyeZ)
-                    );
-                })
-                .map(Map.Entry::getKey)
-                .orElse(null);
-    }
-
-    private int estimatePathLength(BlockPos firstHit, List<BlockPos> bedParts,
-                                   double eyeX, double eyeY, double eyeZ) {
-        int best = Integer.MAX_VALUE;
-        Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-        for (BlockPos part : bedParts) {
-            double[][] offsets = {
-                    {0.5, 0.5, 0.5},
-                    {0.2, 0.5, 0.5}, {0.8, 0.5, 0.5},
-                    {0.5, 0.2, 0.5}, {0.5, 0.8, 0.5},
-                    {0.5, 0.5, 0.2}, {0.5, 0.5, 0.8}
-            };
-            for (double[] o : offsets) {
-                Vec3 end = new Vec3(part.getX() + o[0], part.getY() + o[1], part.getZ() + o[2]);
-                int count = this.countSolidOnRay(start, end, firstHit);
-                if (count > 0 && count < best) {
-                    best = count;
+                Float old = costToBed.get(adj);
+                if (old == null || c < old) {
+                    costToBed.put(adj, c);
+                    pq.offer(new float[]{c, (float) adj.getX(), (float) adj.getY(), (float) adj.getZ()});
                 }
             }
         }
-        if (best == Integer.MAX_VALUE) {
-            for (BlockPos part : bedParts) {
-                for (EnumFacing side : EnumFacing.values()) {
-                    if (part.offset(side).equals(firstHit)) {
-                        return 1;
-                    }
+
+        while (!pq.isEmpty()) {
+            float[] cur = pq.poll();
+            float c = cur[0];
+            BlockPos p = new BlockPos((int) cur[1], (int) cur[2], (int) cur[3]);
+            Float known = costToBed.get(p);
+            if (known == null || c > known + 1.0E-4F) {
+                continue;
+            }
+            for (EnumFacing side : EnumFacing.values()) {
+                BlockPos n = p.offset(side);
+                if (bedParts.contains(n)) {
+                    continue;
+                }
+                Block nb = mc.theWorld.getBlockState(n).getBlock();
+                if (nb instanceof BlockBed || BlockUtil.isReplaceable(nb)) {
+                    continue;
+                }
+                if (!this.isInSearchBox(n, bedParts, searchR)) {
+                    continue;
+                }
+                if (!PlayerUtil.isBlockWithinReach(n, eyeX, eyeY, eyeZ, reach + 1.5)) {
+                    continue;
+                }
+                float nc = c + this.digCost(n);
+                Float old = costToBed.get(n);
+                if (old == null || nc < old) {
+                    costToBed.put(n, nc);
+                    pq.offer(new float[]{nc, (float) n.getX(), (float) n.getY(), (float) n.getZ()});
                 }
             }
-            return 99;
         }
-        return Math.max(1, best);
+
+        BlockPos best = null;
+        float bestCost = Float.MAX_VALUE;
+        double bestDist = Double.MAX_VALUE;
+
+        for (Map.Entry<BlockPos, Float> e : costToBed.entrySet()) {
+            BlockPos p = e.getKey();
+            if (!PlayerUtil.canReach(p, reach)) {
+                continue;
+            }
+            if (!this.canRaycastTo(p)) {
+                continue;
+            }
+            float cost = e.getValue();
+            double dist = p.distanceSqToCenter(eyeX, eyeY, eyeZ);
+            if (cost < bestCost - 1.0E-4F
+                    || (Math.abs(cost - bestCost) <= 1.0E-4F && dist < bestDist)) {
+                bestCost = cost;
+                bestDist = dist;
+                best = p;
+            }
+        }
+        return best;
     }
 
-    private int countSolidOnRay(Vec3 start, Vec3 end, BlockPos firstHit) {
-        double dx = end.xCoord - start.xCoord;
-        double dy = end.yCoord - start.yCoord;
-        double dz = end.zCoord - start.zCoord;
-        double dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (dist < 1.0E-4) {
-            return 0;
-        }
-
-        int steps = MathHelper.ceiling_double_int(dist * 8.0);
-        HashSet<BlockPos> seen = new HashSet<>();
-        int count = 0;
-        boolean seenFirst = false;
-
-        for (int i = 1; i <= steps; i++) {
-            double t = (double) i / (double) steps;
-            BlockPos p = new BlockPos(
-                    MathHelper.floor_double(start.xCoord + dx * t),
-                    MathHelper.floor_double(start.yCoord + dy * t),
-                    MathHelper.floor_double(start.zCoord + dz * t)
-            );
-            if (!seen.add(p)) {
-                continue;
-            }
-
-            Block block = mc.theWorld.getBlockState(p).getBlock();
-            if (block instanceof BlockBed) {
-                break;
-            }
-            if (BlockUtil.isReplaceable(block)) {
-                continue;
-            }
-            if (p.equals(firstHit)) {
-                seenFirst = true;
-                count++;
-            } else if (seenFirst || count > 0) {
-                count++;
-            } else {
-                return -1;
+    private boolean isInSearchBox(BlockPos p, List<BlockPos> bedParts, int r) {
+        for (BlockPos bed : bedParts) {
+            if (Math.abs(p.getX() - bed.getX()) <= r
+                    && Math.abs(p.getY() - bed.getY()) <= r
+                    && Math.abs(p.getZ() - bed.getZ()) <= r) {
+                return true;
             }
         }
-        if (!seenFirst) {
-            return -1;
+        return false;
+    }
+
+    private float digCost(BlockPos pos) {
+        float strength = this.calcBlockStrength(pos);
+        if (strength <= 1.0E-6F) {
+            return 1.0E6F;
         }
-        return count;
+        return 1.0F / strength;
     }
 
     private boolean canRaycastTo(BlockPos pos) {
