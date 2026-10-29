@@ -542,7 +542,22 @@ public class BedNuker extends Module {
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.targetBed != null) {
-                if (mc.theWorld.isAirBlock(this.targetBed) || !PlayerUtil.canReach(this.targetBed, this.range.getValue().doubleValue())) {
+                boolean lostTarget = mc.theWorld.isAirBlock(this.targetBed)
+                        || !PlayerUtil.canReach(this.targetBed, this.range.getValue().doubleValue());
+
+                // through-wall = false：挖掘中若移動到 raycast 不到目前目標 → 停下並重選
+                if (!lostTarget && !this.throughWall.getValue()) {
+                    Block targetBlock = mc.theWorld.getBlockState(this.targetBed).getBlock();
+                    if (targetBlock instanceof BlockBed) {
+                        if (!this.canRaycastToBed(this.targetBed)) {
+                            lostTarget = true;
+                        }
+                    } else if (!this.canRaycastTo(this.targetBed)) {
+                        lostTarget = true;
+                    }
+                }
+
+                if (lostTarget) {
                     this.restoreSlot();
                     this.resetBreaking();
                 } else if (!this.isBed) {
