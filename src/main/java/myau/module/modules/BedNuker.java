@@ -259,19 +259,54 @@ public class BedNuker extends Module {
         double eyeX = mc.thePlayer.posX;
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
         double eyeZ = mc.thePlayer.posZ;
+        double reach = this.range.getValue().doubleValue();
+
+        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos);
+        if (costToBed.isEmpty()) {
+            return null;
+        }
+
+        BlockPos best = null;
+        float bestCost = Float.MAX_VALUE;
+        double bestDist = Double.MAX_VALUE;
+
+        for (Map.Entry<BlockPos, Float> e : costToBed.entrySet()) {
+            BlockPos p = e.getKey();
+            if (!PlayerUtil.canReach(p, reach)) {
+                continue;
+            }
+            if (!this.canRaycastTo(p)) {
+                continue;
+            }
+            float cost = e.getValue();
+            double dist = p.distanceSqToCenter(eyeX, eyeY, eyeZ);
+            if (cost < bestCost - 1.0E-4F
+                    || (Math.abs(cost - bestCost) <= 1.0E-4F && dist < bestDist)) {
+                bestCost = cost;
+                bestDist = dist;
+                best = p;
+            }
+        }
+        return best;
+    }
+
+    private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
+        HashMap<BlockPos, Float> costToBed = new HashMap<>();
         IBlockState state = mc.theWorld.getBlockState(bedPos);
         if (!(state.getBlock() instanceof BlockBed)) {
-            return null;
+            return costToBed;
         }
         EnumPartType partType = state.getValue(BlockBed.PART);
         EnumFacing facing = state.getValue(BlockBed.FACING);
         BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
         List<BlockPos> bedParts = Arrays.asList(bedPos, other);
 
+        double eyeX = mc.thePlayer.posX;
+        double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
+        double eyeZ = mc.thePlayer.posZ;
         double reach = this.range.getValue().doubleValue();
         int searchR = MathHelper.ceiling_double_int(reach) + 2;
 
-        HashMap<BlockPos, Float> costToBed = new HashMap<>();
         PriorityQueue<float[]> pq = new PriorityQueue<>(Comparator.comparingDouble(a -> a[0]));
 
         for (BlockPos part : bedParts) {
@@ -330,29 +365,7 @@ public class BedNuker extends Module {
                 }
             }
         }
-
-        BlockPos best = null;
-        float bestCost = Float.MAX_VALUE;
-        double bestDist = Double.MAX_VALUE;
-
-        for (Map.Entry<BlockPos, Float> e : costToBed.entrySet()) {
-            BlockPos p = e.getKey();
-            if (!PlayerUtil.canReach(p, reach)) {
-                continue;
-            }
-            if (!this.canRaycastTo(p)) {
-                continue;
-            }
-            float cost = e.getValue();
-            double dist = p.distanceSqToCenter(eyeX, eyeY, eyeZ);
-            if (cost < bestCost - 1.0E-4F
-                    || (Math.abs(cost - bestCost) <= 1.0E-4F && dist < bestDist)) {
-                bestCost = cost;
-                bestDist = dist;
-                best = p;
-            }
-        }
-        return best;
+        return costToBed;
     }
 
     private boolean isInSearchBox(BlockPos p, List<BlockPos> bedParts, int r) {
@@ -372,6 +385,83 @@ public class BedNuker extends Module {
             return 1.0E6F;
         }
         return 1.0F / strength;
+    }
+
+    private boolean isBetterTarget(BlockPos candidate, BlockPos current) {
+        boolean candBed = mc.theWorld.getBlockState(candidate).getBlock() instanceof BlockBed;
+        boolean currBed = mc.theWorld.getBlockState(current).getBlock() instanceof BlockBed;
+
+        if (candBed && !currBed) {
+            return true;
+        }
+        if (currBed && !candBed) {
+            return false;
+        }
+
+        double eyeX = mc.thePlayer.posX;
+        double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
+        double eyeZ = mc.thePlayer.posZ;
+
+        if (candBed && currBed) {
+            return candidate.distanceSqToCenter(eyeX, eyeY, eyeZ)
+                    < current.distanceSqToCenter(eyeX, eyeY, eyeZ) - 1.0E-3;
+        }
+
+        float candCost = this.pathCostOrMax(candidate);
+        float currCost = this.pathCostOrMax(current);
+        float progress = MathHelper.clamp_float(this.calcProgress(), 0.0F, 1.0F);
+        float currRemaining = Math.max(0.0F, currCost - progress * this.digCost(current));
+
+        if (candCost < currRemaining - 1.0E-3F) {
+            return true;
+        }
+        if (Math.abs(candCost - currRemaining) <= 1.0E-3F) {
+            return candidate.distanceSqToCenter(eyeX, eyeY, eyeZ)
+                    < current.distanceSqToCenter(eyeX, eyeY, eyeZ) - 1.0E-3;
+        }
+        return false;
+    }
+
+    private float pathCostOrMax(BlockPos pos) {
+        BlockPos bed = this.findClosestBedPos();
+        if (bed == null) {
+            return Float.MAX_VALUE / 4.0F;
+        }
+        if (mc.theWorld.getBlockState(pos).getBlock() instanceof BlockBed) {
+            return 0.0F;
+        }
+        HashMap<BlockPos, Float> costs = this.buildCostToBedMap(bed);
+        Float c = costs.get(pos);
+        return c != null ? c : Float.MAX_VALUE / 4.0F;
+    }
+
+    private BlockPos findClosestBedPos() {
+        double eyeX = mc.thePlayer.posX;
+        double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
+        double eyeZ = mc.thePlayer.posZ;
+        BlockPos bed = null;
+        double best = Double.MAX_VALUE;
+        int sX = MathHelper.floor_double(eyeX);
+        int sY = MathHelper.floor_double(eyeY);
+        int sZ = MathHelper.floor_double(eyeZ);
+        for (int i = sX - 6; i <= sX + 6; i++) {
+            for (int j = sY - 6; j <= sY + 6; j++) {
+                for (int k = sZ - 6; k <= sZ + 6; k++) {
+                    BlockPos p = new BlockPos(i, j, k);
+                    if (!(Boolean) this.whiteList.getValue() || !this.bedWhitelist.contains(p)) {
+                        if (mc.theWorld.getBlockState(p).getBlock() instanceof BlockBed
+                                && PlayerUtil.isBlockWithinReach(p, eyeX, eyeY, eyeZ, this.range.getValue().doubleValue())) {
+                            double d = p.distanceSqToCenter(eyeX, eyeY, eyeZ);
+                            if (d < best) {
+                                best = d;
+                                bed = p;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return bed;
     }
 
     private boolean canRaycastTo(BlockPos pos) {
@@ -525,7 +615,22 @@ public class BedNuker extends Module {
                 if (lostTarget) {
                     this.restoreSlot();
                     this.resetBreaking();
+                } else if (!this.throughWall.getValue()) {
+                    // 挖到一半若有更好路徑 → 立刻切換
+                    BlockPos best = this.findNearestBed();
+                    if (best != null && !best.equals(this.targetBed) && this.isBetterTarget(best, this.targetBed)) {
+                        this.restoreSlot();
+                        this.resetBreaking();
+                        this.targetBed = best;
+                        this.breakStage = 0;
+                        this.tickCounter = 0;
+                        this.breakProgress = 0.0F;
+                        this.isBed = mc.theWorld.getBlockState(best).getBlock() instanceof BlockBed;
+                        this.readyToBreak = true;
+                        this.breaking = false;
+                    }
                 } else if (!this.isBed) {
+                    // 原版 through-wall=true：挖 covering 時床已可挖 → 重選
                     BlockPos nearestBed = this.findNearestBed();
                     if (nearestBed != null && mc.theWorld.getBlockState(nearestBed).getBlock() instanceof BlockBed) {
                         this.resetBreaking();
