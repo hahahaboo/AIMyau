@@ -67,6 +67,7 @@ public class BedNuker extends Module {
     public final ModeProperty ignoreVelocity = new ModeProperty("ignore-velocity", 0, new String[]{"NONE", "CANCEL", "DELAY"});
     public final BooleanProperty throughWall = new BooleanProperty("through-wall", true);
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true, () -> this.throughWall.getValue());
+    public final FloatProperty pathDistanceWeight = new FloatProperty("path-distance-weight", 0.35F, 0.0F, 2.0F, () -> !this.throughWall.getValue());
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", true);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -267,8 +268,7 @@ public class BedNuker extends Module {
         }
 
         BlockPos best = null;
-        float bestCost = Float.MAX_VALUE;
-        double bestDist = Double.MAX_VALUE;
+        float bestScore = Float.MAX_VALUE;
 
         for (Map.Entry<BlockPos, Float> e : costToBed.entrySet()) {
             BlockPos p = e.getKey();
@@ -278,12 +278,9 @@ public class BedNuker extends Module {
             if (!this.canRaycastTo(p)) {
                 continue;
             }
-            float cost = e.getValue();
-            double dist = p.distanceSqToCenter(eyeX, eyeY, eyeZ);
-            if (cost < bestCost - 1.0E-4F
-                    || (Math.abs(cost - bestCost) <= 1.0E-4F && dist < bestDist)) {
-                bestCost = cost;
-                bestDist = dist;
+            float score = this.pathScore(p, e.getValue(), eyeX, eyeY, eyeZ);
+            if (score < bestScore) {
+                bestScore = score;
                 best = p;
             }
         }
@@ -387,6 +384,13 @@ public class BedNuker extends Module {
         return 1.0F / strength;
     }
 
+    /** score = pathCost + weight * distance；越小越優先 */
+    private float pathScore(BlockPos pos, float pathCost, double eyeX, double eyeY, double eyeZ) {
+        double dist = Math.sqrt(pos.distanceSqToCenter(eyeX, eyeY, eyeZ));
+        float w = this.pathDistanceWeight.getValue();
+        return pathCost + w * (float) dist;
+    }
+
     private boolean isBetterTarget(BlockPos candidate, BlockPos current) {
         boolean candBed = mc.theWorld.getBlockState(candidate).getBlock() instanceof BlockBed;
         boolean currBed = mc.theWorld.getBlockState(current).getBlock() instanceof BlockBed;
@@ -412,14 +416,11 @@ public class BedNuker extends Module {
         float progress = MathHelper.clamp_float(this.calcProgress(), 0.0F, 1.0F);
         float currRemaining = Math.max(0.0F, currCost - progress * this.digCost(current));
 
-        if (candCost < currRemaining - 1.0E-3F) {
-            return true;
-        }
-        if (Math.abs(candCost - currRemaining) <= 1.0E-3F) {
-            return candidate.distanceSqToCenter(eyeX, eyeY, eyeZ)
-                    < current.distanceSqToCenter(eyeX, eyeY, eyeZ) - 1.0E-3;
-        }
-        return false;
+        float candScore = this.pathScore(candidate, candCost, eyeX, eyeY, eyeZ);
+        float currScore = this.pathScore(current, currRemaining, eyeX, eyeY, eyeZ);
+
+        // 明顯更好才切，避免來回抖動
+        return candScore < currScore - 0.08F;
     }
 
     private float pathCostOrMax(BlockPos pos) {
