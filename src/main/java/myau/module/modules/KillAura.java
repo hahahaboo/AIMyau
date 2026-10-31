@@ -196,7 +196,8 @@ public class KillAura extends Module {
             } else {
                     BedNuker bedNuker = (BedNuker) Myau.moduleManager.modules.get(BedNuker.class);
                     AutoBlockIn autoBlockIn = (AutoBlockIn) Myau.moduleManager.modules.get(AutoBlockIn.class);
-                    if (bedNuker.isEnabled() && bedNuker.isReady()) {
+                    // through-wall=true 或直接挖床 → 讓 BedNuker；需挖外層時不讓
+                    if (bedNuker.shouldBlockKillAura()) {
                         return false;
                     } else if (Myau.moduleManager.modules.get(Scaffold.class).isEnabled()) {
                         return false;
