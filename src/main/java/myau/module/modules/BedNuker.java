@@ -68,6 +68,7 @@ public class BedNuker extends Module {
     public final BooleanProperty throughWall = new BooleanProperty("through-wall", true);
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true, () -> this.throughWall.getValue());
     public final FloatProperty pathDistanceWeight = new FloatProperty("path-distance-weight", 0.35F, 0.0F, 2.0F, () -> !this.throughWall.getValue());
+    public final BooleanProperty serverSync = new BooleanProperty("server-sync", false);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", true);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -698,8 +699,11 @@ public class BedNuker extends Module {
                             IBlockState blockState_ = mc.theWorld.getBlockState(this.targetBed);
                             Block block = blockState_.getBlock();
                             if (block.getMaterial() != Material.air) {
-                                mc.theWorld.playAuxSFX(2001, this.targetBed, Block.getStateId(blockState_));
-                                mc.theWorld.setBlockToAir(this.targetBed);
+                                // server-sync=false：客戶端預測移除；true：只送封包，等 server 同步
+                                if (!this.serverSync.getValue()) {
+                                    mc.theWorld.playAuxSFX(2001, this.targetBed, Block.getStateId(blockState_));
+                                    mc.theWorld.setBlockToAir(this.targetBed);
+                                }
                             }
                             if (block instanceof BlockBed) {
                                 this.timer.reset();
