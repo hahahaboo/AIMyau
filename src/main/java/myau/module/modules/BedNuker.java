@@ -549,6 +549,10 @@ public class BedNuker extends Module {
                     if (this.canRaycastToBed(blockPos)) {
                         return blockPos;
                     }
+                    // 需挖外層且 KillAura 有目標 → 讓 KA
+                    if (this.killAuraHasTarget()) {
+                        continue;
+                    }
                     BlockPos outer = this.findOuterBlockByRaycast(blockPos);
                     if (outer != null) {
                         Block block = mc.theWorld.getBlockState(outer).getBlock();
@@ -594,6 +598,26 @@ public class BedNuker extends Module {
         return this.targetBed != null && this.breaking;
     }
 
+    /**
+     * 供 KillAura 判斷是否應讓路。
+     * through-wall=true → 只要 isReady 就擋 KA；
+     * through-wall=false → 僅在「直接挖床」(isBed) 時擋 KA。
+     */
+    public boolean shouldBlockKillAura() {
+        if (!this.isEnabled() || !this.isReady()) {
+            return false;
+        }
+        if (this.throughWall.getValue()) {
+            return true;
+        }
+        return this.isBed;
+    }
+
+    private boolean killAuraHasTarget() {
+        KillAura killAura = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
+        return killAura.isEnabled() && killAura.getTarget() != null;
+    }
+
     @EventTarget(Priority.HIGH)
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
@@ -617,18 +641,24 @@ public class BedNuker extends Module {
                     this.restoreSlot();
                     this.resetBreaking();
                 } else if (!this.throughWall.getValue()) {
-                    // 挖到一半若有更好路徑 → 立刻切換
-                    BlockPos best = this.findNearestBed();
-                    if (best != null && !best.equals(this.targetBed) && this.isBetterTarget(best, this.targetBed)) {
+                    // 挖外層中、KillAura 有目標 → 讓 KA
+                    if (!this.isBed && this.killAuraHasTarget()) {
                         this.restoreSlot();
                         this.resetBreaking();
-                        this.targetBed = best;
-                        this.breakStage = 0;
-                        this.tickCounter = 0;
-                        this.breakProgress = 0.0F;
-                        this.isBed = mc.theWorld.getBlockState(best).getBlock() instanceof BlockBed;
-                        this.readyToBreak = true;
-                        this.breaking = false;
+                    } else {
+                        // 挖到一半若有更好路徑 → 立刻切換
+                        BlockPos best = this.findNearestBed();
+                        if (best != null && !best.equals(this.targetBed) && this.isBetterTarget(best, this.targetBed)) {
+                            this.restoreSlot();
+                            this.resetBreaking();
+                            this.targetBed = best;
+                            this.breakStage = 0;
+                            this.tickCounter = 0;
+                            this.breakProgress = 0.0F;
+                            this.isBed = mc.theWorld.getBlockState(best).getBlock() instanceof BlockBed;
+                            this.readyToBreak = true;
+                            this.breaking = false;
+                        }
                     }
                 } else if (!this.isBed) {
                     // 原版 through-wall=true：挖 covering 時床已可挖 → 重選
