@@ -64,11 +64,10 @@ public class BedNuker extends Module {
     public final FloatProperty range = new FloatProperty("range", 4.5F, 3.0F, 6.0F);
     public final PercentProperty speed = new PercentProperty("speed", 0);
     public final ModeProperty ignoreVelocity = new ModeProperty("ignore-velocity", 0, new String[]{"NONE", "CANCEL", "DELAY"});
-    public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
     public final BooleanProperty throughWall = new BooleanProperty("through-wall", true);
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true, () -> this.throughWall.getValue());
     public final FloatProperty pathDistanceWeight = new FloatProperty("path-distance-weight", 0.35F, 0.0F, 2.0F, () -> !this.throughWall.getValue());
-    public final BooleanProperty serverSync = new BooleanProperty("server-sync", false);
+    public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -90,7 +89,6 @@ public class BedNuker extends Module {
     private boolean readyToBreak = false;
     private boolean breaking = false;
     private boolean waitingForStart = false;
-    private boolean waitingForServerSync = false;
 
     public BedNuker() {
         super("BedNuker", "Auto break beds", Category.WORLD, 0, false, false);
@@ -107,7 +105,6 @@ public class BedNuker extends Module {
         this.isBed = false;
         this.readyToBreak = false;
         this.breaking = false;
-        this.waitingForServerSync = false;
     }
 
     private float calcProgress() {
@@ -601,18 +598,6 @@ public class BedNuker extends Module {
     public void onTick(TickEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.targetBed != null) {
-                // server-sync：已送 STOP，等該格被 server 同步成空氣後才清目標、挖下一格
-                if (this.waitingForServerSync) {
-                    if (mc.theWorld.isAirBlock(this.targetBed)
-                            || !PlayerUtil.canReach(this.targetBed, this.range.getValue().doubleValue())) {
-                        this.restoreSlot();
-                        this.resetBreaking();
-                    } else {
-                        // 仍在等同步：不挖、不換目標
-                        return;
-                    }
-                }
-
                 boolean lostTarget = mc.theWorld.isAirBlock(this.targetBed)
                         || !PlayerUtil.canReach(this.targetBed, this.range.getValue().doubleValue());
 
@@ -713,30 +698,18 @@ public class BedNuker extends Module {
                             IBlockState blockState_ = mc.theWorld.getBlockState(this.targetBed);
                             Block block = blockState_.getBlock();
                             if (block.getMaterial() != Material.air) {
-                                // server-sync=false：客戶端預測移除；true：只送封包，等 server 同步後才挖下一格
-                                if (!this.serverSync.getValue()) {
-                                    mc.theWorld.playAuxSFX(2001, this.targetBed, Block.getStateId(blockState_));
-                                    mc.theWorld.setBlockToAir(this.targetBed);
-                                }
+                                mc.theWorld.playAuxSFX(2001, this.targetBed, Block.getStateId(blockState_));
+                                mc.theWorld.setBlockToAir(this.targetBed);
                             }
                             if (block instanceof BlockBed) {
                                 this.timer.reset();
                             }
-                            if (this.serverSync.getValue() && !mc.theWorld.isAirBlock(this.targetBed)) {
-                                this.waitingForServerSync = true;
-                                this.breakStage = 3;
-                            } else {
-                                this.breakStage = 2;
-                            }
+                            this.breakStage = 2;
                         }
                         break;
                     case 2:
                         this.restoreSlot();
                         this.resetBreaking();
-                        break;
-                    case 3:
-                        // 等待 server 將方塊同步為空氣（邏輯在 onTick 開頭 waitingForServerSync 處理）
-                        break;
                 }
                 if (this.targetBed != null) {
                     return;
