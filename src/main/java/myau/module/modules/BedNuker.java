@@ -156,42 +156,11 @@ public class BedNuker extends Module {
 
     private EnumFacing getHitFacing(BlockPos blockPos) {
         double x = (double) blockPos.getX() + 0.5 - mc.thePlayer.posX;
-        double y = (double) blockPos.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+        double y = (double) blockPos.getY() + 0.25 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
         double z = (double) blockPos.getZ() + 0.5 - mc.thePlayer.posZ;
         float[] rotations = RotationUtil.getRotationsTo(x, y, z, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
-        MovingObjectPosition mop = RotationUtil.rayTrace(
-                rotations[0], rotations[1], this.range.getValue().doubleValue() + 0.5, 1.0F);
-        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK && mop.getBlockPos().equals(blockPos)) {
-            return mop.sideHit;
-        }
-        // 視線到中心（through-wall 時可能中間有遮擋，仍作參考）
-        double eyeX = mc.thePlayer.posX;
-        double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
-        double eyeZ = mc.thePlayer.posZ;
-        Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-        Vec3 end = new Vec3(blockPos.getX() + 0.5, blockPos.getY() + 0.5, blockPos.getZ() + 0.5);
-        MovingObjectPosition mop2 = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-        if (mop2 != null && mop2.typeOfHit == MovingObjectType.BLOCK && mop2.getBlockPos().equals(blockPos)) {
-            return mop2.sideHit;
-        }
-        // 幾何後備：選相對玩家最近的一面（永不回 null，避免找不到 target 卻永遠不挖）
-        EnumFacing best = EnumFacing.UP;
-        double bestDot = -Double.MAX_VALUE;
-        Vec3 to = new Vec3(x, y, z);
-        if (to.lengthVector() > 1.0E-6) {
-            to = to.normalize();
-            for (EnumFacing f : EnumFacing.values()) {
-                // 面向玩家的面：法線與「方塊→眼睛」方向同向較佳 → 用 -to 與 face 方向
-                double dot = -to.xCoord * f.getFrontOffsetX()
-                        - to.yCoord * f.getFrontOffsetY()
-                        - to.zCoord * f.getFrontOffsetZ();
-                if (dot > bestDot) {
-                    bestDot = dot;
-                    best = f;
-                }
-            }
-        }
-        return best;
+        MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 8.0, 1.0F);
+        return mop == null ? EnumFacing.UP : mop.sideHit;
     }
 
     private float getDigSpeed(IBlockState iBlockState, int slot, boolean boolean5) {
@@ -293,8 +262,7 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         double reach = this.range.getValue().doubleValue();
 
-        HashMap<BlockPos, BlockPos> parentTowardBed = new HashMap<>();
-        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos, parentTowardBed);
+        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos);
         if (costToBed.isEmpty()) {
             return null;
         }
@@ -310,10 +278,6 @@ public class BedNuker extends Module {
             if (!this.canRaycastTo(p)) {
                 continue;
             }
-            // 只檢查：挖掉第一格後，第二格（或床）要能 raycast；整條模擬會卡
-            if (!this.isNextBlockRaycastableAfterFirst(p, parentTowardBed, bedPos)) {
-                continue;
-            }
             float score = this.pathScore(p, e.getValue(), eyeX, eyeY, eyeZ);
             if (score < bestScore) {
                 bestScore = score;
@@ -323,32 +287,7 @@ public class BedNuker extends Module {
         return best;
     }
 
-    /**
-     * 開挖前只檢查下一格：挖掉 first 後，第二格要能 raycast；
-     * 若 first 貼床（無第二格），則檢查床能否 canRaycastToBed。
-     * （不模擬整條路徑，避免卡頓）
-     */
-    private boolean isNextBlockRaycastableAfterFirst(BlockPos first, HashMap<BlockPos, BlockPos> parentTowardBed, BlockPos bedPos) {
-        BlockPos second = parentTowardBed.get(first);
-        IBlockState saved = mc.theWorld.getBlockState(first);
-        mc.theWorld.setBlockState(first, net.minecraft.init.Blocks.air.getDefaultState(), 0);
-        try {
-            if (second == null) {
-                return this.canRaycastToBed(bedPos);
-            }
-            return this.canRaycastTo(second);
-        } finally {
-            mc.theWorld.setBlockState(first, saved, 0);
-        }
-    }
-
-
-
     private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
-        return this.buildCostToBedMap(bedPos, null);
-    }
-
-    private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos, HashMap<BlockPos, BlockPos> parentTowardBed) {
         HashMap<BlockPos, Float> costToBed = new HashMap<>();
         IBlockState state = mc.theWorld.getBlockState(bedPos);
         if (!(state.getBlock() instanceof BlockBed)) {
@@ -387,9 +326,6 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(adj);
                 if (old == null || c < old) {
                     costToBed.put(adj, c);
-                    if (parentTowardBed != null) {
-                        parentTowardBed.put(adj, null);
-                    }
                     pq.offer(new float[]{c, (float) adj.getX(), (float) adj.getY(), (float) adj.getZ()});
                 }
             }
@@ -422,10 +358,6 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(n);
                 if (old == null || nc < old) {
                     costToBed.put(n, nc);
-                    if (parentTowardBed != null) {
-                        // n 的下一格（更靠近床）是 p
-                        parentTowardBed.put(n, p);
-                    }
                     pq.offer(new float[]{nc, (float) n.getX(), (float) n.getY(), (float) n.getZ()});
                 }
             }
@@ -533,10 +465,6 @@ public class BedNuker extends Module {
         return bed;
     }
 
-    /**
-     * 視線是否打得到此格（選目標 / through-wall=false 用）。
-     * 原始 7 點：中心 + 六面。
-     */
     private boolean canRaycastTo(BlockPos pos) {
         double eyeX = mc.thePlayer.posX;
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
@@ -550,20 +478,15 @@ public class BedNuker extends Module {
                 {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
         };
         for (double[] o : offsets) {
-            if (this.rayHitsBlock(start, pos, o[0], o[1], o[2])) {
+            Vec3 end = new Vec3(pos.getX() + o[0], pos.getY() + o[1], pos.getZ() + o[2]);
+            MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
+            if (mop != null
+                    && mop.typeOfHit == MovingObjectType.BLOCK
+                    && mop.getBlockPos().equals(pos)) {
                 return true;
             }
         }
         return false;
-    }
-
-
-    private boolean rayHitsBlock(Vec3 start, BlockPos pos, double ox, double oy, double oz) {
-        Vec3 end = new Vec3(pos.getX() + ox, pos.getY() + oy, pos.getZ() + oz);
-        MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-        return mop != null
-                && mop.typeOfHit == MovingObjectType.BLOCK
-                && mop.getBlockPos().equals(pos);
     }
 
     /** 床（含另一半）任一點可見即 true */
@@ -765,13 +688,12 @@ public class BedNuker extends Module {
                                 this.syncHeldItem();
                             }
                         }
-                        EnumFacing face = this.getHitFacing(this.targetBed);
                         this.breaking = true;
                         PacketUtil.sendPacket(
-                                new C07PacketPlayerDigging(Action.START_DESTROY_BLOCK, this.targetBed, face)
+                                new C07PacketPlayerDigging(Action.START_DESTROY_BLOCK, this.targetBed, this.getHitFacing(this.targetBed))
                         );
                         this.doSwing();
-                        mc.effectRenderer.addBlockHitEffects(this.targetBed, face);
+                        mc.effectRenderer.addBlockHitEffects(this.targetBed, this.getHitFacing(this.targetBed));
                         this.breakStage = 1;
                         this.tickCounter = 0;
                         this.breakProgress = 0.0F;
