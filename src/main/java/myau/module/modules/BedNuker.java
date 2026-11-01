@@ -497,8 +497,8 @@ public class BedNuker extends Module {
     }
 
     /**
-     * 視線是否打得到此格。
-     * 不用 0.1/0.9 貼邊；中心或任一內縮面心即可。
+     * 視線是否打得到此格（選目標 / through-wall=false 用）。
+     * 採樣 0.1～0.9、間距 0.2（每軸 5 點，共 125 點）；不含 0.0/1.0 貼邊。
      */
     private boolean canRaycastTo(BlockPos pos) {
         double eyeX = mc.thePlayer.posX;
@@ -506,19 +506,18 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
 
-        double[][] offsets = {
-                {0.5, 0.5, 0.5},
-                {0.3, 0.5, 0.5}, {0.7, 0.5, 0.5},
-                {0.5, 0.3, 0.5}, {0.5, 0.7, 0.5},
-                {0.5, 0.5, 0.3}, {0.5, 0.5, 0.7}
-        };
-        for (double[] o : offsets) {
-            if (this.rayHitsBlock(start, pos, o[0], o[1], o[2])) {
-                return true;
+        for (double ox = 0.1; ox <= 0.9 + 1.0E-6; ox += 0.2) {
+            for (double oy = 0.1; oy <= 0.9 + 1.0E-6; oy += 0.2) {
+                for (double oz = 0.1; oz <= 0.9 + 1.0E-6; oz += 0.2) {
+                    if (this.rayHitsBlock(start, pos, ox, oy, oz)) {
+                        return true;
+                    }
+                }
             }
         }
         return false;
     }
+
 
     private boolean rayHitsBlock(Vec3 start, BlockPos pos, double ox, double oy, double oz) {
         Vec3 end = new Vec3(pos.getX() + ox, pos.getY() + oy, pos.getZ() + oz);
