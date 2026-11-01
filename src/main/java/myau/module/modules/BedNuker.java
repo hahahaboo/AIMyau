@@ -164,7 +164,7 @@ public class BedNuker extends Module {
         if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK && mop.getBlockPos().equals(blockPos)) {
             return mop.sideHit;
         }
-        // 後備：用視線到中心的 world ray，仍必須打到同一格
+        // 視線到中心（through-wall 時可能中間有遮擋，仍作參考）
         double eyeX = mc.thePlayer.posX;
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
         double eyeZ = mc.thePlayer.posZ;
@@ -174,7 +174,24 @@ public class BedNuker extends Module {
         if (mop2 != null && mop2.typeOfHit == MovingObjectType.BLOCK && mop2.getBlockPos().equals(blockPos)) {
             return mop2.sideHit;
         }
-        return null;
+        // 幾何後備：選相對玩家最近的一面（永不回 null，避免找不到 target 卻永遠不挖）
+        EnumFacing best = EnumFacing.UP;
+        double bestDot = -Double.MAX_VALUE;
+        Vec3 to = new Vec3(x, y, z);
+        if (to.lengthVector() > 1.0E-6) {
+            to = to.normalize();
+            for (EnumFacing f : EnumFacing.values()) {
+                // 面向玩家的面：法線與「方塊→眼睛」方向同向較佳 → 用 -to 與 face 方向
+                double dot = -to.xCoord * f.getFrontOffsetX()
+                        - to.yCoord * f.getFrontOffsetY()
+                        - to.zCoord * f.getFrontOffsetZ();
+                if (dot > bestDot) {
+                    bestDot = dot;
+                    best = f;
+                }
+            }
+        }
+        return best;
     }
 
     private float getDigSpeed(IBlockState iBlockState, int slot, boolean boolean5) {
@@ -481,8 +498,7 @@ public class BedNuker extends Module {
 
     /**
      * 視線是否打得到此格。
-     * 不用 0.1/0.9 這種貼邊採樣（易通過 raycast 但實際轉頭/封包被 AC 拒）。
-     * 要求：中心可打到，或至少兩個「內縮面心」可打到。
+     * 不用 0.1/0.9 貼邊；中心或任一內縮面心即可。
      */
     private boolean canRaycastTo(BlockPos pos) {
         double eyeX = mc.thePlayer.posX;
@@ -490,24 +506,15 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
 
-        // 中心優先
-        if (this.rayHitsBlock(start, pos, 0.5, 0.5, 0.5)) {
-            return true;
-        }
-
-        // 內縮面心（0.3～0.7），避免貼邊
         double[][] offsets = {
+                {0.5, 0.5, 0.5},
                 {0.3, 0.5, 0.5}, {0.7, 0.5, 0.5},
                 {0.5, 0.3, 0.5}, {0.5, 0.7, 0.5},
                 {0.5, 0.5, 0.3}, {0.5, 0.5, 0.7}
         };
-        int hits = 0;
         for (double[] o : offsets) {
             if (this.rayHitsBlock(start, pos, o[0], o[1], o[2])) {
-                hits++;
-                if (hits >= 2) {
-                    return true;
-                }
+                return true;
             }
         }
         return false;
@@ -516,30 +523,6 @@ public class BedNuker extends Module {
     private boolean rayHitsBlock(Vec3 start, BlockPos pos, double ox, double oy, double oz) {
         Vec3 end = new Vec3(pos.getX() + ox, pos.getY() + oy, pos.getZ() + oz);
         MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
-        if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK || !mop.getBlockPos().equals(pos)) {
-            return false;
-        }
-        // 命中點不要太貼方塊外緣（極限邊緣易被 AC 判無效）
-        Vec3 hit = mop.hitVec;
-        double lx = hit.xCoord - pos.getX();
-        double ly = hit.yCoord - pos.getY();
-        double lz = hit.zCoord - pos.getZ();
-        final double margin = 0.05;
-        return lx > margin && lx < 1.0 - margin
-                && ly > margin && ly < 1.0 - margin
-                && lz > margin && lz < 1.0 - margin;
-    }
-
-    /**
-     * 依目前朝向（或轉向目標後的角度）rayTrace，確認第一下打到的就是 target。
-     * 開挖前用來避免「選點可見、實際封包面不合法」。
-     */
-    private boolean canLegitimatelyHit(BlockPos pos) {
-        double x = (double) pos.getX() + 0.5 - mc.thePlayer.posX;
-        double y = (double) pos.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-        double z = (double) pos.getZ() + 0.5 - mc.thePlayer.posZ;
-        float[] rotations = RotationUtil.getRotationsTo(x, y, z, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
-        MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], this.range.getValue().doubleValue() + 0.5, 1.0F);
         return mop != null
                 && mop.typeOfHit == MovingObjectType.BLOCK
                 && mop.getBlockPos().equals(pos);
@@ -745,22 +728,6 @@ public class BedNuker extends Module {
                             }
                         }
                         EnumFacing face = this.getHitFacing(this.targetBed);
-                        // 面不合法，或 through-wall=false 時視線不穩 → 本 tick 不開挖
-                        if (face == null) {
-                            this.restoreSlot();
-                            this.resetBreaking();
-                            break;
-                        }
-                        if (!this.throughWall.getValue()) {
-                            boolean los = mc.theWorld.getBlockState(this.targetBed).getBlock() instanceof BlockBed
-                                    ? this.canRaycastToBed(this.targetBed)
-                                    : this.canRaycastTo(this.targetBed);
-                            if (!los || !this.canLegitimatelyHit(this.targetBed)) {
-                                this.restoreSlot();
-                                this.resetBreaking();
-                                break;
-                            }
-                        }
                         this.breaking = true;
                         PacketUtil.sendPacket(
                                 new C07PacketPlayerDigging(Action.START_DESTROY_BLOCK, this.targetBed, face)
@@ -779,10 +746,7 @@ public class BedNuker extends Module {
                         BlockPos target = this.targetBed;
                         float tick = (float) this.tickCounter;
                         float delta = tick * this.getBreakDelta(blockState, target, slot, mc.thePlayer.onGround);
-                        EnumFacing fxFace = this.getHitFacing(this.targetBed);
-                        if (fxFace != null) {
-                            mc.effectRenderer.addBlockHitEffects(this.targetBed, fxFace);
-                        }
+                        mc.effectRenderer.addBlockHitEffects(this.targetBed, this.getHitFacing(this.targetBed));
                         if (this.breakProgress >= 1.0F - 0.3F * ((float) this.speed.getValue() / 100.0F)
                                 || delta >= 1.0F - 0.3F * ((float) this.speed.getValue() / 100.0F)) {
                             if (this.mode.getValue() == 1) {
@@ -797,12 +761,8 @@ public class BedNuker extends Module {
                                 }
                             }
                             this.breaking = false;
-                            EnumFacing stopFace = this.getHitFacing(this.targetBed);
-                            if (stopFace == null) {
-                                stopFace = EnumFacing.UP;
-                            }
                             PacketUtil.sendPacket(
-                                    new C07PacketPlayerDigging(Action.STOP_DESTROY_BLOCK, this.targetBed, stopFace)
+                                    new C07PacketPlayerDigging(Action.STOP_DESTROY_BLOCK, this.targetBed, this.getHitFacing(this.targetBed))
                             );
                             this.doSwing();
                             IBlockState blockState_ = mc.theWorld.getBlockState(this.targetBed);
