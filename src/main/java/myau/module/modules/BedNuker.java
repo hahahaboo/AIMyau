@@ -310,8 +310,8 @@ public class BedNuker extends Module {
             if (!this.canRaycastTo(p)) {
                 continue;
             }
-            // 整條路徑：每挖一格後下一格（最後是床）都要能 raycast，否則開挖前排除
-            if (!this.isPathProgressivelyRaycastable(p, parentTowardBed, bedPos)) {
+            // 只檢查：挖掉第一格後，第二格（或床）要能 raycast；整條模擬會卡
+            if (!this.isNextBlockRaycastableAfterFirst(p, parentTowardBed, bedPos)) {
                 continue;
             }
             float score = this.pathScore(p, e.getValue(), eyeX, eyeY, eyeZ);
@@ -324,48 +324,24 @@ public class BedNuker extends Module {
     }
 
     /**
-     * 開挖前檢查整條路徑是否可逐步挖掘：
-     * 對路徑 [first → … → 貼床格]，依序模擬挖掉；
-     * 每一格在「前面的格已挖掉」後都必須 canRaycastTo；
-     * 全部挖完後床必須 canRaycastToBed。
+     * 開挖前只檢查下一格：挖掉 first 後，第二格要能 raycast；
+     * 若 first 貼床（無第二格），則檢查床能否 canRaycastToBed。
+     * （不模擬整條路徑，避免卡頓）
      */
-    private boolean isPathProgressivelyRaycastable(BlockPos first, HashMap<BlockPos, BlockPos> parentTowardBed, BlockPos bedPos) {
-        ArrayList<BlockPos> path = new ArrayList<>();
-        BlockPos cur = first;
-        // 防止環
-        HashMap<BlockPos, Boolean> seen = new HashMap<>();
-        while (cur != null) {
-            if (seen.containsKey(cur)) {
-                return false;
-            }
-            seen.put(cur, Boolean.TRUE);
-            path.add(cur);
-            cur = parentTowardBed.get(cur);
-        }
-        if (path.isEmpty()) {
-            return false;
-        }
-
-        ArrayList<IBlockState> saved = new ArrayList<>(path.size());
-        for (BlockPos p : path) {
-            saved.add(mc.theWorld.getBlockState(p));
-        }
-
+    private boolean isNextBlockRaycastableAfterFirst(BlockPos first, HashMap<BlockPos, BlockPos> parentTowardBed, BlockPos bedPos) {
+        BlockPos second = parentTowardBed.get(first);
+        IBlockState saved = mc.theWorld.getBlockState(first);
+        mc.theWorld.setBlockState(first, net.minecraft.init.Blocks.air.getDefaultState(), 0);
         try {
-            for (int i = 0; i < path.size(); i++) {
-                BlockPos dig = path.get(i);
-                if (!this.canRaycastTo(dig)) {
-                    return false;
-                }
-                mc.theWorld.setBlockState(dig, net.minecraft.init.Blocks.air.getDefaultState(), 0);
+            if (second == null) {
+                return this.canRaycastToBed(bedPos);
             }
-            return this.canRaycastToBed(bedPos);
+            return this.canRaycastTo(second);
         } finally {
-            for (int i = 0; i < path.size(); i++) {
-                mc.theWorld.setBlockState(path.get(i), saved.get(i), 0);
-            }
+            mc.theWorld.setBlockState(first, saved, 0);
         }
     }
+
 
 
     private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
