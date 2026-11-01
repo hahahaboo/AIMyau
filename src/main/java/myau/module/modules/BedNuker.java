@@ -310,6 +310,71 @@ public class BedNuker extends Module {
         }
     }
 
+    /**
+     * 路徑挖完仍看不到床時：對床做 raycast，收集視線上第一個固體遮擋格，
+     * 再從中選目前可 raycast、在 range 內、score 最好的來挖。
+     */
+    private BlockPos findBestBedRaycastBlocker(BlockPos bedPos) {
+        IBlockState state = mc.theWorld.getBlockState(bedPos);
+        if (!(state.getBlock() instanceof BlockBed)) {
+            return null;
+        }
+        EnumPartType partType = state.getValue(BlockBed.PART);
+        EnumFacing facing = state.getValue(BlockBed.FACING);
+        BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
+        List<BlockPos> bedParts = Arrays.asList(bedPos, other);
+
+        double eyeX = mc.thePlayer.posX;
+        double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
+        double eyeZ = mc.thePlayer.posZ;
+        Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
+        double reach = this.range.getValue().doubleValue();
+
+        HashMap<BlockPos, Boolean> blockers = new HashMap<>();
+        double[][] offsets = {
+                {0.5, 0.5, 0.5},
+                {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
+                {0.5, 0.1, 0.5}, {0.5, 0.9, 0.5},
+                {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
+        };
+
+        for (BlockPos part : bedParts) {
+            for (double[] o : offsets) {
+                Vec3 end = new Vec3(part.getX() + o[0], part.getY() + o[1], part.getZ() + o[2]);
+                MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
+                if (mop == null || mop.typeOfHit != MovingObjectType.BLOCK) {
+                    continue;
+                }
+                BlockPos hit = mop.getBlockPos();
+                if (bedParts.contains(hit)) {
+                    continue;
+                }
+                Block b = mc.theWorld.getBlockState(hit).getBlock();
+                if (b instanceof BlockBed || BlockUtil.isReplaceable(b)) {
+                    continue;
+                }
+                blockers.put(hit, Boolean.TRUE);
+            }
+        }
+
+        BlockPos best = null;
+        float bestScore = Float.MAX_VALUE;
+        for (BlockPos p : blockers.keySet()) {
+            if (!PlayerUtil.canReach(p, reach)) {
+                continue;
+            }
+            if (!this.canRaycastTo(p)) {
+                continue;
+            }
+            float score = this.pathScore(p, this.digCost(p), eyeX, eyeY, eyeZ);
+            if (score < bestScore) {
+                bestScore = score;
+                best = p;
+            }
+        }
+        return best;
+    }
+
     private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
         return this.buildCostToBedMap(bedPos, null);
     }
@@ -593,6 +658,15 @@ public class BedNuker extends Module {
                             continue;
                         }
                         return outer;
+                    }
+                    // 路徑挖完／沒有合法路徑，但仍看不到床 → 找視線上擋床的方塊
+                    BlockPos blocker = this.findBestBedRaycastBlocker(blockPos);
+                    if (blocker != null) {
+                        Block block = mc.theWorld.getBlockState(blocker).getBlock();
+                        if (this.toolCheck.getValue() && !this.hasProperTool(block)) {
+                            continue;
+                        }
+                        return blocker;
                     }
                 }
             }
