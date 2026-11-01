@@ -293,7 +293,8 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         double reach = this.range.getValue().doubleValue();
 
-        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos);
+        HashMap<BlockPos, BlockPos> parentTowardBed = new HashMap<>();
+        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos, parentTowardBed);
         if (costToBed.isEmpty()) {
             return null;
         }
@@ -309,6 +310,10 @@ public class BedNuker extends Module {
             if (!this.canRaycastTo(p)) {
                 continue;
             }
+            // 整條路徑：每挖一格後下一格（最後是床）都要能 raycast，否則開挖前排除
+            if (!this.isPathProgressivelyRaycastable(p, parentTowardBed, bedPos)) {
+                continue;
+            }
             float score = this.pathScore(p, e.getValue(), eyeX, eyeY, eyeZ);
             if (score < bestScore) {
                 bestScore = score;
@@ -318,7 +323,56 @@ public class BedNuker extends Module {
         return best;
     }
 
+    /**
+     * 開挖前檢查整條路徑是否可逐步挖掘：
+     * 對路徑 [first → … → 貼床格]，依序模擬挖掉；
+     * 每一格在「前面的格已挖掉」後都必須 canRaycastTo；
+     * 全部挖完後床必須 canRaycastToBed。
+     */
+    private boolean isPathProgressivelyRaycastable(BlockPos first, HashMap<BlockPos, BlockPos> parentTowardBed, BlockPos bedPos) {
+        ArrayList<BlockPos> path = new ArrayList<>();
+        BlockPos cur = first;
+        // 防止環
+        HashMap<BlockPos, Boolean> seen = new HashMap<>();
+        while (cur != null) {
+            if (seen.containsKey(cur)) {
+                return false;
+            }
+            seen.put(cur, Boolean.TRUE);
+            path.add(cur);
+            cur = parentTowardBed.get(cur);
+        }
+        if (path.isEmpty()) {
+            return false;
+        }
+
+        ArrayList<IBlockState> saved = new ArrayList<>(path.size());
+        for (BlockPos p : path) {
+            saved.add(mc.theWorld.getBlockState(p));
+        }
+
+        try {
+            for (int i = 0; i < path.size(); i++) {
+                BlockPos dig = path.get(i);
+                if (!this.canRaycastTo(dig)) {
+                    return false;
+                }
+                mc.theWorld.setBlockState(dig, net.minecraft.init.Blocks.air.getDefaultState(), 0);
+            }
+            return this.canRaycastToBed(bedPos);
+        } finally {
+            for (int i = 0; i < path.size(); i++) {
+                mc.theWorld.setBlockState(path.get(i), saved.get(i), 0);
+            }
+        }
+    }
+
+
     private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
+        return this.buildCostToBedMap(bedPos, null);
+    }
+
+    private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos, HashMap<BlockPos, BlockPos> parentTowardBed) {
         HashMap<BlockPos, Float> costToBed = new HashMap<>();
         IBlockState state = mc.theWorld.getBlockState(bedPos);
         if (!(state.getBlock() instanceof BlockBed)) {
@@ -357,6 +411,9 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(adj);
                 if (old == null || c < old) {
                     costToBed.put(adj, c);
+                    if (parentTowardBed != null) {
+                        parentTowardBed.put(adj, null);
+                    }
                     pq.offer(new float[]{c, (float) adj.getX(), (float) adj.getY(), (float) adj.getZ()});
                 }
             }
@@ -389,6 +446,10 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(n);
                 if (old == null || nc < old) {
                     costToBed.put(n, nc);
+                    if (parentTowardBed != null) {
+                        // n 的下一格（更靠近床）是 p
+                        parentTowardBed.put(n, p);
+                    }
                     pq.offer(new float[]{nc, (float) n.getX(), (float) n.getY(), (float) n.getZ()});
                 }
             }
