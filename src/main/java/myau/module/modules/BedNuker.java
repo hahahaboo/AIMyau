@@ -262,8 +262,7 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         double reach = this.range.getValue().doubleValue();
 
-        HashMap<BlockPos, BlockPos> parentTowardBed = new HashMap<>();
-        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos, parentTowardBed);
+        HashMap<BlockPos, Float> costToBed = this.buildCostToBedMap(bedPos);
         if (costToBed.isEmpty()) {
             return null;
         }
@@ -279,10 +278,6 @@ public class BedNuker extends Module {
             if (!this.canRaycastTo(p)) {
                 continue;
             }
-            // 挖掉第一格後，第二格（或床）要能 raycast，否則排除
-            if (!this.isNextBlockRaycastableAfterFirst(p, parentTowardBed, bedPos)) {
-                continue;
-            }
             float score = this.pathScore(p, e.getValue(), eyeX, eyeY, eyeZ);
             if (score < bestScore) {
                 bestScore = score;
@@ -292,23 +287,6 @@ public class BedNuker extends Module {
         return best;
     }
 
-    /**
-     * 開挖前：模擬挖掉 first 後，第二格要能 raycast；
-     * 若 first 貼床（無第二格），則檢查床能否 canRaycastToBed。
-     */
-    private boolean isNextBlockRaycastableAfterFirst(BlockPos first, HashMap<BlockPos, BlockPos> parentTowardBed, BlockPos bedPos) {
-        BlockPos second = parentTowardBed.get(first);
-        IBlockState saved = mc.theWorld.getBlockState(first);
-        mc.theWorld.setBlockState(first, net.minecraft.init.Blocks.air.getDefaultState(), 0);
-        try {
-            if (second == null) {
-                return this.canRaycastToBed(bedPos);
-            }
-            return this.canRaycastTo(second);
-        } finally {
-            mc.theWorld.setBlockState(first, saved, 0);
-        }
-    }
 
     /**
      * 路徑挖完仍看不到床時：對床做 raycast，收集視線上第一個固體遮擋格，
@@ -376,10 +354,6 @@ public class BedNuker extends Module {
     }
 
     private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos) {
-        return this.buildCostToBedMap(bedPos, null);
-    }
-
-    private HashMap<BlockPos, Float> buildCostToBedMap(BlockPos bedPos, HashMap<BlockPos, BlockPos> parentTowardBed) {
         HashMap<BlockPos, Float> costToBed = new HashMap<>();
         IBlockState state = mc.theWorld.getBlockState(bedPos);
         if (!(state.getBlock() instanceof BlockBed)) {
@@ -418,9 +392,6 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(adj);
                 if (old == null || c < old) {
                     costToBed.put(adj, c);
-                    if (parentTowardBed != null) {
-                        parentTowardBed.put(adj, null);
-                    }
                     pq.offer(new float[]{c, (float) adj.getX(), (float) adj.getY(), (float) adj.getZ()});
                 }
             }
@@ -453,9 +424,6 @@ public class BedNuker extends Module {
                 Float old = costToBed.get(n);
                 if (old == null || nc < old) {
                     costToBed.put(n, nc);
-                    if (parentTowardBed != null) {
-                        parentTowardBed.put(n, p);
-                    }
                     pq.offer(new float[]{nc, (float) n.getX(), (float) n.getY(), (float) n.getZ()});
                 }
             }
