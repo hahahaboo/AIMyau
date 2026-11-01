@@ -559,8 +559,7 @@ public class BedNuker extends Module {
 
     /**
      * 視線是否打得到此格（選目標 / through-wall=false 用）。
-     * 只在 6 個「面」上採樣（0.1～0.9、間距 0.2 的面網格），不採樣方塊內部。
-     * 每面 5×5=25 點，六面共最多 150 次檢查（邊角重複可接受，命中即返回）。
+     * 原始 7 點：中心 + 六面。
      */
     private boolean canRaycastTo(BlockPos pos) {
         double eyeX = mc.thePlayer.posX;
@@ -568,33 +567,15 @@ public class BedNuker extends Module {
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
 
-        double[] u = {0.1, 0.3, 0.5, 0.7, 0.9};
-
-        // 西 / 東：x 固定 0.1 / 0.9，掃 y、z
-        for (double oy : u) {
-            for (double oz : u) {
-                if (this.rayHitsBlock(start, pos, 0.1, oy, oz)
-                        || this.rayHitsBlock(start, pos, 0.9, oy, oz)) {
-                    return true;
-                }
-            }
-        }
-        // 下 / 上：y 固定 0.1 / 0.9，掃 x、z
-        for (double ox : u) {
-            for (double oz : u) {
-                if (this.rayHitsBlock(start, pos, ox, 0.1, oz)
-                        || this.rayHitsBlock(start, pos, ox, 0.9, oz)) {
-                    return true;
-                }
-            }
-        }
-        // 北 / 南：z 固定 0.1 / 0.9，掃 x、y
-        for (double ox : u) {
-            for (double oy : u) {
-                if (this.rayHitsBlock(start, pos, ox, oy, 0.1)
-                        || this.rayHitsBlock(start, pos, ox, oy, 0.9)) {
-                    return true;
-                }
+        double[][] offsets = {
+                {0.5, 0.5, 0.5},
+                {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
+                {0.5, 0.1, 0.5}, {0.5, 0.9, 0.5},
+                {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
+        };
+        for (double[] o : offsets) {
+            if (this.rayHitsBlock(start, pos, o[0], o[1], o[2])) {
+                return true;
             }
         }
         return false;
