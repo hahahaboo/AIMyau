@@ -234,7 +234,11 @@ public class BedNuker extends Module {
                         return null;
                     }
                     if (!(block instanceof BlockBed)) {
-                        pos.add(blockPos.offset(enumFacing));
+                        BlockPos cover = blockPos.offset(enumFacing);
+                        // 不挖低於床的方塊
+                        if (cover.getY() >= blockPos.getY()) {
+                            pos.add(cover);
+                        }
                     }
                 }
             }
@@ -267,11 +271,15 @@ public class BedNuker extends Module {
             return null;
         }
 
+        int bedMinY = this.getBedMinY(bedPos);
         BlockPos best = null;
         float bestScore = Float.MAX_VALUE;
 
         for (Map.Entry<BlockPos, Float> e : costToBed.entrySet()) {
             BlockPos p = e.getKey();
+            if (p.getY() < bedMinY) {
+                continue;
+            }
             if (!PlayerUtil.canReach(p, reach)) {
                 continue;
             }
@@ -335,9 +343,13 @@ public class BedNuker extends Module {
             }
         }
 
+        int bedMinY = Math.min(bedPos.getY(), other.getY());
         BlockPos best = null;
         float bestScore = Float.MAX_VALUE;
         for (BlockPos p : blockers.keySet()) {
+            if (p.getY() < bedMinY) {
+                continue;
+            }
             if (!PlayerUtil.canReach(p, reach)) {
                 continue;
             }
@@ -363,6 +375,7 @@ public class BedNuker extends Module {
         EnumFacing facing = state.getValue(BlockBed.FACING);
         BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
         List<BlockPos> bedParts = Arrays.asList(bedPos, other);
+        int bedMinY = Math.min(bedPos.getY(), other.getY());
 
         double eyeX = mc.thePlayer.posX;
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
@@ -383,6 +396,9 @@ public class BedNuker extends Module {
                     continue;
                 }
                 if (!this.isInSearchBox(adj, bedParts, searchR)) {
+                    continue;
+                }
+                if (adj.getY() < bedMinY) {
                     continue;
                 }
                 float c = this.digCost(adj);
@@ -420,6 +436,9 @@ public class BedNuker extends Module {
                 if (!PlayerUtil.isBlockWithinReach(n, eyeX, eyeY, eyeZ, reach + 1.5)) {
                     continue;
                 }
+                if (n.getY() < bedMinY) {
+                    continue;
+                }
                 float nc = c + this.digCost(n);
                 Float old = costToBed.get(n);
                 if (old == null || nc < old) {
@@ -440,6 +459,18 @@ public class BedNuker extends Module {
             }
         }
         return false;
+    }
+
+    /** 床兩半的最低 Y（不挖比床更低的方塊） */
+    private int getBedMinY(BlockPos bedPos) {
+        IBlockState state = mc.theWorld.getBlockState(bedPos);
+        if (!(state.getBlock() instanceof BlockBed)) {
+            return bedPos.getY();
+        }
+        EnumPartType partType = state.getValue(BlockBed.PART);
+        EnumFacing facing = state.getValue(BlockBed.FACING);
+        BlockPos other = bedPos.offset(partType == EnumPartType.HEAD ? facing.getOpposite() : facing);
+        return Math.min(bedPos.getY(), other.getY());
     }
 
     private float digCost(BlockPos pos) {
