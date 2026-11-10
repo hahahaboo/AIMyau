@@ -155,11 +155,23 @@ public class BedNuker extends Module {
     }
 
     private EnumFacing getHitFacing(BlockPos blockPos) {
-        double x = (double) blockPos.getX() + 0.5 - mc.thePlayer.posX;
-        double y = (double) blockPos.getY() + 0.25 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-        double z = (double) blockPos.getZ() + 0.5 - mc.thePlayer.posZ;
+        Vec3 aim = this.findVisibleAimPoint(blockPos);
+        double x, y, z;
+        if (aim != null) {
+            x = aim.xCoord - mc.thePlayer.posX;
+            y = aim.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+            z = aim.zCoord - mc.thePlayer.posZ;
+        } else {
+            x = (double) blockPos.getX() + 0.5 - mc.thePlayer.posX;
+            y = (double) blockPos.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+            z = (double) blockPos.getZ() + 0.5 - mc.thePlayer.posZ;
+        }
         float[] rotations = RotationUtil.getRotationsTo(x, y, z, mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
-        MovingObjectPosition mop = RotationUtil.rayTrace(rotations[0], rotations[1], 8.0, 1.0F);
+        MovingObjectPosition mop = RotationUtil.rayTrace(
+                rotations[0], rotations[1], this.range.getValue().doubleValue() + 0.5, 1.0F);
+        if (mop != null && mop.typeOfHit == MovingObjectType.BLOCK && mop.getBlockPos().equals(blockPos)) {
+            return mop.sideHit;
+        }
         return mop == null ? EnumFacing.UP : mop.sideHit;
     }
 
@@ -562,28 +574,37 @@ public class BedNuker extends Module {
         return bed;
     }
 
-    private boolean canRaycastTo(BlockPos pos) {
+    private static final double[][] RAYCAST_OFFSETS = {
+            {0.5, 0.5, 0.5},
+            {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
+            {0.5, 0.1, 0.5}, {0.5, 0.9, 0.5},
+            {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
+    };
+
+    /**
+     * 回傳第一個能 raycast 打到的方塊內採樣點（世界座標）；都看不到則 null。
+     * 轉頭與挖除面應對準此點，避免「檢測用邊角、轉頭對中心」不一致。
+     */
+    private Vec3 findVisibleAimPoint(BlockPos pos) {
         double eyeX = mc.thePlayer.posX;
         double eyeY = mc.thePlayer.posY + (double) mc.thePlayer.getEyeHeight();
         double eyeZ = mc.thePlayer.posZ;
         Vec3 start = new Vec3(eyeX, eyeY, eyeZ);
-
-        double[][] offsets = {
-                {0.5, 0.5, 0.5},
-                {0.1, 0.5, 0.5}, {0.9, 0.5, 0.5},
-                {0.5, 0.1, 0.5}, {0.5, 0.9, 0.5},
-                {0.5, 0.5, 0.1}, {0.5, 0.5, 0.9}
-        };
-        for (double[] o : offsets) {
+        for (double[] o : RAYCAST_OFFSETS) {
             Vec3 end = new Vec3(pos.getX() + o[0], pos.getY() + o[1], pos.getZ() + o[2]);
             MovingObjectPosition mop = mc.theWorld.rayTraceBlocks(start, end, false, false, false);
             if (mop != null
                     && mop.typeOfHit == MovingObjectType.BLOCK
                     && mop.getBlockPos().equals(pos)) {
-                return true;
+                // 優先用實際命中點，更貼近合法視線
+                return mop.hitVec;
             }
         }
-        return false;
+        return null;
+    }
+
+    private boolean canRaycastTo(BlockPos pos) {
+        return this.findVisibleAimPoint(pos) != null;
     }
 
     /** 床（含另一半）任一點可見即 true */
@@ -872,9 +893,18 @@ public class BedNuker extends Module {
     public void onUpdate(UpdateEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             if (this.isReady()) {
-                double x = (double) this.targetBed.getX() + 0.5 - mc.thePlayer.posX;
-                double y = (double) this.targetBed.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
-                double z = (double) this.targetBed.getZ() + 0.5 - mc.thePlayer.posZ;
+                Vec3 aim = this.findVisibleAimPoint(this.targetBed);
+                double x, y, z;
+                if (aim != null) {
+                    x = aim.xCoord - mc.thePlayer.posX;
+                    y = aim.yCoord - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+                    z = aim.zCoord - mc.thePlayer.posZ;
+                } else {
+                    // through-wall 或暫時無可見點：仍對準中心
+                    x = (double) this.targetBed.getX() + 0.5 - mc.thePlayer.posX;
+                    y = (double) this.targetBed.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
+                    z = (double) this.targetBed.getZ() + 0.5 - mc.thePlayer.posZ;
+                }
                 float[] rotations = RotationUtil.getRotationsTo(x, y, z, event.getYaw(), event.getPitch());
                 event.setRotation(rotations[0], rotations[1], 5);
                 event.setPervRotation(this.moveFix.getValue() != 0 ? rotations[0] : mc.thePlayer.rotationYaw, 5);
