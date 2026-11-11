@@ -7,5 +7,6 @@ public enum BlinkModules {
     BLINK,
     NO_FALL,
     NO_SLOW,
-    LAG_RANGE
+    LAG_RANGE,
+    DISPLACE
 }
