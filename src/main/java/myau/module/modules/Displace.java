@@ -4,12 +4,16 @@ import myau.Myau;
 import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
-import myau.events.*;
+import myau.events.LeftClickMouseEvent;
+import myau.events.Render3DEvent;
+import myau.events.TickEvent;
+import myau.events.UpdateEvent;
 import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
+import myau.util.KeyBindUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -22,13 +26,13 @@ import net.minecraft.util.MovingObjectPosition;
 import org.lwjgl.opengl.GL11;
 
 /**
- * Port of OpenB4 DisplaceModule – knockback sideways displacement.
+ * Port of OpenB4 DisplaceModule – sideways knockback displacement.
  * Modes: LEFT / RIGHT / RANDOM / VOID
  */
 public class Displace extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
 
-    // ===== Settings (對應原版) =====
+    // ===== Settings =====
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LEFT", "RIGHT", "RANDOM", "VOID"});
     public final FloatProperty angle = new FloatProperty("angle", 45.0F, 5.0F, 90.0F);
     public final FloatProperty cooldown = new FloatProperty("cooldown", 0.5F, 0.0F, 5.0F);
@@ -38,13 +42,14 @@ public class Displace extends Module {
     public final BooleanProperty playersOnly = new BooleanProperty("players-only", true);
     public final BooleanProperty renderArrow = new BooleanProperty("render-arrow", true);
     public final BooleanProperty manual = new BooleanProperty("manual", true);
-    public final BooleanProperty withAutoClicker = new BooleanProperty("with-autoclicker", true);   // 原版 autoClicker
-    public final BooleanProperty withKillAura = new BooleanProperty("with-killaura", true);       // 原版 killAura
+    public final BooleanProperty withAutoClicker = new BooleanProperty("with-autoclicker", true);
+    public final BooleanProperty withKillAura = new BooleanProperty("with-killaura", true);
 
-    // ===== State (對應原版 static 欄位) =====
+    // ===== State =====
     private boolean rotate;
     private boolean fromAimAssist;
     private boolean queued;
+    private boolean pendingClick;
     private long lastAt;
     private boolean holding;
     private int holdTicks;
@@ -60,7 +65,7 @@ public class Displace extends Module {
         super("Displace", "Displace targets sideways with knockback", Category.COMBAT, 0, false, false);
     }
 
-    // ===== 原版 offset() =====
+    // ===== offset (原版) =====
     private float offset() {
         float f = this.angle.getValue();
         if (this.side != -1) {
@@ -72,7 +77,6 @@ public class Displace extends Module {
                 || (this.mode.getValue() == 2 /* RANDOM */ && RandomUtil.nextInt(0, 1) == 0)) {
             f = -f;
         }
-        // 原版 MathUtils.randomFloat(-5, 5)
         f += RandomUtil.nextFloat(-5.0F, 5.0F);
         if (this.renderArrow.getValue() && this.lastTarget != null) {
             this.setArrow(this.lastTarget, f);
@@ -80,7 +84,6 @@ public class Displace extends Module {
         return f;
     }
 
-    // ===== 原版 startBlink() =====
     private void startBlink() {
         if (this.hideRotations.getValue()) {
             this.blinkTicks = 2;
@@ -88,25 +91,21 @@ public class Displace extends Module {
         }
     }
 
-    // ===== 原版 rearm() =====
     public void rearm() {
         this.holdTicks = 3;
     }
 
-    // ===== 原版 clear() =====
     public void clear() {
         this.lastAt = 0L;
     }
 
-    // ===== 原版 canDisplace() =====
+    // ===== canDisplace (原版過濾) =====
     public boolean canDisplace(Entity entity, boolean checkHurtTime, boolean checkCooldown) {
         if (!(entity instanceof EntityLivingBase)) {
             return false;
         }
         EntityLivingBase living = (EntityLivingBase) entity;
 
-        // 原版用 SettingsModule.hittableHurtTime，這裡先用 hurtTime > 0 簡化
-        // 之後若要完全一致可再加 IntProperty
         if (checkHurtTime && living.hurtTime > 0) {
             return false;
         }
@@ -125,8 +124,7 @@ public class Displace extends Module {
             return false;
         }
 
-        // VOID mode
-        if (this.mode.getValue() == 3) {
+        if (this.mode.getValue() == 3) { // VOID
             this.side = this.lastSide = this.dropSide(entity, this.lastSide);
             if (this.side == -1) {
                 return false;
@@ -137,10 +135,7 @@ public class Displace extends Module {
         return true;
     }
 
-    /**
-     * 原版 WorldUtils.dropSide 的近似實作。
-     * 回傳 0 = 左、1 = 右、-1 = 兩邊都不適合。
-     */
+    /** 0 = 左, 1 = 右, -1 = 兩邊都不適合 */
     private int dropSide(Entity entity, int prefer) {
         double x = entity.posX;
         double y = entity.posY;
@@ -148,7 +143,6 @@ public class Displace extends Module {
         float yaw = mc.thePlayer.rotationYaw;
         double rad = Math.toRadians(yaw);
 
-        // 左右側偏移（與原版精神相同）
         double leftX = x + Math.cos(rad) * 1.5;
         double leftZ = z + Math.sin(rad) * 1.5;
         double rightX = x - Math.cos(rad) * 1.5;
@@ -177,56 +171,50 @@ public class Displace extends Module {
         return true;
     }
 
-    // ===== 原版 trigger() =====
     public void trigger(int source) {
         if (source == 0) {
             this.rotate = true;
+            this.pendingClick = true; // 手動：轉頭後補攻擊
         } else if (source == 1) {
             this.fromAimAssist = true;
             this.rotate = true;
+            this.pendingClick = true;
         } else if (source == 2) {
             this.queued = true;
+            // KillAura 自己會打，不補 click
         }
         this.lastAt = System.currentTimeMillis();
     }
 
-    // ===== 原版 onMouse =====
+    // ===== 手動：聽 LeftClickMouseEvent（AIMyau 實際左鍵事件）=====
     @EventTarget
-    public void onMouse(MouseEvent e) {
+    public void onLeftClick(LeftClickMouseEvent e) {
         if (!this.isEnabled()) return;
-        if (e.getButton() != 0 || !e.isButtonstate()) return;
         if (mc.theWorld == null || mc.thePlayer == null) return;
+        if (mc.currentScreen != null) return;
+        if (!this.manual.getValue()) return;
 
-        // 原版：!autoClicker.isToggled() && AutoClickerModule.clicking() → return
         AutoClicker ac = (AutoClicker) Myau.moduleManager.modules.get(AutoClicker.class);
         if (!this.withAutoClicker.getValue() && ac != null && ac.isEnabled()) {
             return;
         }
-        if (!this.manual.getValue()) {
-            return;
-        }
 
         Entity entity = null;
-        boolean aim = false;
-
-        // 原版優先 AimAssist silent target，目前 AIMyau AimAssist 沒公開 target，
-        // 先走 objectMouseOver；之後可再接 AimAssist
         if (mc.objectMouseOver != null
                 && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             entity = mc.objectMouseOver.entityHit;
         }
-
         if (entity == null) return;
 
         if (this.canDisplace(entity, true, true)) {
             e.setCancelled(true);
-            this.trigger(aim ? 1 : 0);
+            this.trigger(0);
         } else if (this.overrideAttacks.getValue() && this.canDisplace(entity, false, false)) {
             e.setCancelled(true);
         }
     }
 
-    // ===== 原版 getRotations 的效果 → 用 UpdateEvent 實作 =====
+    // ===== 轉頭（對應原版 getRotations）=====
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -238,34 +226,40 @@ public class Displace extends Module {
             float yaw = mc.thePlayer.rotationYaw + off;
             float pitch = mc.thePlayer.rotationPitch;
 
-            // priority 給高一點，避免被其他旋轉蓋掉
             event.setRotation(yaw, pitch, 8);
             event.setPervRotation(yaw, 8);
-
             this.startBlink();
-
-            // 原版在 getRotations 裡會 KeyUtils.click(attack)
-            // 這裡因為我們 cancel 了 mouse，攻擊會在下一個正常流程發生；
-            // 若需要強制 click 可再接 KeyBindUtil
 
             this.rotate = false;
             this.queued = false;
         }
     }
 
-    // ===== 原版 onPreUpdate =====
+    @EventTarget
+    public void onUpdatePost(UpdateEvent event) {
+        if (event.getType() == EventType.POST) {
+            this.rotate = false;
+            this.queued = false;
+        }
+    }
+
+    // ===== tick：blink 結束 / KillAura 聯動 / 補攻擊 =====
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
             return;
         }
 
-        // blink 結束
         if (this.blinkTicks > 0 && --this.blinkTicks == 0) {
             Myau.blinkManager.setBlinkState(false, BlinkModules.DISPLACE);
         }
 
-        // 原版：killAura.isToggled() && KillAuraModule.target != null && canDisplace → trigger(2)
+        // 手動轉頭後補一次攻擊（對應原版 KeyUtils.click）
+        if (this.pendingClick) {
+            this.pendingClick = false;
+            KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
+        }
+
         if (this.withKillAura.getValue()) {
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
             if (ka != null && ka.isEnabled()) {
@@ -276,22 +270,12 @@ public class Displace extends Module {
             }
         }
 
-        // holdTicks
         if (this.holdTicks > 0) {
             this.holding = --this.holdTicks > 0;
         }
     }
 
-    // ===== 原版 onPostMotion 效果（清旗標）=====
-    @EventTarget
-    public void onUpdatePost(UpdateEvent event) {
-        if (event.getType() == EventType.POST) {
-            this.rotate = false;
-            this.queued = false;
-        }
-    }
-
-    // ===== 原版 onRenderWorld（箭頭渲染）=====
+    // ===== 箭頭渲染（原版 onRenderWorld）=====
     @EventTarget
     public void onRender3D(Render3DEvent e) {
         if (!this.arrow || !this.renderArrow.getValue()) return;
@@ -343,7 +327,6 @@ public class Displace extends Module {
         GlStateManager.translate(x, y, z);
         GlStateManager.rotate((float) yaw, 0.0F, 1.0F, 0.0F);
 
-        // shadow
         GL11.glPushMatrix();
         GL11.glTranslated(0.08 * 0.48, -0.08 * 0.24, -0.02);
         color(shadow);
@@ -360,7 +343,6 @@ public class Displace extends Module {
         GL11.glEnd();
         GL11.glPopMatrix();
 
-        // fill
         color(fill);
         GL11.glBegin(GL11.GL_QUADS);
         GL11.glVertex3d(-0.2784, -0.0816, 0.0);
@@ -374,7 +356,6 @@ public class Displace extends Module {
         GL11.glVertex3d(0.0, 0.144, 0.0);
         GL11.glEnd();
 
-        // outline
         GL11.glEnable(GL11.GL_LINE_SMOOTH);
         GL11.glLineWidth(2.0F);
         color(outline);
@@ -409,7 +390,6 @@ public class Displace extends Module {
         );
     }
 
-    // ===== 原版 setArrow =====
     private void setArrow(EntityLivingBase entity, float f) {
         double d = Math.toRadians(mc.thePlayer.rotationYaw + f);
         this.dirX = -Math.sin(d);
@@ -421,7 +401,6 @@ public class Displace extends Module {
         this.arrow = true;
     }
 
-    // ===== 原版 onDisable =====
     @Override
     public void onDisabled() {
         if (this.blinkTicks > 0) {
@@ -433,12 +412,12 @@ public class Displace extends Module {
         this.rotate = false;
         this.fromAimAssist = false;
         this.queued = false;
+        this.pendingClick = false;
         this.holdTicks = 0;
         this.lastSide = -1;
         this.side = -1;
     }
 
-    // ===== 原版 getInfo() =====
     @Override
     public String[] getSuffix() {
         return new String[]{this.mode.getModeString()};
