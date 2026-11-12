@@ -36,14 +36,12 @@ public class Displace extends Module {
     public final ModeProperty mode = new ModeProperty("mode", 0, new String[]{"LEFT", "RIGHT", "RANDOM", "VOID"});
     public final FloatProperty angle = new FloatProperty("angle", 45.0F, 5.0F, 90.0F);
     public final FloatProperty cooldown = new FloatProperty("cooldown", 0.5F, 0.0F, 5.0F);
-    public final BooleanProperty hideRotations = new BooleanProperty("hide-rotations", true);
+    public final BooleanProperty hideRotations = new BooleanProperty("hide-rotations", false);
     public final BooleanProperty onlyKnockbackItems = new BooleanProperty("only-knockback-items", false);
-    public final BooleanProperty overrideAttacks = new BooleanProperty("override-attacks", false);
     public final BooleanProperty playersOnly = new BooleanProperty("players-only", true);
     public final BooleanProperty renderArrow = new BooleanProperty("render-arrow", true);
     public final BooleanProperty manual = new BooleanProperty("manual", true);
-    public final BooleanProperty withAutoClicker = new BooleanProperty("with-autoclicker", true);
-    public final BooleanProperty withKillAura = new BooleanProperty("with-killaura", true);
+    public final BooleanProperty killAura = new BooleanProperty("killaura", true);
 
     // ===== State =====
     private boolean rotate;
@@ -193,24 +191,15 @@ public class Displace extends Module {
         if (mc.theWorld == null || mc.thePlayer == null) return;
         if (mc.currentScreen != null) return;
         if (!this.manual.getValue()) return;
-
-        AutoClicker ac = (AutoClicker) Myau.moduleManager.modules.get(AutoClicker.class);
-        if (!this.withAutoClicker.getValue() && ac != null && ac.isEnabled()) {
-            return;
-        }
-
         Entity entity = null;
         if (mc.objectMouseOver != null
                 && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             entity = mc.objectMouseOver.entityHit;
         }
         if (entity == null) return;
-
         if (this.canDisplace(entity, true, true)) {
             e.setCancelled(true);
             this.trigger(0);
-        } else if (this.overrideAttacks.getValue() && this.canDisplace(entity, false, false)) {
-            e.setCancelled(true);
         }
     }
 
@@ -260,7 +249,7 @@ public class Displace extends Module {
             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
         }
 
-        if (this.withKillAura.getValue()) {
+        if (this.killAura.getValue()) {
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
             if (ka != null && ka.isEnabled()) {
                 EntityLivingBase target = ka.getTarget();
