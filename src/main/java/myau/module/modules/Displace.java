@@ -14,6 +14,7 @@ import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
 import myau.property.properties.ModeProperty;
 import myau.util.KeyBindUtil;
+import myau.util.PlayerUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
@@ -21,7 +22,6 @@ import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.BlockPos;
 import net.minecraft.util.MovingObjectPosition;
 import org.lwjgl.opengl.GL11;
 
@@ -123,49 +123,13 @@ public class Displace extends Module {
         }
 
         if (this.mode.getValue() == 3) { // VOID
-            this.side = this.lastSide = this.dropSide(entity, this.lastSide);
+            this.side = this.lastSide = PlayerUtil.dropSide(entity, this.lastSide);
             if (this.side == -1) {
                 return false;
             }
         }
 
         this.lastTarget = living;
-        return true;
-    }
-
-    /** 0 = 左, 1 = 右, -1 = 兩邊都不適合 */
-    private int dropSide(Entity entity, int prefer) {
-        double x = entity.posX;
-        double y = entity.posY;
-        double z = entity.posZ;
-        float yaw = mc.thePlayer.rotationYaw;
-        double rad = Math.toRadians(yaw);
-
-        double leftX = x + Math.cos(rad) * 1.5;
-        double leftZ = z + Math.sin(rad) * 1.5;
-        double rightX = x - Math.cos(rad) * 1.5;
-        double rightZ = z - Math.sin(rad) * 1.5;
-
-        boolean leftVoid = isVoidNear(leftX, y, leftZ);
-        boolean rightVoid = isVoidNear(rightX, y, rightZ);
-
-        if (leftVoid && rightVoid) {
-            if (prefer == 0 || prefer == 1) {
-                return prefer;
-            }
-            return RandomUtil.nextInt(0, 1);
-        }
-        if (leftVoid) return 0;
-        if (rightVoid) return 1;
-        return -1;
-    }
-
-    private boolean isVoidNear(double x, double y, double z) {
-        for (int i = 0; i < 8; i++) {
-            if (mc.theWorld.getBlockState(new BlockPos(x, y - i, z)).getBlock().getMaterial().isSolid()) {
-                return false;
-            }
-        }
         return true;
     }
 
@@ -184,19 +148,21 @@ public class Displace extends Module {
         this.lastAt = System.currentTimeMillis();
     }
 
-    // ===== 手動：聽 LeftClickMouseEvent（AIMyau 實際左鍵事件）=====
+    // ===== 手動：聽 LeftClickMouseEvent =====
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
         if (!this.isEnabled()) return;
         if (mc.theWorld == null || mc.thePlayer == null) return;
         if (mc.currentScreen != null) return;
         if (!this.manual.getValue()) return;
+
         Entity entity = null;
         if (mc.objectMouseOver != null
                 && mc.objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             entity = mc.objectMouseOver.entityHit;
         }
         if (entity == null) return;
+
         if (this.canDisplace(entity, true, true)) {
             e.setCancelled(true);
             this.trigger(0);
@@ -243,7 +209,7 @@ public class Displace extends Module {
             Myau.blinkManager.setBlinkState(false, BlinkModules.DISPLACE);
         }
 
-        // 手動轉頭後補一次攻擊（對應原版 KeyUtils.click）
+        // 手動轉頭後補一次攻擊
         if (this.pendingClick) {
             this.pendingClick = false;
             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
@@ -264,7 +230,7 @@ public class Displace extends Module {
         }
     }
 
-    // ===== 箭頭渲染（原版 onRenderWorld）=====
+    // ===== 箭頭渲染 =====
     @EventTarget
     public void onRender3D(Render3DEvent e) {
         if (!this.arrow || !this.renderArrow.getValue()) return;
