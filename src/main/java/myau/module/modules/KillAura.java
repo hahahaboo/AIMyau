@@ -117,7 +117,7 @@ public class KillAura extends Module {
                     return false;
                 }
                 Displace displace = (Displace) Myau.moduleManager.modules.get(Displace.class);
-                if (displace != null && displace.shouldBlockKillAura()) {
+                if (displace != null && displace.tryInterceptAttack(this.target.getEntity())) {
                     return false;
                 }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
