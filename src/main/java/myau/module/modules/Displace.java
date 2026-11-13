@@ -49,6 +49,7 @@ public class Displace extends Module {
     private boolean queued;
     private boolean pendingClick;
     private boolean pendingForceAttack;
+    private boolean holdKillAura;
     private long lastAt;
     private boolean holding;
     private int holdTicks;
@@ -62,6 +63,14 @@ public class Displace extends Module {
 
     public Displace() {
         super("Displace", "Displace targets sideways with knockback", Category.COMBAT, 0, false, false);
+    }
+
+    /**
+     * 確認會 displace 且尚未 force 前，讓 KillAura 暫緩攻擊。
+     * 風格對齊 BedNuker.shouldBlockKillAura()
+     */
+    public boolean shouldBlockKillAura() {
+        return this.isEnabled() && this.killAura.getValue() && this.holdKillAura;
     }
 
     // ===== offset (原版) =====
@@ -137,19 +146,19 @@ public class Displace extends Module {
     public void trigger(int source) {
         if (source == 0) {
             this.rotate = true;
-            this.pendingClick = true; // 手動：轉頭後補攻擊
+            this.pendingClick = true;
         } else if (source == 1) {
             this.fromAimAssist = true;
             this.rotate = true;
             this.pendingClick = true;
         } else if (source == 2) {
             this.queued = true;
-            // KillAura：下 tick 再 forceNextAttacks
+            this.holdKillAura = true; // 確認會 displace → 擋 KA 直到 force
         }
         this.lastAt = System.currentTimeMillis();
     }
 
-    // ===== 手動：聽 LeftClickMouseEvent =====
+    // ===== 手動 =====
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
         if (!this.isEnabled()) return;
@@ -170,7 +179,7 @@ public class Displace extends Module {
         }
     }
 
-    // ===== 轉頭（預設 MEDIUM，早於 KillAura 的 LOW）=====
+    // ===== 轉頭（預設 MEDIUM，早於 KillAura LOW）=====
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -191,9 +200,8 @@ public class Displace extends Module {
             this.rotate = false;
             this.queued = false;
 
-            // 轉頭後的下一 tick 再 force KA
             if (fromKillAura) {
-                this.pendingForceAttack = true;
+                this.pendingForceAttack = true; // 下一 tick 再 force
             }
         }
     }
@@ -206,7 +214,7 @@ public class Displace extends Module {
         }
     }
 
-    // ===== tick：blink / 手動補打 / KA force / KA 聯動 =====
+    // ===== tick =====
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -223,13 +231,14 @@ public class Displace extends Module {
             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
         }
 
-        // KillAura：轉頭後的下一 tick 再 force
+        // KillAura：轉頭後下一 tick force，並解除 hold
         if (this.pendingForceAttack) {
             this.pendingForceAttack = false;
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
             if (ka != null && ka.isEnabled()) {
                 ka.forceNextAttacks(1);
             }
+            this.holdKillAura = false;
         }
 
         if (this.killAura.getValue()) {
@@ -386,6 +395,7 @@ public class Displace extends Module {
         this.queued = false;
         this.pendingClick = false;
         this.pendingForceAttack = false;
+        this.holdKillAura = false;
         this.holdTicks = 0;
         this.lastSide = -1;
         this.side = -1;
