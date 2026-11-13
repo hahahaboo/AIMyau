@@ -4,6 +4,7 @@ import myau.Myau;
 import myau.enums.BlinkModules;
 import myau.event.EventTarget;
 import myau.event.types.EventType;
+import myau.event.types.Priority;
 import myau.events.LeftClickMouseEvent;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
@@ -66,11 +67,22 @@ public class Displace extends Module {
     }
 
     /**
-     * 確認會 displace 且尚未 force 前，讓 KillAura 暫緩攻擊。
-     * 風格對齊 BedNuker.shouldBlockKillAura()
+     * KillAura 即將 performAttack 時呼叫。
+     * @return true = 取消本次攻擊（已接管或管線進行中）
      */
-    public boolean shouldBlockKillAura() {
-        return this.isEnabled() && this.killAura.getValue() && this.holdKillAura;
+    public boolean tryInterceptAttack(Entity entity) {
+        if (!this.isEnabled() || !this.killAura.getValue()) {
+            return false;
+        }
+        // 管線進行中：繼續取消，避免搶打
+        if (this.holdKillAura || this.queued || this.pendingForceAttack) {
+            return true;
+        }
+        if (!this.canDisplace(entity, true, true)) {
+            return false;
+        }
+        this.trigger(2);
+        return true;
     }
 
     // ===== offset (原版) =====
@@ -153,12 +165,12 @@ public class Displace extends Module {
             this.pendingClick = true;
         } else if (source == 2) {
             this.queued = true;
-            this.holdKillAura = true; // 確認會 displace → 擋 KA 直到 force
+            this.holdKillAura = true;
         }
         this.lastAt = System.currentTimeMillis();
     }
 
-    // ===== 手動 =====
+    // ===== 手動：左鍵觸發 =====
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
         if (!this.isEnabled()) return;
@@ -179,8 +191,8 @@ public class Displace extends Module {
         }
     }
 
-    // ===== 轉頭（預設 MEDIUM，早於 KillAura LOW）=====
-    @EventTarget
+    // ===== 轉頭：LOWEST，讓 KillAura(LOW) 先 intercept 再設 rotation =====
+    @EventTarget(Priority.LOWEST)
     public void onUpdate(UpdateEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
             return;
@@ -201,7 +213,7 @@ public class Displace extends Module {
             this.queued = false;
 
             if (fromKillAura) {
-                this.pendingForceAttack = true; // 下一 tick 再 force
+                this.pendingForceAttack = true;
             }
         }
     }
@@ -214,7 +226,7 @@ public class Displace extends Module {
         }
     }
 
-    // ===== tick =====
+    // ===== tick：blink / 手動補打 / KA force（不再「有 target 就 trigger」）=====
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -239,16 +251,6 @@ public class Displace extends Module {
                 ka.forceNextAttacks(1);
             }
             this.holdKillAura = false;
-        }
-
-        if (this.killAura.getValue()) {
-            KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-            if (ka != null && ka.isEnabled()) {
-                EntityLivingBase target = ka.getTarget();
-                if (target != null && this.canDisplace(target, true, true)) {
-                    this.trigger(2);
-                }
-            }
         }
 
         if (this.holdTicks > 0) {
