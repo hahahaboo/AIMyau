@@ -116,6 +116,10 @@ public class KillAura extends Module {
                 if (this.target != null && HitSelect.holdForKillAura(this.target.getEntity())) {
                     return false;
                 }
+                Displace displace = (Displace) Myau.moduleManager.modules.get(Displace.class);
+                if (displace != null && displace.shouldBlockKillAura()) {
+                    return false;
+                }
                 this.attackDelayMS = this.attackDelayMS + this.getAttackDelay();
                 mc.thePlayer.swingItem();
                 if ((this.rotations.getValue() != 0 || !this.isBoxInAttackRange(this.target.getBox()))
