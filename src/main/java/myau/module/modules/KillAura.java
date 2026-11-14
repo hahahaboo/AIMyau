@@ -108,6 +108,9 @@ public class KillAura extends Module {
 
     private boolean performAttack(float yaw, float pitch) {
         if (!Myau.playerStateManager.digging && !Myau.playerStateManager.placing) {
+            if (this.forceAttackRemaining > 0) {
+                this.attackDelayMS = 0L;
+            }
             if (this.isPlayerBlocking() && this.autoBlock.getValue() != 1) {
                 return false;
             } else if (this.attackDelayMS > 0L) {
@@ -131,7 +134,6 @@ public class KillAura extends Module {
                     }
                     if (this.forceAttackRemaining > 0) {
                         this.forceAttackRemaining--;
-                        this.attackDelayMS = 0L;
                     }
                     this.hitRegistered = true;
                     return true;
