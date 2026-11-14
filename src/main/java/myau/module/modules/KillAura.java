@@ -380,9 +380,7 @@ public class KillAura extends Module {
     }
 
     public void forceNextAttacks(int count) {
-        if (this.forceAttackRemaining < count) {
-            this.forceAttackRemaining = count;
-        }
+        this.forceAttackRemaining += count;
         this.attackDelayMS = 0L;
     }
 
