@@ -561,7 +561,7 @@ public class KillAura extends Module {
                 boolean attacked = false;
                 if (this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
-                        float angleStep = this.unsmoothRotate ? 0.0F : this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
+                        float angleStep = this.unsmoothRotate ? 180.0F : this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
                         float smoothing = this.unsmoothRotate ? 0.0F : this.smoothing.getValue() / 100.0F
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
@@ -783,6 +783,7 @@ public class KillAura extends Module {
         this.target = null;
         this.switchTick = 0;
         this.hitRegistered = false;
+        this.unsmoothRotate = false;
         this.attackDelayMS = 0L;
         this.blockTick = 0;
     }
@@ -793,6 +794,7 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        this.unsmoothRotate = false;
         if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
             Myau.rotationManager.startSnapback(this.angleStep.getValue());
         }
