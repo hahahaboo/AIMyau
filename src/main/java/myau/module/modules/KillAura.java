@@ -62,6 +62,7 @@ public class KillAura extends Module {
     private boolean isBlocking = false;
     private boolean fakeBlockState = false;
     private boolean blinkReset = false;
+    private boolean unsmoothRotate = false;
     private long attackDelayMS = 0L;
     private int forceAttackRemaining = 0;
     private int blockTick = 0;
@@ -135,6 +136,7 @@ public class KillAura extends Module {
                     if (this.forceAttackRemaining > 0) {
                         this.forceAttackRemaining--;
                     }
+                    this.unsmoothRotate = false;
                     this.hitRegistered = true;
                     return true;
                 }
@@ -385,6 +387,10 @@ public class KillAura extends Module {
         this.forceAttackRemaining += count;
     }
 
+    public void unsmoothRotationNextHit() {
+        this.unsmoothRotate = true;
+    }
+
     public boolean isAttackAllowed() {
         Scaffold scaffold = (Scaffold) Myau.moduleManager.modules.get(Scaffold.class);
         if (scaffold.isEnabled()) {
@@ -555,12 +561,14 @@ public class KillAura extends Module {
                 boolean attacked = false;
                 if (this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
+                        float angleStep = this.unsmoothRotate ? 0.0F : this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
+                        float smoothing = this.unsmoothRotate ? 0.0F : this.smoothing.getValue() / 100.0F
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
                                 event.getYaw(),
                                 event.getPitch(),
-                                (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
-                                (float) this.smoothing.getValue() / 100.0F
+                                angleStep,
+                                smoothing
                         );
                         event.setRotation(rotations[0], rotations[1], 1);
                         if (this.rotations.getValue() == 3) {
