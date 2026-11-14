@@ -20,6 +20,7 @@ import net.minecraft.stats.StatList;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.Vec3;
 import net.minecraft.util.MathHelper;
 import net.minecraftforge.common.ForgeHooks;
 
@@ -239,5 +240,68 @@ public class PlayerUtil {
                 }
             }
         }
+    }
+
+    public static int dropSide(Entity entity, int previous) {
+        double dx = entity.posX - mc.thePlayer.posX;
+        double dz = entity.posZ - mc.thePlayer.posZ;
+        double len = Math.sqrt(dx * dx + dz * dz);
+        if (len < 0.001) {
+            return -1;
+        }
+        dx /= len;
+        dz /= len;
+        double px = -dz;
+        double pz = dx;
+        double y = entity.posY;
+        int minusSide = 0;
+        int plusSide = 0;
+        int behind = 0;
+        for (int n4 : new int[]{1, 2, 3, 4, 6, 8}) {
+            int weight = n4 < 6 ? 2 : 1;
+            // behind（目標後方）
+            double bx = entity.posX + dx * (double) n4;
+            double bz = entity.posZ + dz * (double) n4;
+            for (int i = -1; i <= 1; ++i) {
+                double x = bx + px * (double) i;
+                double z = bz + pz * (double) i;
+                if (mc.theWorld.rayTraceBlocks(new Vec3(x, y, z), new Vec3(x, y - 6.0, z), true) != null) {
+                    continue;
+                }
+                behind += weight;
+            }
+            // minusSide（左）
+            double mx = entity.posX - px * (double) n4;
+            double mz = entity.posZ - pz * (double) n4;
+            for (int i = -1; i <= 1; ++i) {
+                double x = mx + dx * (double) i;
+                double z = mz + dz * (double) i;
+                if (mc.theWorld.rayTraceBlocks(new Vec3(x, y, z), new Vec3(x, y - 6.0, z), true) != null) {
+                    continue;
+                }
+                minusSide += weight;
+            }
+            // plusSide（右）
+            double qx = entity.posX + px * (double) n4;
+            double qz = entity.posZ + pz * (double) n4;
+            for (int i = -1; i <= 1; ++i) {
+                double x = qx + dx * (double) i;
+                double z = qz + dz * (double) i;
+                if (mc.theWorld.rayTraceBlocks(new Vec3(x, y, z), new Vec3(x, y - 6.0, z), true) != null) {
+                    continue;
+                }
+                plusSide += weight;
+            }
+        }
+        if (minusSide == 0 && plusSide == 0) {
+            return -1;
+        }
+        if (behind >= minusSide && behind >= plusSide) {
+            return -1;
+        }
+        if (minusSide == plusSide && previous != -1) {
+            return previous;
+        }
+        return minusSide > plusSide ? 0 : 1;
     }
 }
