@@ -383,7 +383,6 @@ public class KillAura extends Module {
 
     public void forceNextAttacks(int count) {
         this.forceAttackRemaining += count;
-        this.attackDelayMS = 0L;
     }
 
     public boolean isAttackAllowed() {
