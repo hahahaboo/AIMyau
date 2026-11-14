@@ -562,7 +562,7 @@ public class KillAura extends Module {
                 if (this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
                         float angleStep = this.unsmoothRotate ? 180.0F : this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
-                        float smoothing = this.unsmoothRotate ? 0.0F : this.smoothing.getValue() / 100.0F
+                        float smoothing = this.unsmoothRotate ? 0.0F : this.smoothing.getValue() / 100.0F;
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
                                 event.getYaw(),
