@@ -191,7 +191,7 @@ public class Displace extends Module {
         if (this.queued) {
             this.queued = false;
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
-            EntityLivingBase target = ka != null ? ka.getTarget() : null;
+            EntityLivingBase target = ka != null ? ka.getAttackableTarget() : null;
 
             if (ka == null || !ka.isEnabled() || target == null) {
                 this.clear();
@@ -240,7 +240,7 @@ public class Displace extends Module {
         if (this.killAura.getValue()) {
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
             if (ka != null && ka.isEnabled()) {
-                EntityLivingBase target = ka.getTarget();
+                EntityLivingBase target = ka.getAttackableTarget();
                 if (target != null && this.canDisplace(target, true, true)) {
                     this.trigger(2);
                 }
