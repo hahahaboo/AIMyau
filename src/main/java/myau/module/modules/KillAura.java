@@ -389,6 +389,10 @@ public class KillAura extends Module {
         return this.target != null ? this.target.getEntity() : null;
     }
 
+    public EntityLivingBase getAttackableTarget() {
+        return this.target != null && this.isInAttackRange(this.target.getEntity()) ? this.target.getEntity() : null;
+    }
+
     public void forceNextAttacks(int count) {
         this.forceAttackRemaining += count;
     }
