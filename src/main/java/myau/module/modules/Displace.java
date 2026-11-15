@@ -206,7 +206,7 @@ public class Displace extends Module {
             this.startBlink();
 
             // 對齊 ++forcedAttacks；成功 performAttack 後才 --remaining
-            ka.unsmoothRotationNextHit();
+            ka.CustomRotationNextAttack(0, 180.0F);
             ka.forceNextAttacks(1);
         }
     }
