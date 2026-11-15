@@ -393,7 +393,7 @@ public class KillAura extends Module {
         this.forceAttackRemaining += count;
     }
 
-    public void CustomSmoothRotationNextHit(int cSmoothing, float cAngleStep) {
+    public void CustomRotationNextAttack(int cSmoothing, float cAngleStep) {
         this.customSmoothRotate = true;
         this.customSmoothing = cSmoothing / 100.0F;
         this.customAngleStep = cAngleStep;
@@ -569,8 +569,8 @@ public class KillAura extends Module {
                 boolean attacked = false;
                 if (this.isBoxInSwingRange(this.target.getBox())) {
                     if (this.rotations.getValue() == 2 || this.rotations.getValue() == 3) {
-                        float angleStep = (this.unsmoothRotate ? customAngleStep : this.angleStep.getValue()) + RandomUtil.nextFloat(-5.0F, 5.0F);
-                        float smoothing = this.unsmoothRotate ? customSmoothing : this.smoothing.getValue() / 100.0F;
+                        float angleStep = (this.customSmoothRotate ? customAngleStep : this.angleStep.getValue()) + RandomUtil.nextFloat(-5.0F, 5.0F);
+                        float smoothing = this.customSmoothRotate ? customSmoothing : this.smoothing.getValue() / 100.0F;
                         float[] rotations = RotationUtil.getRotationsToBox(
                                 this.target.getBox(),
                                 event.getYaw(),
