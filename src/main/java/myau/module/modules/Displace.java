@@ -28,6 +28,9 @@ import org.lwjgl.opengl.GL11;
 /**
  * Port of OpenB4 DisplaceModule – sideways knockback displacement.
  * Modes: LEFT / RIGHT / RANDOM / VOID
+ *
+ * trigger(0) = 手動
+ * trigger(1) = KillAura
  */
 public class Displace extends Module {
     private static final Minecraft mc = Minecraft.getMinecraft();
@@ -45,12 +48,9 @@ public class Displace extends Module {
 
     // ===== State =====
     private boolean rotate;
-    private boolean fromAimAssist;
     private boolean queued;
     private boolean pendingClick;
     private long lastAt;
-    private boolean holding;
-    private int holdTicks;
     private int blinkTicks;
     private int lastSide = -1;
     private int side = -1;
@@ -63,7 +63,6 @@ public class Displace extends Module {
         super("Displace", "Displace targets sideways with knockback", Category.COMBAT, 0, false, false);
     }
 
-    // ===== offset (原版) =====
     private float offset() {
         float f = this.angle.getValue();
         if (this.side != -1) {
@@ -89,15 +88,10 @@ public class Displace extends Module {
         }
     }
 
-    public void rearm() {
-        this.holdTicks = 3;
-    }
-
     public void clear() {
         this.lastAt = 0L;
     }
 
-    // ===== canDisplace (原版過濾) =====
     public boolean canDisplace(Entity entity, boolean checkHurtTime, boolean checkCooldown) {
         if (!(entity instanceof EntityLivingBase)) {
             return false;
@@ -133,21 +127,19 @@ public class Displace extends Module {
         return true;
     }
 
+    /**
+     * @param source 0 = 手動, 1 = KillAura
+     */
     public void trigger(int source) {
         if (source == 0) {
             this.rotate = true;
             this.pendingClick = true;
         } else if (source == 1) {
-            this.fromAimAssist = true;
-            this.rotate = true;
-            this.pendingClick = true;
-        } else if (source == 2) {
             this.queued = true;
         }
         this.lastAt = System.currentTimeMillis();
     }
 
-    // ===== 手動：左鍵觸發 =====
     @EventTarget
     public void onLeftClick(LeftClickMouseEvent e) {
         if (!this.isEnabled()) return;
@@ -168,7 +160,6 @@ public class Displace extends Module {
         }
     }
 
-    // ===== 轉頭：預設 MEDIUM，早於 KillAura LOW（對齊 OpenB4 takeRotations）=====
     @EventTarget
     public void onUpdate(UpdateEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -187,7 +178,7 @@ public class Displace extends Module {
             return;
         }
 
-        // KillAura：queued → offset + forceNextAttacks(1)
+        // KillAura（trigger 1）
         if (this.queued) {
             this.queued = false;
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
@@ -205,7 +196,6 @@ public class Displace extends Module {
             event.setPervRotation(yaw, 8);
             this.startBlink();
 
-            // 對齊 ++forcedAttacks；成功 performAttack 後才 --remaining
             ka.CustomRotationNextAttack(0, 180.0F);
             ka.forceNextAttacks(1);
         }
@@ -219,7 +209,6 @@ public class Displace extends Module {
         }
     }
 
-    // ===== tick：blink / 手動補打 / KA 有 target 則 queued =====
     @EventTarget
     public void onTick(TickEvent event) {
         if (!this.isEnabled() || event.getType() != EventType.PRE) {
@@ -230,29 +219,22 @@ public class Displace extends Module {
             Myau.blinkManager.setBlinkState(false, BlinkModules.DISPLACE);
         }
 
-        // 手動：轉頭後補攻擊
         if (this.pendingClick) {
             this.pendingClick = false;
             KeyBindUtil.pressKeyOnce(mc.gameSettings.keyBindAttack.getKeyCode());
         }
 
-        // 對齊 OpenB4 onPreUpdate
         if (this.killAura.getValue()) {
             KillAura ka = (KillAura) Myau.moduleManager.modules.get(KillAura.class);
             if (ka != null && ka.isEnabled()) {
                 EntityLivingBase target = ka.getAttackableTarget();
                 if (target != null && this.canDisplace(target, true, true)) {
-                    this.trigger(2);
+                    this.trigger(1);
                 }
             }
         }
-
-        if (this.holdTicks > 0) {
-            this.holding = --this.holdTicks > 0;
-        }
     }
 
-    // ===== 箭頭渲染 =====
     @EventTarget
     public void onRender3D(Render3DEvent e) {
         if (!this.arrow || !this.renderArrow.getValue()) return;
@@ -384,13 +366,10 @@ public class Displace extends Module {
             this.blinkTicks = 0;
             Myau.blinkManager.setBlinkState(false, BlinkModules.DISPLACE);
         }
-        this.holding = false;
         this.arrow = false;
         this.rotate = false;
-        this.fromAimAssist = false;
         this.queued = false;
         this.pendingClick = false;
-        this.holdTicks = 0;
         this.lastSide = -1;
         this.side = -1;
     }
