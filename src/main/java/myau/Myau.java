@@ -83,6 +83,7 @@ public class Myau {
         moduleManager.modules.put(ChestESP.class, new ChestESP());
         moduleManager.modules.put(ChestStealer.class, new ChestStealer());
         moduleManager.modules.put(ClickGUIModule.class, new ClickGUIModule());
+        moduleManager.modules.put(Displace.class, new Displace());
         moduleManager.modules.put(Eagle.class, new Eagle());
         moduleManager.modules.put(ESP.class, new ESP());
         moduleManager.modules.put(FastPlace.class, new FastPlace());
