@@ -175,6 +175,27 @@ public class BedNuker extends Module {
         return mop == null ? EnumFacing.UP : mop.sideHit;
     }
 
+    /**
+     * 當前轉頭朝向能否 raycast 到目標格 → 可開挖。
+     * 優先用 RotationState silent 朝向；否則用玩家朝向。
+     */
+    private boolean isLookingAtTarget(BlockPos blockPos) {
+        float yaw;
+        float pitch;
+        if (RotationState.isActived() && RotationState.getPriority() == 5.0F) {
+            yaw = RotationState.getRotationYawHead();
+            pitch = RotationState.getRotationPitch();
+        } else {
+            yaw = mc.thePlayer.rotationYaw;
+            pitch = mc.thePlayer.rotationPitch;
+        }
+        MovingObjectPosition mop = RotationUtil.rayTrace(
+                yaw, pitch, this.range.getValue().doubleValue() + 0.5, 1.0F);
+        return mop != null
+                && mop.typeOfHit == MovingObjectType.BLOCK
+                && mop.getBlockPos().equals(blockPos);
+    }
+
     private float getDigSpeed(IBlockState iBlockState, int slot, boolean boolean5) {
         ItemStack item = mc.thePlayer.inventory.getStackInSlot(slot);
         float digSpeed = item == null ? 1.0F : item.getItem().getDigSpeed(item, iBlockState);
@@ -804,6 +825,10 @@ public class BedNuker extends Module {
                 }
                 switch (this.breakStage) {
                     case 0:
+                        // 轉頭未到位：只等待（onUpdate 持續轉），不送 START
+                        if (!this.isLookingAtTarget(this.targetBed)) {
+                            break;
+                        }
                         if (this.mode.getValue() == 1) {
                             this.readyToBreak = true;
                             this.savedSlot = mc.thePlayer.inventory.currentItem;
