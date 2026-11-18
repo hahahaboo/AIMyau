@@ -89,9 +89,8 @@ public class BedNuker extends Module {
     private boolean readyToBreak = false;
     private boolean breaking = false;
     private boolean waitingForStart = false;
-    /** RestartCheck 保護：兩次 START 最短間隔 (ms) */
-    private static final long MIN_START_INTERVAL_MS = 350L;
-    private long lastStartBreakTime = 0L;
+    private static final long MIN_RESTART_INTERVAL_MS = 350L;
+    private long lastStopBreakTime = 0L;
 
     public BedNuker() {
         super("BedNuker", "Auto break beds", Category.WORLD, 0, false, false);
@@ -101,6 +100,7 @@ public class BedNuker extends Module {
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
         }
+        this.lastStopBreakTime = System.currentTimeMillis();
         this.targetBed = null;
         this.breakStage = 0;
         this.tickCounter = 0;
@@ -809,7 +809,7 @@ public class BedNuker extends Module {
                     case 0:
                         // RestartCheck 保護：距離上次 START 未滿 350ms 則本 tick 不送
                         long now = System.currentTimeMillis();
-                        if (now - this.lastStartBreakTime < MIN_START_INTERVAL_MS) {
+                        if (now - this.lastStopBreakTime < MIN_RESTART_INTERVAL_MS) {
                             break;
                         }
                         if (this.mode.getValue() == 1) {
@@ -827,7 +827,6 @@ public class BedNuker extends Module {
                         PacketUtil.sendPacket(
                                 new C07PacketPlayerDigging(Action.START_DESTROY_BLOCK, this.targetBed, this.getHitFacing(this.targetBed))
                         );
-                        this.lastStartBreakTime = now;
                         this.doSwing();
                         mc.effectRenderer.addBlockHitEffects(this.targetBed, this.getHitFacing(this.targetBed));
                         this.breakStage = 1;
@@ -881,7 +880,7 @@ public class BedNuker extends Module {
                     return;
                 }
             }
-            if (mc.thePlayer.capabilities.allowEdit && this.timer.hasTimeElapsed(MIN_START_INTERVAL_MS)) {
+            if (mc.thePlayer.capabilities.allowEdit && this.timer.hasTimeElapsed(MIN_RESTART_INTERVAL_MS)) {
                 this.targetBed = this.findNearestBed();
                 this.breakStage = 0;
                 this.tickCounter = 0;
