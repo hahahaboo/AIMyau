@@ -68,6 +68,7 @@ public class BedNuker extends Module {
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true, () -> this.throughWall.getValue());
     public final FloatProperty pathDistanceWeight = new FloatProperty("path-distance-weight", 0.35F, 0.0F, 2.0F, () -> !this.throughWall.getValue());
     public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
+    public final BooleanProperty waitRestart = new BooleanProperty("wait-restart", false);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -807,10 +808,12 @@ public class BedNuker extends Module {
                 }
                 switch (this.breakStage) {
                     case 0:
-                        // RestartCheck 保護：距離上次 START 未滿 350ms 則本 tick 不送
-                        long now = System.currentTimeMillis();
-                        if (now - this.lastStopBreakTime < MIN_RESTART_INTERVAL_MS) {
-                            break;
+                        if (this.waitRestart.getValue()) {
+                            // RestartCheck 保護：距離上次 START 未滿 350ms 則本 tick 不送
+                            long now = System.currentTimeMillis();
+                            if (now - this.lastStopBreakTime < MIN_RESTART_INTERVAL_MS) {
+                                break;
+                            }
                         }
                         if (this.mode.getValue() == 1) {
                             this.readyToBreak = true;
