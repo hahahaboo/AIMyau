@@ -68,6 +68,7 @@ public class BedNuker extends Module {
     public final BooleanProperty surroundings = new BooleanProperty("surroundings", true, () -> this.throughWall.getValue());
     public final FloatProperty pathDistanceWeight = new FloatProperty("path-distance-weight", 0.35F, 0.0F, 2.0F, () -> !this.throughWall.getValue());
     public final BooleanProperty groundSpeed = new BooleanProperty("ground-spoof", false);
+    public final BooleanProperty waitRestart = new BooleanProperty("wait-restart", false);
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
@@ -89,6 +90,8 @@ public class BedNuker extends Module {
     private boolean readyToBreak = false;
     private boolean breaking = false;
     private boolean waitingForStart = false;
+    private static final long MIN_RESTART_INTERVAL_MS = 250L;
+    private long lastStopBreakTime = 0L;
 
     public BedNuker() {
         super("BedNuker", "Auto break beds", Category.WORLD, 0, false, false);
@@ -98,6 +101,7 @@ public class BedNuker extends Module {
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
         }
+        this.lastStopBreakTime = System.currentTimeMillis();
         this.targetBed = null;
         this.breakStage = 0;
         this.tickCounter = 0;
@@ -804,6 +808,13 @@ public class BedNuker extends Module {
                 }
                 switch (this.breakStage) {
                     case 0:
+                        if (this.waitRestart.getValue()) {
+                            // RestartCheck 保護：距離上次 START 未滿 350ms 則本 tick 不送
+                            long now = System.currentTimeMillis();
+                            if (now - this.lastStopBreakTime < MIN_RESTART_INTERVAL_MS) {
+                                break;
+                            }
+                        }
                         if (this.mode.getValue() == 1) {
                             this.readyToBreak = true;
                             this.savedSlot = mc.thePlayer.inventory.currentItem;
@@ -872,7 +883,7 @@ public class BedNuker extends Module {
                     return;
                 }
             }
-            if (mc.thePlayer.capabilities.allowEdit && this.timer.hasTimeElapsed(500)) {
+            if (mc.thePlayer.capabilities.allowEdit && this.timer.hasTimeElapsed(MIN_RESTART_INTERVAL_MS)) {
                 this.targetBed = this.findNearestBed();
                 this.breakStage = 0;
                 this.tickCounter = 0;
