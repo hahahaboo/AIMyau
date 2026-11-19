@@ -90,7 +90,7 @@ public class BedNuker extends Module {
     private boolean readyToBreak = false;
     private boolean breaking = false;
     private boolean waitingForStart = false;
-    private static final long MIN_RESTART_INTERVAL_MS = 300L;
+    private static final long MIN_RESTART_INTERVAL_MS = 250L;
     private long lastStopBreakTime = 0L;
 
     public BedNuker() {
