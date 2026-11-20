@@ -397,7 +397,7 @@ public class KillAura extends Module {
         this.forceAttackRemaining += count;
     }
 
-    public void CustomRotationNextAttack(int cSmoothing, float cAngleStep) {
+    public void CustomRotationNextAttack(int cSmoothing, int cAngleStep) {
         this.customSmoothRotate = true;
         this.customSmoothing = cSmoothing / 100.0F;
         this.customAngleStep = cAngleStep;
