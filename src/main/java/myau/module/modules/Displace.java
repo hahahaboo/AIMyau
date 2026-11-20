@@ -196,7 +196,7 @@ public class Displace extends Module {
             event.setPervRotation(yaw, 8);
             this.startBlink();
 
-            ka.CustomRotationNextAttack(0, 180.0F);
+            ka.CustomRotationNextAttack(0, 180);
             ka.forceNextAttacks(1);
         }
     }
