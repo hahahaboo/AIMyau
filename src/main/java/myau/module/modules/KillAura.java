@@ -634,7 +634,7 @@ public class KillAura extends Module {
                             this.customAngleStep = 180.0F;
                             this.customSmoothRotate = false;
                             if (this.target != null && this.smoothBack.getValue() &&this.rotations.getValue() == 2) {
-                                Myau.rotationManager.startSnapback(this,smoothing.getValue(), this.angleStep.getValue());
+                                Myau.rotationManager.startSnapback(this.smoothing.getValue(), this.angleStep.getValue());
                             }
                             this.target = null;
                         } else {
@@ -818,7 +818,7 @@ public class KillAura extends Module {
         this.customAngleStep = 180.0F;
         this.customSmoothRotate = false;
         if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
-            Myau.rotationManager.startSnapback(this,smoothing.getValue(), this.angleStep.getValue());
+            Myau.rotationManager.startSnapback(this.smoothing.getValue(), this.angleStep.getValue());
         }
     }
 
