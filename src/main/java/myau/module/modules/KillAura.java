@@ -629,8 +629,12 @@ public class KillAura extends Module {
                             }
                         }
                         if (targets.isEmpty()) {
+                            this.forceAttackRemaining = 0;
+                            this.customSmoothing = 0.0F;
+                            this.customAngleStep = 180.0F;
+                            this.customSmoothRotate = false;
                             if (this.target != null && this.smoothBack.getValue() &&this.rotations.getValue() == 2) {
-                                Myau.rotationManager.startSnapback(this.angleStep.getValue());
+                                Myau.rotationManager.startSnapback(this,smoothing.gatValue(), this.angleStep.getValue());
                             }
                             this.target = null;
                         } else {
@@ -797,6 +801,7 @@ public class KillAura extends Module {
         this.hitRegistered = false;
         this.attackDelayMS = 0L;
         this.blockTick = 0;
+        this.forceAttackRemaining = 0;
         this.customSmoothing = 0.0F;
         this.customAngleStep = 180.0F;
         this.customSmoothRotate = false;
@@ -808,11 +813,12 @@ public class KillAura extends Module {
         this.blockingState = false;
         this.isBlocking = false;
         this.fakeBlockState = false;
+        this.forceAttackRemaining = 0;
         this.customSmoothing = 0.0F;
         this.customAngleStep = 180.0F;
         this.customSmoothRotate = false;
         if (this.smoothBack.getValue() && this.rotations.getValue() == 2) {
-            Myau.rotationManager.startSnapback(this.angleStep.getValue());
+            Myau.rotationManager.startSnapback(this,smoothing.gatValue(), this.angleStep.getValue());
         }
     }
 
