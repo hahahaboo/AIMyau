@@ -7,6 +7,7 @@ import myau.event.types.Priority;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
 import myau.events.UpdateEvent;
+import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.MathHelper;
 
@@ -22,6 +23,7 @@ public class RotationManager {
     // smooth snapback（把 server rotation 拉回 client 視角）
     private boolean snapbacking;
     private float snapbackMaxStep;
+    private float snapbackSmoothing;
 
     public RotationManager() {
         this.lastUpdate = Float.NaN;
@@ -31,6 +33,7 @@ public class RotationManager {
         this.rotated = false;
         this.snapbacking = false;
         this.snapbackMaxStep = 60.0F;
+        this.snapbackSmoothing = 0.0F;
     }
 
     private void applyRotation(float partialTicks) {
@@ -70,9 +73,13 @@ public class RotationManager {
     }
 
     /** 開始把 server rotation 平滑轉回 client 視角 */
-    public void startSnapback(float maxStep) {
+    public void startSnapback(int angleStep) {
+        this.startSnapback(0, angleStep);
+    }
+    public void startSnapback(int smoothing, int angleStep) {
         this.snapbacking = true;
-        this.snapbackMaxStep = Math.max(0.0F, maxStep);
+        this.snapbackMaxStep = Math.max(0.0F, (float) angleStep);
+        this.snapbackSmoothing = MathHelper.clamp_float(smoothing / 100.0F, 0.0F, 1.0F);
     }
 
     public void cancelSnapback() {
@@ -98,7 +105,8 @@ public class RotationManager {
         float[] smoothed = getSmoothSnapback(
                 currentYaw, currentPitch,
                 clientYaw, clientPitch,
-                this.snapbackMaxStep
+                this.snapbackMaxStep,
+                this.snapbackSmoothing
         );
 
         // 只改 server rotation，不碰 client 視角
@@ -127,32 +135,41 @@ public class RotationManager {
 
     private static float[] getSmoothSnapback(float currentYaw, float currentPitch,
                                              float targetYaw, float targetPitch,
-                                             float maxStep) {
+                                             float maxStep, float smoothFactor) {
         float deltaYaw = MathHelper.wrapAngleTo180_float(targetYaw - currentYaw);
         float deltaPitch = targetPitch - currentPitch;
 
-        if (Math.abs(deltaYaw) < 0.1F) {
-            currentYaw = targetYaw;
-        }
-        if (Math.abs(deltaPitch) < 0.1F) {
-            currentPitch = targetPitch;
-        }
-        if (currentYaw == targetYaw && currentPitch == targetPitch) {
-            return new float[]{currentYaw, clampPitch(currentPitch)};
+        if (Math.abs(deltaYaw) <= 1.0F) {
+            deltaYaw = 0.0F;
+        } else {
+            deltaYaw = smoothAngle(clampAngle(deltaYaw, maxStep), smoothFactor);
         }
 
-        maxStep *= 1.0F - (float) (Math.random() * 0.2);
-
-        float totalDelta = Math.abs(deltaYaw) + Math.abs(deltaPitch);
-        if (totalDelta <= maxStep) {
-            currentYaw = targetYaw;
-            currentPitch = targetPitch;
-        } else if (maxStep > 0.0F) {
-            float scale = maxStep / totalDelta;
-            currentYaw += deltaYaw * scale;
-            currentPitch += deltaPitch * scale;
+        if (Math.abs(deltaPitch) <= 1.0F) {
+            deltaPitch = 0.0F;
+        } else {
+            deltaPitch = smoothAngle(clampAngle(deltaPitch, maxStep), smoothFactor);
         }
-        return new float[]{currentYaw, clampPitch(currentPitch)};
+
+        return new float[]{
+                currentYaw + deltaYaw,
+                clampPitch(currentPitch + deltaPitch)
+        };
+    }
+
+    private static float clampAngle(float angle, float maxAngle) {
+        maxAngle = Math.max(0.0F, Math.min(180.0F, maxAngle));
+        if (angle > maxAngle) {
+            angle = maxAngle;
+        } else if (angle < -maxAngle) {
+            angle = -maxAngle;
+        }
+        return angle;
+    }
+
+    private static float smoothAngle(float angle, float smoothFactor) {
+        return angle * (0.5F + 0.5F * (1.0F - Math.max(0.0F, Math.min(1.0F,
+                smoothFactor + RandomUtil.nextFloat(-0.1F, 0.1F)))));
     }
 
     private static float clampPitch(float pitch) {
