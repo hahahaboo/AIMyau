@@ -14,6 +14,7 @@ import myau.module.Category;
 import myau.module.Module;
 import myau.property.properties.BooleanProperty;
 import myau.property.properties.FloatProperty;
+import myau.property.properties.IntProperty;
 import myau.property.properties.ModeProperty;
 import myau.property.properties.PercentProperty;
 import myau.util.*;
@@ -72,6 +73,9 @@ public class BedNuker extends Module {
     public final BooleanProperty toolCheck = new BooleanProperty("tool-check", true);
     public final BooleanProperty whiteList = new BooleanProperty("whitelist", false);
     public final BooleanProperty swing = new BooleanProperty("swing", true);
+    public final PercentProperty smoothing = new PercentProperty("smoothing", 0);
+    public final IntProperty angleStep = new IntProperty("angle-step", 90, 30, 180);
+    public final BooleanProperty smoothBack = new BooleanProperty("smooth-back", false);
     public final ModeProperty moveFix = new ModeProperty("move-fix", 1, new String[]{"NONE", "SILENT", "STRICT"});
     public final ModeProperty showTarget = new ModeProperty("show-target", 1, new String[]{"NONE", "DEFAULT", "HUD"});
     public final ModeProperty showProgress = new ModeProperty("show-progress", 1, new String[]{"NONE", "DEFAULT", "HUD"});
@@ -100,8 +104,10 @@ public class BedNuker extends Module {
     private void resetBreaking() {
         if (this.targetBed != null) {
             mc.theWorld.sendBlockBreakProgress(mc.thePlayer.getEntityId(), this.targetBed, -1);
+            if (this.smoothBack.getValue()) {
+                Myau.rotationManager.startSnapback(this.angleStep.getValue());
+            }
         }
-        this.lastStopBreakTime = System.currentTimeMillis();
         this.targetBed = null;
         this.breakStage = 0;
         this.tickCounter = 0;
@@ -916,7 +922,13 @@ public class BedNuker extends Module {
                     y = (double) this.targetBed.getY() + 0.5 - mc.thePlayer.posY - (double) mc.thePlayer.getEyeHeight();
                     z = (double) this.targetBed.getZ() + 0.5 - mc.thePlayer.posZ;
                 }
-                float[] rotations = RotationUtil.getRotationsTo(x, y, z, event.getYaw(), event.getPitch());
+                float[] rotations = RotationUtil.getRotations(
+                        x, y, z,
+                        event.getYaw(),
+                        event.getPitch(),
+                        (float) this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F),
+                        (float) this.smoothing.getValue() / 100.0F
+                );
                 event.setRotation(rotations[0], rotations[1], 5);
                 event.setPervRotation(this.moveFix.getValue() != 0 ? rotations[0] : mc.thePlayer.rotationYaw, 5);
             }
