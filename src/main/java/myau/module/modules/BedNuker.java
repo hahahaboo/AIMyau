@@ -108,6 +108,7 @@ public class BedNuker extends Module {
                 Myau.rotationManager.startSnapback(this.angleStep.getValue());
             }
         }
+        this.lastStopBreakTime = System.currentTimeMillis();
         this.targetBed = null;
         this.breakStage = 0;
         this.tickCounter = 0;
