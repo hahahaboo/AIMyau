@@ -42,8 +42,6 @@ public class AntiFireball extends Module {
     private final ArrayList<EntityFireball> farList = new ArrayList<>();
     private final ArrayList<EntityFireball> nearList = new ArrayList<>();
     private EntityFireball target = null;
-    /** rotations 開啟時：raycast 已成功過一次，下一 tick 才允許攻擊 */
-    private boolean rotationReady = false;
 
     public AntiFireball() {
         super("AntiFireball", "Fight back fireballs", Category.PLAYER, 0, false, false);
@@ -94,28 +92,17 @@ public class AntiFireball extends Module {
                     }
                 }
             }
-
             EntityFireball previous = this.target;
             if (mc.thePlayer.capabilities.allowFlying) {
                 this.target = null;
             } else {
-                this.target = this.farList.stream()
-                        .filter(this::isValidTarget)
-                        .min(Comparator.comparingDouble(RotationUtil::distanceToEntity))
-                        .orElse(null);
+                this.target = this.farList.stream().filter(this::isValidTarget).min(Comparator.comparingDouble(RotationUtil::distanceToEntity)).orElse(null);
             }
-
-            // 只在「有目標 → 沒有下一個目標」的那一瞬間呼叫一次
-            if (previous != null && this.target == null) {
-                this.rotationReady = false;
-                if (this.rotations.getValue() && this.smoothBack.getValue()) {
-                    Myau.rotationManager.startSnapback(this.smoothing.getValue(), this.angleStep.getValue());
-                }
-            }
-
-            // 目標更換時重置 aim 狀態
-            if (this.target != previous) {
-                this.rotationReady = false;
+            // 目標消失時做 smooth-back
+            if (previous != null && this.target == null
+                    && this.rotations.getValue()
+                    && this.smoothBack.getValue()) {
+                Myau.rotationManager.startSnapback(this.smoothing.getValue(), this.angleStep.getValue());
             }
         }
     }
@@ -154,6 +141,7 @@ public class AntiFireball extends Module {
                     if (RotationUtil.distanceToEntity(this.target) <= (double) this.range.getValue()) {
                         boolean canHit = true;
 
+                        // rotations 開啟時必須能 raycast 到目標才能攻擊
                         if (this.rotations.getValue()) {
                             float useYaw = event.isRotated() ? event.getNewYaw() : event.getYaw();
                             float usePitch = event.isRotated() ? event.getNewPitch() : event.getPitch();
@@ -163,34 +151,15 @@ public class AntiFireball extends Module {
                                     usePitch,
                                     this.range.getValue()
                             );
-                            boolean rayHit = mop != null;
-
-                            if (rayHit) {
-                                // 第一次 raycast 成功的 tick 只標記，下一 tick 才攻擊
-                                if (this.rotationReady) {
-                                    canHit = true;
-                                } else {
-                                    this.rotationReady = true;
-                                    canHit = false;
-                                }
-                            } else {
-                                this.rotationReady = false;
-                                canHit = false;
-                            }
-                        } else {
-                            this.rotationReady = false;
+                            canHit = mop != null;
                         }
 
                         if (canHit) {
                             PacketUtil.sendPacket(new C02PacketUseEntity(this.target, Action.ATTACK));
                             PlayerUtil.attackEntity(this.target);
                         }
-                    } else {
-                        this.rotationReady = false;
                     }
                 }
-            } else {
-                this.rotationReady = false;
             }
         }
     }
@@ -238,6 +207,5 @@ public class AntiFireball extends Module {
     public void onLoadWorld(LoadWorldEvent event) {
         this.farList.clear();
         this.nearList.clear();
-        this.rotationReady = false;
     }
 }
