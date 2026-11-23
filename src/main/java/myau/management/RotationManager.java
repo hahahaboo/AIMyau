@@ -109,8 +109,8 @@ public class RotationManager {
                 this.snapbackSmoothing
         );
         
-        if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - clientYaw)) < 0.5F
-                && Math.abs(smoothed[1] - clientPitch) < 0.5F) {
+        if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - clientYaw)) <= 1.0F
+                && Math.abs(smoothed[1] - clientPitch) <= 1.0F) {
             this.snapbacking = false;
             return;
         }
