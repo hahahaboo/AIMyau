@@ -108,15 +108,16 @@ public class RotationManager {
                 this.snapbackMaxStep,
                 this.snapbackSmoothing
         );
-
-        // 只改 server rotation，不碰 client 視角
-        event.setRotation(smoothed[0], smoothed[1], Integer.MAX_VALUE);
-        event.setPervRotation(smoothed[0], Integer.MAX_VALUE);
-
+        
         if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - clientYaw)) < 0.5F
                 && Math.abs(smoothed[1] - clientPitch) < 0.5F) {
             this.snapbacking = false;
+            return;
         }
+        
+        // 只改 server rotation，不碰 client 視角
+        event.setRotation(smoothed[0], smoothed[1], Integer.MAX_VALUE);
+        event.setPervRotation(smoothed[0], Integer.MAX_VALUE);
     }
 
     @EventTarget(Priority.HIGHEST)
