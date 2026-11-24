@@ -36,7 +36,7 @@ public class RotationManager {
         this.rotated = false;
         this.snapbacking = false;
         this.snapbackMaxStep = 30.0F;
-        this.snapbackSmoothing = 100.0F;
+        this.snapbackSmoothing = 1.0F;
     }
 
     private void applyRotation(float partialTicks) {
