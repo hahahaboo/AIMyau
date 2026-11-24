@@ -134,9 +134,6 @@ public class AntiFireball extends Module {
                 if (!Myau.playerStateManager.attacking
                         && !Myau.playerStateManager.digging
                         && !Myau.playerStateManager.placing) {
-
-                    this.doAttackAnimation();
-
                     // 距離檢查
                     if (RotationUtil.distanceToEntity(this.target) <= (double) this.range.getValue()) {
                         boolean canHit = true;
@@ -155,6 +152,7 @@ public class AntiFireball extends Module {
                         }
 
                         if (canHit) {
+                            this.doAttackAnimation();
                             PacketUtil.sendPacket(new C02PacketUseEntity(this.target, Action.ATTACK));
                             PlayerUtil.attackEntity(this.target);
                         }
