@@ -35,8 +35,8 @@ public class RotationManager {
         this.priority = Integer.MIN_VALUE;
         this.rotated = false;
         this.snapbacking = false;
-        this.snapbackMaxStep = 60.0F;
-        this.snapbackSmoothing = 0.0F;
+        this.snapbackMaxStep = 30.0F;
+        this.snapbackSmoothing = 100.0F;
     }
 
     private void applyRotation(float partialTicks) {
