@@ -6,7 +6,10 @@ import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.events.MoveInputEvent;
 import myau.events.UpdateEvent;
+import myau.management.RotationState;
+import myau.util.MoveUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.MathHelper;
@@ -127,6 +130,13 @@ public class RotationManager {
         }
         this.applyRotation(1.0F);
         this.resetRotationState();
+    }
+
+    @EventTarget
+    public void onMove(MoveInputEvent event) {
+        if (this.snapbacking && RotationState.isActived() && RotationState.getPriority() == Integer.MAX_VALUE && MoveUtil.isForwardPressed()) {
+            MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
+        }
     }
 
     @EventTarget(Priority.HIGHEST)
