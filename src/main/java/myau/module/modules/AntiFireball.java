@@ -104,6 +104,9 @@ public class AntiFireball extends Module {
                     && this.smoothBack.getValue()) {
                 Myau.rotationManager.startSnapback(this.smoothing.getValue(), this.angleStep.getValue());
             }
+            if (this.target != null && this.target != previous) {
+                Myau.rotationManager.cancelSnapback();
+            }
         }
     }
 
