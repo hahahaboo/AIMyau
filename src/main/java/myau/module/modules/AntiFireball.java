@@ -112,7 +112,9 @@ public class AntiFireball extends Module {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             EntityFireball fireball = this.target;
             if (TeamUtil.isEntityLoaded(fireball)) {
-                Myau.rotationManager.cancelSnapback();
+                if (Myau.rotationManager.isSnapbacking()) {
+                    Myau.rotationManager.cancelSnapback();
+                }
                 // 計算旋轉（使用與 KillAura 相同的 angleStep + smoothing）
                 float angleStepVal = this.angleStep.getValue() + RandomUtil.nextFloat(-5.0F, 5.0F);
                 float smoothingVal = this.smoothing.getValue() / 100.0F;
