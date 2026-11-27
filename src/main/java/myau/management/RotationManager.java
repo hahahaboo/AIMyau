@@ -6,7 +6,10 @@ import myau.event.types.EventType;
 import myau.event.types.Priority;
 import myau.events.Render3DEvent;
 import myau.events.TickEvent;
+import myau.events.MoveInputEvent;
 import myau.events.UpdateEvent;
+import myau.management.RotationState;
+import myau.util.MoveUtil;
 import myau.util.RandomUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.MathHelper;
@@ -32,7 +35,7 @@ public class RotationManager {
         this.priority = Integer.MIN_VALUE;
         this.rotated = false;
         this.snapbacking = false;
-        this.snapbackMaxStep = 60.0F;
+        this.snapbackMaxStep = 180.0F;
         this.snapbackSmoothing = 0.0F;
     }
 
@@ -108,15 +111,16 @@ public class RotationManager {
                 this.snapbackMaxStep,
                 this.snapbackSmoothing
         );
-
+        
+        if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - clientYaw)) <= 1.0F
+                && Math.abs(smoothed[1] - clientPitch) <= 1.0F) {
+            this.snapbacking = false;
+            return;
+        }
+        
         // 只改 server rotation，不碰 client 視角
         event.setRotation(smoothed[0], smoothed[1], Integer.MAX_VALUE);
         event.setPervRotation(smoothed[0], Integer.MAX_VALUE);
-
-        if (Math.abs(MathHelper.wrapAngleTo180_float(smoothed[0] - clientYaw)) < 0.5F
-                && Math.abs(smoothed[1] - clientPitch) < 0.5F) {
-            this.snapbacking = false;
-        }
     }
 
     @EventTarget(Priority.HIGHEST)
@@ -126,6 +130,13 @@ public class RotationManager {
         }
         this.applyRotation(1.0F);
         this.resetRotationState();
+    }
+
+    @EventTarget
+    public void onMove(MoveInputEvent event) {
+        if (this.snapbacking && RotationState.isActived() && RotationState.getPriority() == Integer.MAX_VALUE && MoveUtil.isForwardPressed()) {
+            MoveUtil.fixStrafe(RotationState.getSmoothedYaw());
+        }
     }
 
     @EventTarget(Priority.HIGHEST)
