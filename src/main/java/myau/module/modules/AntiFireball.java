@@ -111,9 +111,6 @@ public class AntiFireball extends Module {
     public void onUpdate(UpdateEvent event) {
         if (this.isEnabled() && event.getType() == EventType.PRE) {
             EntityFireball fireball = this.target;
-            if (!TeamUtil.isEntityLoaded(fireball) && fireball != null) {
-                this.setEnabled(false);
-            }
             if (TeamUtil.isEntityLoaded(fireball)) {
                 if (Myau.rotationManager.isSnapbacking()) {
                     Myau.rotationManager.cancelSnapback();
