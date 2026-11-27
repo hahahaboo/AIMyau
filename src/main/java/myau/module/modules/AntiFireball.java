@@ -126,10 +126,7 @@ public class AntiFireball extends Module {
                         this.rotations.getValue() ? smoothingVal : 0.0F
                 );
 
-                if (this.rotations.getValue()
-                        && !ItemUtil.isHoldingNonEmpty()
-                        && !ItemUtil.isUsingBow()
-                        && !ItemUtil.hasHoldItem()) {
+                if (this.rotations.getValue() && !PlayerUtil.isUsingItem()) {
                     event.setRotation(rotations[0], rotations[1], 0);
                     event.setPervRotation(this.moveFix.getValue() != 0 ? rotations[0] : mc.thePlayer.rotationYaw, 0);
                 }
