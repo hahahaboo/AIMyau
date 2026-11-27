@@ -150,6 +150,10 @@ public class AntiFireball extends Module {
                             );
                             canHit = mop != null;
                         }
+                        
+                        if (PlayerUtil.isUsingItem()) {
+                            canHit = false;
+                        }
 
                         if (canHit) {
                             this.doAttackAnimation();
